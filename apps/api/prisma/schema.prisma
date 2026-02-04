@@ -1,0 +1,493 @@
+// Prisma Schema for Salon Ops
+// Based on: .cursor/rules/00-architecture.mdc and .cursor/rules/13-backend-implementation.mdc
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Tenant & Branch
+// ============================================
+
+model Tenant {
+  id                 String    @id @default(uuid())
+  name               String    @db.VarChar(255)
+  slug               String    @unique @db.VarChar(100)
+  legalName          String?   @map("legal_name") @db.VarChar(255)
+  email              String    @db.VarChar(255)
+  phone              String?   @db.VarChar(20)
+  logoUrl            String?   @map("logo_url") @db.VarChar(500)
+  settings           Json      @default("{}")
+  subscriptionPlan   String    @default("trial") @map("subscription_plan") @db.VarChar(50)
+  subscriptionStatus String    @default("active") @map("subscription_status") @db.VarChar(20)
+  trialEndsAt        DateTime? @map("trial_ends_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  // Relations
+  branches  Branch[]
+  users     User[]
+  customers Customer[]
+  services  Service[]
+  categories ServiceCategory[]
+
+  @@map("tenants")
+}
+
+model Branch {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  name         String    @db.VarChar(255)
+  slug         String    @db.VarChar(100)
+  address      String?   @db.Text
+  city         String?   @db.VarChar(100)
+  state        String?   @db.VarChar(100)
+  pincode      String?   @db.VarChar(10)
+  phone        String?   @db.VarChar(20)
+  email        String?   @db.VarChar(255)
+  gstin        String?   @db.VarChar(20)
+  timezone     String    @default("Asia/Kolkata") @db.VarChar(50)
+  currency     String    @default("INR") @db.VarChar(3)
+  workingHours Json?     @map("working_hours")
+  settings     Json      @default("{}")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  userBranches        UserBranch[]
+  appointments        Appointment[]
+  servicePrices       BranchServicePrice[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("branches")
+}
+
+// ============================================
+// User & Authentication
+// ============================================
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  email        String?   @db.VarChar(255)
+  phone        String    @db.VarChar(20)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  name         String    @db.VarChar(255)
+  role         String    @db.VarChar(50)
+  gender       String?   @db.VarChar(10)
+  avatarUrl    String?   @map("avatar_url") @db.VarChar(500)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  settings     Json      @default("{}")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  tenant           Tenant           @relation(fields: [tenantId], references: [id])
+  branchAssignments UserBranch[]
+  refreshTokens    RefreshToken[]
+
+  @@unique([tenantId, phone])
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model UserBranch {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  branchId  String   @map("branch_id")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@unique([userId, branchId])
+  @@map("user_branches")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique @db.VarChar(500)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ============================================
+// Customer
+// ============================================
+
+model Customer {
+  id                 String    @id @default(uuid())
+  tenantId           String    @map("tenant_id")
+  phone              String    @db.VarChar(20)
+  name               String    @db.VarChar(255)
+  email              String?   @db.VarChar(255)
+  gender             String?   @db.VarChar(10)
+  dateOfBirth        DateTime? @map("date_of_birth") @db.Date
+  anniversaryDate    DateTime? @map("anniversary_date") @db.Date
+  address            String?   @db.Text
+  notes              String?   @db.Text
+  preferences        Json      @default("{}")
+  allergies          String[]  @default([])
+  tags               String[]  @default([])
+  loyaltyPoints      Int       @default(0) @map("loyalty_points")
+  walletBalance      Decimal   @default(0) @map("wallet_balance") @db.Decimal(10, 2)
+  noShowCount        Int       @default(0) @map("no_show_count")
+  bookingStatus      String    @default("normal") @map("booking_status") @db.VarChar(20)
+  firstVisitBranchId String?   @map("first_visit_branch_id")
+  marketingConsent   Boolean   @default(true) @map("marketing_consent")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  appointments Appointment[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+  @@index([tenantId, phone])
+  @@map("customers")
+}
+
+// ============================================
+// Service & Pricing
+// ============================================
+
+model ServiceCategory {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  name         String    @db.VarChar(100)
+  slug         String    @db.VarChar(100)
+  description  String?   @db.VarChar(500)
+  icon         String?   @db.VarChar(50)
+  color        String    @default("#6B7280") @db.VarChar(7)
+  parentId     String?   @map("parent_id")
+  level        Int       @default(1)
+  displayOrder Int       @default(0) @map("display_order")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdBy    String?   @map("created_by")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  tenant        Tenant            @relation(fields: [tenantId], references: [id])
+  parent        ServiceCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  subCategories ServiceCategory[] @relation("CategoryHierarchy")
+  services      Service[]
+  addOns        ServiceAddOn[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, parentId, isActive])
+  @@map("service_categories")
+}
+
+model Service {
+  id                       String    @id @default(uuid())
+  tenantId                 String    @map("tenant_id")
+  categoryId               String    @map("category_id")
+  sku                      String    @db.VarChar(50)
+  name                     String    @db.VarChar(255)
+  description              String?   @db.Text
+
+  // Pricing
+  basePrice                Decimal   @map("base_price") @db.Decimal(10, 2)
+  taxRate                  Decimal   @default(18) @map("tax_rate") @db.Decimal(5, 2)
+  hsnSacCode               String?   @map("hsn_sac_code") @db.VarChar(20)
+  isTaxInclusive           Boolean   @default(false) @map("is_tax_inclusive")
+
+  // Duration
+  durationMinutes          Int       @map("duration_minutes")
+  activeTimeMinutes        Int       @map("active_time_minutes")
+  processingTimeMinutes    Int       @default(0) @map("processing_time_minutes")
+
+  // Applicability
+  genderApplicable         String    @default("all") @map("gender_applicable") @db.VarChar(20)
+  skillLevelRequired       String    @default("any") @map("skill_level_required") @db.VarChar(20)
+
+  // Commission
+  commissionType           String    @default("percentage") @map("commission_type") @db.VarChar(20)
+  commissionValue          Decimal   @default(0) @map("commission_value") @db.Decimal(10, 2)
+  assistantCommissionValue Decimal   @default(0) @map("assistant_commission_value") @db.Decimal(10, 2)
+
+  // Display
+  displayOrder             Int       @default(0) @map("display_order")
+  isPopular                Boolean   @default(false) @map("is_popular")
+  isFeatured               Boolean   @default(false) @map("is_featured")
+  imageUrl                 String?   @map("image_url") @db.VarChar(500)
+
+  // Status
+  isActive                 Boolean   @default(true) @map("is_active")
+  isOnlineBookable         Boolean   @default(true) @map("is_online_bookable")
+
+  // Metadata
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+  createdBy                String?   @map("created_by")
+  deletedAt                DateTime? @map("deleted_at")
+
+  // Relations
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  category            ServiceCategory         @relation(fields: [categoryId], references: [id])
+  variants            ServiceVariant[]
+  branchPrices        BranchServicePrice[]
+  addOnMappings       ServiceAddOnMapping[]
+  comboItems          ComboServiceItem[]
+  priceHistory        ServicePriceHistory[]
+  appointmentServices AppointmentService[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, isActive])
+  @@index([categoryId, isActive])
+  @@map("services")
+}
+
+model ServiceVariant {
+  id                  String   @id @default(uuid())
+  tenantId            String   @map("tenant_id")
+  serviceId           String   @map("service_id")
+  name                String   @db.VarChar(100)
+  variantGroup        String   @map("variant_group") @db.VarChar(50)
+  priceAdjustmentType String   @default("absolute") @map("price_adjustment_type") @db.VarChar(20)
+  priceAdjustment     Decimal  @map("price_adjustment") @db.Decimal(10, 2)
+  durationAdjustment  Int      @default(0) @map("duration_adjustment")
+  displayOrder        Int      @default(0) @map("display_order")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  // Relations
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, isActive])
+  @@map("service_variants")
+}
+
+model BranchServicePrice {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  branchId        String    @map("branch_id")
+  serviceId       String    @map("service_id")
+  price           Decimal?  @db.Decimal(10, 2)
+  commissionType  String?   @map("commission_type") @db.VarChar(20)
+  commissionValue Decimal?  @map("commission_value") @db.Decimal(10, 2)
+  isAvailable     Boolean   @default(true) @map("is_available")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  updatedBy       String?   @map("updated_by")
+
+  // Relations
+  branch  Branch  @relation(fields: [branchId], references: [id])
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, serviceId])
+  @@index([branchId, serviceId])
+  @@map("branch_service_prices")
+}
+
+model ServiceAddOn {
+  id                   String    @id @default(uuid())
+  tenantId             String    @map("tenant_id")
+  name                 String    @db.VarChar(100)
+  description          String?   @db.VarChar(255)
+  price                Decimal   @db.Decimal(10, 2)
+  taxRate              Decimal   @default(18) @map("tax_rate") @db.Decimal(5, 2)
+  durationMinutes      Int       @default(0) @map("duration_minutes")
+  applicableTo         String    @default("all") @map("applicable_to") @db.VarChar(20)
+  applicableCategoryId String?   @map("applicable_category_id")
+  isActive             Boolean   @default(true) @map("is_active")
+  displayOrder         Int       @default(0) @map("display_order")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  applicableCategory ServiceCategory?      @relation(fields: [applicableCategoryId], references: [id])
+  serviceMappings    ServiceAddOnMapping[]
+
+  @@index([tenantId, isActive])
+  @@map("service_add_ons")
+}
+
+model ServiceAddOnMapping {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  serviceId     String   @map("service_id")
+  addOnId       String   @map("add_on_id")
+  overridePrice Decimal? @map("override_price") @db.Decimal(10, 2)
+  isDefault     Boolean  @default(false) @map("is_default")
+
+  // Relations
+  service Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  addOn   ServiceAddOn @relation(fields: [addOnId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, addOnId])
+  @@map("service_add_on_mappings")
+}
+
+model ComboService {
+  id                   String    @id @default(uuid())
+  tenantId             String    @map("tenant_id")
+  sku                  String    @db.VarChar(50)
+  name                 String    @db.VarChar(255)
+  description          String?   @db.Text
+  comboPrice           Decimal   @map("combo_price") @db.Decimal(10, 2)
+  originalPrice        Decimal   @map("original_price") @db.Decimal(10, 2)
+  taxRate              Decimal   @default(18) @map("tax_rate") @db.Decimal(5, 2)
+  totalDurationMinutes Int       @map("total_duration_minutes")
+  validFrom            DateTime? @map("valid_from") @db.Date
+  validUntil           DateTime? @map("valid_until") @db.Date
+  imageUrl             String?   @map("image_url") @db.VarChar(500)
+  isFeatured           Boolean   @default(false) @map("is_featured")
+  displayOrder         Int       @default(0) @map("display_order")
+  isActive             Boolean   @default(true) @map("is_active")
+  isOnlineBookable     Boolean   @default(true) @map("is_online_bookable")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  createdBy            String?   @map("created_by")
+
+  // Relations
+  items ComboServiceItem[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, isActive])
+  @@map("combo_services")
+}
+
+model ComboServiceItem {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  comboId      String   @map("combo_id")
+  serviceId    String   @map("service_id")
+  quantity     Int      @default(1)
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  combo   ComboService @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  service Service      @relation(fields: [serviceId], references: [id])
+
+  @@index([comboId])
+  @@map("combo_service_items")
+}
+
+model ServicePriceHistory {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  serviceId    String   @map("service_id")
+  branchId     String?  @map("branch_id")
+  oldPrice     Decimal? @map("old_price") @db.Decimal(10, 2)
+  newPrice     Decimal  @map("new_price") @db.Decimal(10, 2)
+  changeReason String?  @map("change_reason") @db.VarChar(255)
+  changedBy    String?  @map("changed_by")
+  changedAt    DateTime @default(now()) @map("changed_at")
+
+  // Relations
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@index([serviceId, changedAt(sort: Desc)])
+  @@map("service_price_history")
+}
+
+// ============================================
+// Appointment
+// ============================================
+
+model Appointment {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  branchId        String    @map("branch_id")
+  customerId      String    @map("customer_id")
+  appointmentDate DateTime  @map("appointment_date") @db.Date
+  startTime       String    @map("start_time") @db.VarChar(5)
+  endTime         String    @map("end_time") @db.VarChar(5)
+  status          String    @default("scheduled") @db.VarChar(20)
+  source          String    @default("walk_in") @db.VarChar(20)
+  totalAmount     Decimal   @default(0) @map("total_amount") @db.Decimal(10, 2)
+  notes           String?   @db.Text
+  internalNotes   String?   @map("internal_notes") @db.Text
+  cancelReason    String?   @map("cancel_reason") @db.Text
+  noShowReason    String?   @map("no_show_reason") @db.Text
+  createdBy       String    @map("created_by")
+  updatedBy       String?   @map("updated_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  branch   Branch              @relation(fields: [branchId], references: [id])
+  customer Customer            @relation(fields: [customerId], references: [id])
+  services AppointmentService[]
+
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, appointmentDate])
+  @@index([customerId])
+  @@map("appointments")
+}
+
+model AppointmentService {
+  id             String   @id @default(uuid())
+  appointmentId  String   @map("appointment_id")
+  serviceId      String   @map("service_id")
+  variantId      String?  @map("variant_id")
+  stylistId      String?  @map("stylist_id")
+  price          Decimal  @db.Decimal(10, 2)
+  discountAmount Decimal  @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  finalPrice     Decimal  @map("final_price") @db.Decimal(10, 2)
+  duration       Int      // in minutes
+  status         String   @default("pending") @db.VarChar(20)
+  startTime      String?  @map("start_time") @db.VarChar(5)
+  endTime        String?  @map("end_time") @db.VarChar(5)
+
+  // Relations
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  service     Service     @relation(fields: [serviceId], references: [id])
+
+  @@index([appointmentId])
+  @@map("appointment_services")
+}
+
+// ============================================
+// Audit Log
+// ============================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  branchId   String?  @map("branch_id")
+  userId     String?  @map("user_id")
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String?  @map("entity_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

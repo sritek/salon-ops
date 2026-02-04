@@ -1,0 +1,62 @@
+# Docker Compose for Local Development
+# Based on: .cursor/rules/15-devops-infrastructure.mdc lines 204-311
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: salon-ops-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: salon_ops
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - salon-ops-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: salon-ops-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - salon-ops-network
+
+  # BullMQ Dashboard (Development only)
+  bull-board:
+    image: venatum/bull-board:latest
+    container_name: salon-ops-bull-board
+    ports:
+      - "3002:3000"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - salon-ops-network
+
+networks:
+  salon-ops-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

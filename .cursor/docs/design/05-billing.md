@@ -1,0 +1,2251 @@
+# Module 5: Billing & Invoicing - Design Document
+
+## Overview
+
+This module handles invoice generation, payment processing, tax calculations (GST), discounts, refunds, credit notes, day closure, and cash drawer management. It integrates with appointments, services, memberships, packages, loyalty, and wallet systems.
+
+**Related Requirements:** 5.1 - 5.18
+
+---
+
+## Data Models
+
+### Entity Relationship Diagram
+
+```
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│   Appointment   │──────>│     Invoice     │<──────│    Customer     │
+│                 │  1:1  │                 │  N:1  │                 │
+└─────────────────┘       └────────┬────────┘       └─────────────────┘
+                                   │
+                    ┌──────────────┼──────────────┐
+                    │              │              │
+                    ▼              ▼              ▼
+          ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+          │Invoice_Items│  │  Payments   │  │  Discounts  │
+          └─────────────┘  └─────────────┘  └─────────────┘
+
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│  Credit_Notes   │       │   Cash_Drawer   │       │   Day_Closure   │
+│                 │       │                 │       │                 │
+└─────────────────┘       └─────────────────┘       └─────────────────┘
+```
+
+---
+
+## Database Schema
+
+```sql
+-- =====================================================
+-- INVOICES
+-- =====================================================
+CREATE TABLE invoices (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+
+  -- Invoice number (branch-specific sequential)
+  invoice_number VARCHAR(50) NOT NULL,
+  invoice_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  invoice_time TIME NOT NULL DEFAULT CURRENT_TIME,
+
+  -- Customer
+  customer_id UUID REFERENCES customers(id),
+  customer_name VARCHAR(255) NOT NULL,
+  customer_phone VARCHAR(20),
+  customer_email VARCHAR(255),
+
+  -- Appointment link
+  appointment_id UUID REFERENCES appointments(id),
+
+  -- Amounts
+  subtotal DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  discount_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  taxable_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  cgst_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  sgst_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  igst_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  total_tax DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  round_off DECIMAL(5, 2) NOT NULL DEFAULT 0,
+  grand_total DECIMAL(12, 2) NOT NULL DEFAULT 0,
+
+  -- Payment status
+  payment_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  -- pending, partial, paid, refunded
+  amount_paid DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  amount_due DECIMAL(12, 2) NOT NULL DEFAULT 0,
+
+  -- Loyalty & Wallet
+  loyalty_points_earned INTEGER DEFAULT 0,
+  loyalty_points_redeemed INTEGER DEFAULT 0,
+  loyalty_discount DECIMAL(10, 2) DEFAULT 0,
+  wallet_amount_used DECIMAL(10, 2) DEFAULT 0,
+
+  -- Package/Membership redemption
+  package_redemption_ids UUID[],
+  membership_discount_applied BOOLEAN DEFAULT false,
+  membership_id UUID REFERENCES memberships(id),
+
+  -- GST details
+  gstin VARCHAR(20),
+  place_of_supply VARCHAR(50),
+  is_igst BOOLEAN DEFAULT false,
+
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',
+  -- draft, finalized, cancelled, refunded
+
+  -- Cancellation/Refund
+  cancelled_at TIMESTAMP,
+  cancelled_by UUID REFERENCES users(id),
+  cancellation_reason TEXT,
+  refund_invoice_id UUID REFERENCES invoices(id),
+
+  -- Notes
+  notes TEXT,
+  internal_notes TEXT,
+
+  -- Metadata
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  finalized_at TIMESTAMP,
+  finalized_by UUID REFERENCES users(id),
+
+  UNIQUE(branch_id, invoice_number),
+  CONSTRAINT valid_status CHECK (status IN ('draft', 'finalized', 'cancelled', 'refunded')),
+  CONSTRAINT valid_payment_status CHECK (payment_status IN ('pending', 'partial', 'paid', 'refunded'))
+);
+
+CREATE INDEX idx_invoices_tenant_branch ON invoices(tenant_id, branch_id);
+CREATE INDEX idx_invoices_date ON invoices(branch_id, invoice_date);
+CREATE INDEX idx_invoices_customer ON invoices(customer_id);
+CREATE INDEX idx_invoices_number ON invoices(branch_id, invoice_number);
+CREATE INDEX idx_invoices_status ON invoices(branch_id, status, invoice_date);
+
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON invoices
+  FOR ALL USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+```
+
+-- =====================================================
+-- INVOICE ITEMS (Line Items)
+-- =====================================================
+CREATE TABLE invoice_items (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+tenant_id UUID NOT NULL REFERENCES tenants(id),
+invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+
+-- Item type
+item_type VARCHAR(20) NOT NULL, -- service, product, combo, package
+
+-- Reference
+reference_id UUID NOT NULL, -- service_id, product_id, combo_id, package_id
+reference_sku VARCHAR(50),
+
+-- Description
+name VARCHAR(255) NOT NULL,
+description TEXT,
+variant_name VARCHAR(100),
+
+-- Pricing
+unit_price DECIMAL(10, 2) NOT NULL,
+quantity INTEGER NOT NULL DEFAULT 1,
+gross_amount DECIMAL(10, 2) NOT NULL,
+
+-- Discount
+discount_type VARCHAR(20), -- percentage, flat, auto, manual
+discount_value DECIMAL(10, 2) DEFAULT 0,
+discount_amount DECIMAL(10, 2) DEFAULT 0,
+discount_reason VARCHAR(255),
+
+-- Tax
+hsn_sac_code VARCHAR(20),
+tax_rate DECIMAL(5, 2) NOT NULL,
+taxable_amount DECIMAL(10, 2) NOT NULL,
+cgst_rate DECIMAL(5, 2) NOT NULL,
+cgst_amount DECIMAL(10, 2) NOT NULL,
+sgst_rate DECIMAL(5, 2) NOT NULL,
+sgst_amount DECIMAL(10, 2) NOT NULL,
+igst_rate DECIMAL(5, 2) DEFAULT 0,
+igst_amount DECIMAL(10, 2) DEFAULT 0,
+total_tax DECIMAL(10, 2) NOT NULL,
+
+-- Final
+net_amount DECIMAL(10, 2) NOT NULL,
+
+-- Staff (for commission)
+stylist_id UUID REFERENCES users(id),
+assistant_id UUID REFERENCES users(id),
+
+-- Commission (locked at billing)
+commission_type VARCHAR(20),
+commission_rate DECIMAL(5, 2),
+commission_amount DECIMAL(10, 2),
+assistant_commission_amount DECIMAL(10, 2),
+
+-- Package redemption
+is_package_redemption BOOLEAN DEFAULT false,
+package_redemption_id UUID,
+
+display_order INTEGER DEFAULT 0,
+created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_invoice_items ON invoice_items(invoice_id);
+CREATE INDEX idx_invoice_items_stylist ON invoice_items(stylist_id, created_at);
+
+-- =====================================================
+-- INVOICE DISCOUNTS (Applied discounts)
+-- =====================================================
+CREATE TABLE invoice_discounts (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+tenant_id UUID NOT NULL REFERENCES tenants(id),
+invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+
+discount_type VARCHAR(20) NOT NULL,
+-- auto_promo, manual, coupon, membership, loyalty, referral
+
+discount_source VARCHAR(50), -- promo_id, coupon_code, membership_id
+discount_name VARCHAR(100) NOT NULL,
+
+-- Calculation
+calculation_type VARCHAR(20) NOT NULL, -- percentage, flat
+calculation_value DECIMAL(10, 2) NOT NULL,
+
+-- Applied
+applied_to VARCHAR(20) NOT NULL, -- subtotal, item
+applied_item_id UUID REFERENCES invoice_items(id),
+discount_amount DECIMAL(10, 2) NOT NULL,
+
+-- Approval (for manual discounts)
+requires_approval BOOLEAN DEFAULT false,
+approved_by UUID REFERENCES users(id),
+approval_notes TEXT,
+
+created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_invoice_discounts ON invoice_discounts(invoice_id);
+
+-- =====================================================
+-- PAYMENTS
+-- =====================================================
+CREATE TABLE payments (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+tenant_id UUID NOT NULL REFERENCES tenants(id),
+branch_id UUID NOT NULL REFERENCES branches(id),
+invoice_id UUID NOT NULL REFERENCES invoices(id),
+
+-- Payment details
+payment_method VARCHAR(20) NOT NULL,
+-- cash, card, upi, wallet, loyalty, bank_transfer, cheque
+
+amount DECIMAL(12, 2) NOT NULL,
+
+-- Method-specific details
+card_last_four VARCHAR(4),
+card_type VARCHAR(20), -- visa, mastercard, rupay
+upi_id VARCHAR(100),
+transaction_id VARCHAR(100),
+bank_name VARCHAR(100),
+cheque_number VARCHAR(50),
+cheque_date DATE,
+
+-- Status
+status VARCHAR(20) NOT NULL DEFAULT 'completed',
+-- pending, completed, failed, refunded
+
+-- Refund tracking
+is_refund BOOLEAN DEFAULT false,
+original_payment_id UUID REFERENCES payments(id),
+refund_reason TEXT,
+
+-- Metadata
+payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+payment_time TIME NOT NULL DEFAULT CURRENT_TIME,
+created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+created_by UUID REFERENCES users(id),
+
+CONSTRAINT valid_payment_method CHECK (
+payment_method IN ('cash', 'card', 'upi', 'wallet', 'loyalty', 'bank_transfer', 'cheque')
+)
+);
+
+CREATE INDEX idx_payments_invoice ON payments(invoice_id);
+CREATE INDEX idx_payments_branch_date ON payments(branch_id, payment_date);
+CREATE INDEX idx_payments_method ON payments(branch_id, payment_method, payment_date);
+
+-- =====================================================
+-- CREDIT NOTES (For refunds)
+-- =====================================================
+CREATE TABLE credit_notes (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+tenant_id UUID NOT NULL REFERENCES tenants(id),
+branch_id UUID NOT NULL REFERENCES branches(id),
+
+-- Credit note number
+credit_note_number VARCHAR(50) NOT NULL,
+credit_note_date DATE NOT NULL DEFAULT CURRENT_DATE,
+
+-- Original invoice
+original_invoice_id UUID NOT NULL REFERENCES invoices(id),
+original_invoice_number VARCHAR(50) NOT NULL,
+
+-- Customer
+customer_id UUID REFERENCES customers(id),
+customer_name VARCHAR(255) NOT NULL,
+
+-- Amounts
+subtotal DECIMAL(12, 2) NOT NULL,
+tax_amount DECIMAL(12, 2) NOT NULL,
+total_amount DECIMAL(12, 2) NOT NULL,
+
+-- Refund method
+refund_method VARCHAR(20) NOT NULL,
+-- original_method, wallet, cash
+
+-- Status
+status VARCHAR(20) NOT NULL DEFAULT 'issued',
+-- issued, utilized, cancelled
+
+reason TEXT NOT NULL,
+notes TEXT,
+
+created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+created_by UUID REFERENCES users(id),
+
+UNIQUE(branch_id, credit_note_number)
+);
+
+CREATE INDEX idx_credit_notes ON credit_notes(branch_id, credit_note_date);
+CREATE INDEX idx_credit_notes_invoice ON credit_notes(original_invoice_id);
+
+-- =====================================================
+-- CREDIT NOTE ITEMS
+-- =====================================================
+CREATE TABLE credit_note_items (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+tenant_id UUID NOT NULL REFERENCES tenants(id),
+credit_note_id UUID NOT NULL REFERENCES credit_notes(id) ON DELETE CASCADE,
+original_item_id UUID NOT NULL REFERENCES invoice_items(id),
+
+name VARCHAR(255) NOT NULL,
+quantity INTEGER NOT NULL,
+unit_price DECIMAL(10, 2) NOT NULL,
+tax_rate DECIMAL(5, 2) NOT NULL,
+tax_amount DECIMAL(10, 2) NOT NULL,
+total_amount DECIMAL(10, 2) NOT NULL,
+
+created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- CASH DRAWER
+-- =====================================================
+CREATE TABLE cash_drawer_transactions (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+tenant_id UUID NOT NULL REFERENCES tenants(id),
+branch_id UUID NOT NULL REFERENCES branches(id),
+
+transaction_date DATE NOT NULL DEFAULT CURRENT_DATE,
+transaction_time TIME NOT NULL DEFAULT CURRENT_TIME,
+
+transaction_type VARCHAR(20) NOT NULL,
+-- opening, sale, refund, expense, deposit, withdrawal, adjustment, closing
+
+amount DECIMAL(12, 2) NOT NULL, -- Positive for in, negative for out
+balance_after DECIMAL(12, 2) NOT NULL,
+
+-- Reference
+reference_type VARCHAR(20), -- invoice, expense, manual
+reference_id UUID,
+
+description VARCHAR(255),
+
+created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_cash_drawer ON cash_drawer_transactions(branch_id, transaction_date);
+
+-- =====================================================
+-- DAY CLOSURE
+-- =====================================================
+CREATE TABLE day_closures (
+id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+tenant_id UUID NOT NULL REFERENCES tenants(id),
+branch_id UUID NOT NULL REFERENCES branches(id),
+
+closure_date DATE NOT NULL,
+
+-- Expected vs Actual
+expected_cash DECIMAL(12, 2) NOT NULL,
+actual_cash DECIMAL(12, 2) NOT NULL,
+cash_difference DECIMAL(12, 2) NOT NULL,
+
+-- Summary
+total_invoices INTEGER NOT NULL,
+total_revenue DECIMAL(12, 2) NOT NULL,
+total_discounts DECIMAL(12, 2) NOT NULL,
+total_refunds DECIMAL(12, 2) NOT NULL,
+total_tax_collected DECIMAL(12, 2) NOT NULL,
+
+-- Payment breakdown
+cash_collected DECIMAL(12, 2) NOT NULL,
+card_collected DECIMAL(12, 2) NOT NULL,
+upi_collected DECIMAL(12, 2) NOT NULL,
+wallet_collected DECIMAL(12, 2) NOT NULL,
+other_collected DECIMAL(12, 2) NOT NULL,
+
+-- Status
+status VARCHAR(20) NOT NULL DEFAULT 'open',
+-- open, closed, reconciled
+
+-- Reconciliation
+reconciliation_notes TEXT,
+reconciled_by UUID REFERENCES users(id),
+reconciled_at TIMESTAMP,
+
+-- Metadata
+opened_at TIMESTAMP NOT NULL DEFAULT NOW(),
+opened_by UUID REFERENCES users(id),
+closed_at TIMESTAMP,
+closed_by UUID REFERENCES users(id),
+
+UNIQUE(branch_id, closure_date)
+);
+
+CREATE INDEX idx_day_closures ON day_closures(branch_id, closure_date);
+
+````
+
+---
+
+## TypeScript Types
+
+```typescript
+// =====================================================
+// ENUMS
+// =====================================================
+export enum InvoiceStatus {
+  DRAFT = 'draft',
+  FINALIZED = 'finalized',
+  CANCELLED = 'cancelled',
+  REFUNDED = 'refunded'
+}
+
+export enum PaymentStatus {
+  PENDING = 'pending',
+  PARTIAL = 'partial',
+  PAID = 'paid',
+  REFUNDED = 'refunded'
+}
+
+export enum PaymentMethod {
+  CASH = 'cash',
+  CARD = 'card',
+  UPI = 'upi',
+  WALLET = 'wallet',
+  LOYALTY = 'loyalty',
+  BANK_TRANSFER = 'bank_transfer',
+  CHEQUE = 'cheque'
+}
+
+export enum ItemType {
+  SERVICE = 'service',
+  PRODUCT = 'product',
+  COMBO = 'combo',
+  PACKAGE = 'package'
+}
+
+export enum DiscountType {
+  AUTO_PROMO = 'auto_promo',
+  MANUAL = 'manual',
+  COUPON = 'coupon',
+  MEMBERSHIP = 'membership',
+  LOYALTY = 'loyalty',
+  REFERRAL = 'referral'
+}
+
+export enum RefundMethod {
+  ORIGINAL_METHOD = 'original_method',
+  WALLET = 'wallet',
+  CASH = 'cash'
+}
+
+export enum DayClosureStatus {
+  OPEN = 'open',
+  CLOSED = 'closed',
+  RECONCILED = 'reconciled'
+}
+````
+
+// =====================================================
+// CORE TYPES
+// =====================================================
+export interface Invoice {
+id: string;
+tenantId: string;
+branchId: string;
+
+invoiceNumber: string;
+invoiceDate: string;
+invoiceTime: string;
+
+// Customer
+customerId?: string;
+customerName: string;
+customerPhone?: string;
+customerEmail?: string;
+
+appointmentId?: string;
+
+// Amounts
+subtotal: number;
+discountAmount: number;
+taxableAmount: number;
+cgstAmount: number;
+sgstAmount: number;
+igstAmount: number;
+totalTax: number;
+roundOff: number;
+grandTotal: number;
+
+// Payment
+paymentStatus: PaymentStatus;
+amountPaid: number;
+amountDue: number;
+
+// Loyalty & Wallet
+loyaltyPointsEarned: number;
+loyaltyPointsRedeemed: number;
+loyaltyDiscount: number;
+walletAmountUsed: number;
+
+// Package/Membership
+packageRedemptionIds: string[];
+membershipDiscountApplied: boolean;
+membershipId?: string;
+
+// GST
+gstin?: string;
+placeOfSupply?: string;
+isIgst: boolean;
+
+// Status
+status: InvoiceStatus;
+
+// Cancellation
+cancelledAt?: Date;
+cancelledBy?: string;
+cancellationReason?: string;
+refundInvoiceId?: string;
+
+notes?: string;
+internalNotes?: string;
+
+// Metadata
+createdAt: Date;
+updatedAt: Date;
+createdBy?: string;
+finalizedAt?: Date;
+finalizedBy?: string;
+
+// Relations
+items?: InvoiceItem[];
+payments?: Payment[];
+discounts?: InvoiceDiscount[];
+customer?: Customer;
+}
+
+export interface InvoiceItem {
+id: string;
+tenantId: string;
+invoiceId: string;
+
+itemType: ItemType;
+referenceId: string;
+referenceSku?: string;
+
+name: string;
+description?: string;
+variantName?: string;
+
+unitPrice: number;
+quantity: number;
+grossAmount: number;
+
+discountType?: string;
+discountValue: number;
+discountAmount: number;
+discountReason?: string;
+
+hsnSacCode?: string;
+taxRate: number;
+taxableAmount: number;
+cgstRate: number;
+cgstAmount: number;
+sgstRate: number;
+sgstAmount: number;
+igstRate: number;
+igstAmount: number;
+totalTax: number;
+
+netAmount: number;
+
+stylistId?: string;
+assistantId?: string;
+
+commissionType?: string;
+commissionRate?: number;
+commissionAmount?: number;
+assistantCommissionAmount?: number;
+
+isPackageRedemption: boolean;
+packageRedemptionId?: string;
+
+displayOrder: number;
+createdAt: Date;
+}
+
+export interface Payment {
+id: string;
+tenantId: string;
+branchId: string;
+invoiceId: string;
+
+paymentMethod: PaymentMethod;
+amount: number;
+
+cardLastFour?: string;
+cardType?: string;
+upiId?: string;
+transactionId?: string;
+bankName?: string;
+chequeNumber?: string;
+chequeDate?: string;
+
+status: string;
+
+isRefund: boolean;
+originalPaymentId?: string;
+refundReason?: string;
+
+paymentDate: string;
+paymentTime: string;
+createdAt: Date;
+createdBy?: string;
+}
+
+export interface InvoiceDiscount {
+id: string;
+tenantId: string;
+invoiceId: string;
+
+discountType: DiscountType;
+discountSource?: string;
+discountName: string;
+
+calculationType: string;
+calculationValue: number;
+
+appliedTo: string;
+appliedItemId?: string;
+discountAmount: number;
+
+requiresApproval: boolean;
+approvedBy?: string;
+approvalNotes?: string;
+
+createdAt: Date;
+createdBy?: string;
+}
+
+export interface CreditNote {
+id: string;
+tenantId: string;
+branchId: string;
+
+creditNoteNumber: string;
+creditNoteDate: string;
+
+originalInvoiceId: string;
+originalInvoiceNumber: string;
+
+customerId?: string;
+customerName: string;
+
+subtotal: number;
+taxAmount: number;
+totalAmount: number;
+
+refundMethod: RefundMethod;
+status: string;
+
+reason: string;
+notes?: string;
+
+createdAt: Date;
+createdBy?: string;
+
+items?: CreditNoteItem[];
+}
+
+export interface DayClosure {
+id: string;
+tenantId: string;
+branchId: string;
+
+closureDate: string;
+
+expectedCash: number;
+actualCash: number;
+cashDifference: number;
+
+totalInvoices: number;
+totalRevenue: number;
+totalDiscounts: number;
+totalRefunds: number;
+totalTaxCollected: number;
+
+cashCollected: number;
+cardCollected: number;
+upiCollected: number;
+walletCollected: number;
+otherCollected: number;
+
+status: DayClosureStatus;
+
+reconciliationNotes?: string;
+reconciledBy?: string;
+reconciledAt?: Date;
+
+openedAt: Date;
+openedBy?: string;
+closedAt?: Date;
+closedBy?: string;
+}
+
+```
+
+---
+
+## API Endpoints
+
+### Invoice CRUD
+
+```
+
+POST /api/v1/invoices Create invoice (draft)
+GET /api/v1/invoices List invoices (with filters)
+GET /api/v1/invoices/:id Get invoice details
+PATCH /api/v1/invoices/:id Update draft invoice
+DELETE /api/v1/invoices/:id Delete draft invoice
+
+```
+
+### Invoice Actions
+
+```
+
+POST /api/v1/invoices/:id/items Add item to invoice
+PATCH /api/v1/invoices/:id/items/:itemId Update item
+DELETE /api/v1/invoices/:id/items/:itemId Remove item
+POST /api/v1/invoices/:id/discounts Apply discount
+DELETE /api/v1/invoices/:id/discounts/:did Remove discount
+POST /api/v1/invoices/:id/finalize Finalize invoice
+POST /api/v1/invoices/:id/cancel Cancel invoice
+
+```
+
+### Payments
+
+```
+
+POST /api/v1/invoices/:id/payments Record payment
+GET /api/v1/invoices/:id/payments Get payments for invoice
+POST /api/v1/payments/:id/refund Process refund
+
+```
+
+### Credit Notes
+
+```
+
+POST /api/v1/credit-notes Create credit note
+GET /api/v1/credit-notes List credit notes
+GET /api/v1/credit-notes/:id Get credit note details
+
+```
+
+### Day Closure
+
+```
+
+POST /api/v1/day-closure/open Open day
+GET /api/v1/day-closure/current Get current day status
+POST /api/v1/day-closure/close Close day
+GET /api/v1/day-closure/history Get closure history
+POST /api/v1/day-closure/:id/reconcile Reconcile day
+
+```
+
+### Cash Drawer
+
+```
+
+GET /api/v1/cash-drawer/balance Get current balance
+GET /api/v1/cash-drawer/transactions Get transactions
+POST /api/v1/cash-drawer/adjustment Record adjustment
+
+```
+
+### Quick Actions
+
+```
+
+POST /api/v1/billing/quick-bill Create and finalize in one step
+POST /api/v1/billing/calculate Calculate totals without saving
+GET /api/v1/billing/invoice-number/next Get next invoice number
+
+```
+
+---
+
+## Request/Response Schemas
+```
+
+### Create Invoice
+
+```typescript
+// POST /api/v1/invoices
+interface CreateInvoiceRequest {
+  branchId: string;
+
+  // Customer (one required)
+  customerId?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+
+  appointmentId?: string;
+
+  // Items
+  items: {
+    itemType: ItemType;
+    referenceId: string;
+    variantId?: string;
+    quantity?: number;
+    stylistId?: string;
+    assistantId?: string;
+
+    // Package redemption
+    isPackageRedemption?: boolean;
+    packageRedemptionId?: string;
+  }[];
+
+  // Discounts
+  discounts?: {
+    discountType: DiscountType;
+    discountSource?: string;
+    calculationType: "percentage" | "flat";
+    calculationValue: number;
+    appliedTo: "subtotal" | "item";
+    appliedItemIndex?: number;
+    reason?: string;
+  }[];
+
+  // Loyalty & Wallet
+  redeemLoyaltyPoints?: number;
+  useWalletAmount?: number;
+
+  // GST
+  gstin?: string;
+  placeOfSupply?: string;
+
+  notes?: string;
+}
+
+interface CreateInvoiceResponse {
+  success: boolean;
+  data: {
+    invoice: Invoice;
+    warnings?: string[]; // e.g., "Customer has low wallet balance"
+  };
+}
+```
+
+### Add Payment
+
+```typescript
+// POST /api/v1/invoices/:id/payments
+interface AddPaymentRequest {
+  payments: {
+    paymentMethod: PaymentMethod;
+    amount: number;
+
+    // Method-specific
+    cardLastFour?: string;
+    cardType?: string;
+    upiId?: string;
+    transactionId?: string;
+    bankName?: string;
+    chequeNumber?: string;
+    chequeDate?: string;
+  }[];
+}
+
+interface AddPaymentResponse {
+  success: boolean;
+  data: {
+    invoice: Invoice;
+    payments: Payment[];
+    remainingDue: number;
+    isFullyPaid: boolean;
+  };
+}
+```
+
+### Finalize Invoice
+
+```typescript
+// POST /api/v1/invoices/:id/finalize
+interface FinalizeInvoiceRequest {
+  // Optional: finalize with payment in one step
+  payments?: {
+    paymentMethod: PaymentMethod;
+    amount: number;
+    transactionId?: string;
+  }[];
+}
+
+interface FinalizeInvoiceResponse {
+  success: boolean;
+  data: {
+    invoice: Invoice;
+    invoiceNumber: string;
+    loyaltyPointsEarned: number;
+    commissions: {
+      stylistId: string;
+      stylistName: string;
+      amount: number;
+    }[];
+    inventoryDeducted: {
+      productId: string;
+      productName: string;
+      quantity: number;
+    }[];
+  };
+}
+```
+
+### Apply Discount
+
+```typescript
+// POST /api/v1/invoices/:id/discounts
+interface ApplyDiscountRequest {
+  discountType: DiscountType;
+  discountSource?: string; // coupon_code, promo_id
+  calculationType: "percentage" | "flat";
+  calculationValue: number;
+  appliedTo: "subtotal" | "item";
+  appliedItemId?: string;
+  reason?: string;
+}
+
+interface ApplyDiscountResponse {
+  success: boolean;
+  data: {
+    invoice: Invoice;
+    discountApplied: InvoiceDiscount;
+    requiresApproval: boolean;
+    maxDiscountExceeded: boolean;
+  };
+}
+```
+
+### Create Credit Note
+
+```typescript
+// POST /api/v1/credit-notes
+interface CreateCreditNoteRequest {
+  originalInvoiceId: string;
+
+  items: {
+    originalItemId: string;
+    quantity: number; // Quantity to refund
+  }[];
+
+  refundMethod: RefundMethod;
+  reason: string;
+  notes?: string;
+}
+
+interface CreateCreditNoteResponse {
+  success: boolean;
+  data: {
+    creditNote: CreditNote;
+    refundAmount: number;
+    walletCredited?: number;
+    loyaltyPointsReversed?: number;
+  };
+}
+```
+
+### Day Closure
+
+```typescript
+// POST /api/v1/day-closure/close
+interface CloseDayRequest {
+  actualCash: number;
+  notes?: string;
+}
+
+interface CloseDayResponse {
+  success: boolean;
+  data: {
+    closure: DayClosure;
+    summary: {
+      totalInvoices: number;
+      totalRevenue: number;
+      byPaymentMethod: Record<PaymentMethod, number>;
+      cashDifference: number;
+      status: "balanced" | "short" | "over";
+    };
+  };
+}
+```
+
+---
+
+## Business Logic
+
+### 1. Invoice Calculator
+
+```typescript
+class InvoiceCalculator {
+  /**
+   * Calculate invoice totals
+   */
+  calculate(
+    items: InvoiceItemInput[],
+    discounts: DiscountInput[],
+    options: {
+      isIgst: boolean;
+      loyaltyPointsToRedeem?: number;
+      walletAmountToUse?: number;
+      membershipId?: string;
+    },
+  ): InvoiceCalculation {
+    // 1. Calculate item-level amounts
+    const calculatedItems = items.map((item) =>
+      this.calculateItem(item, options.isIgst),
+    );
+
+    // 2. Calculate subtotal
+    let subtotal = calculatedItems.reduce(
+      (sum, item) => sum + item.grossAmount,
+      0,
+    );
+
+    // 3. Apply discounts (before tax)
+    const { discountedItems, totalDiscount } = this.applyDiscounts(
+      calculatedItems,
+      discounts,
+      options.membershipId,
+    );
+
+    // 4. Calculate taxable amount
+    const taxableAmount = subtotal - totalDiscount;
+
+    // 5. Calculate taxes
+    const taxBreakdown = this.calculateTaxes(discountedItems, options.isIgst);
+
+    // 6. Apply loyalty discount
+    let loyaltyDiscount = 0;
+    if (options.loyaltyPointsToRedeem) {
+      loyaltyDiscount = this.calculateLoyaltyDiscount(
+        options.loyaltyPointsToRedeem,
+      );
+    }
+
+    // 7. Calculate grand total
+    let grandTotal = taxableAmount + taxBreakdown.totalTax - loyaltyDiscount;
+
+    // 8. Apply wallet
+    let walletUsed = 0;
+    if (options.walletAmountToUse) {
+      walletUsed = Math.min(options.walletAmountToUse, grandTotal);
+      grandTotal -= walletUsed;
+    }
+
+    // 9. Round off
+    const roundOff = this.calculateRoundOff(grandTotal);
+    grandTotal += roundOff;
+
+    return {
+      items: discountedItems,
+      subtotal,
+      discountAmount: totalDiscount,
+      taxableAmount,
+      ...taxBreakdown,
+      loyaltyDiscount,
+      walletUsed,
+      roundOff,
+      grandTotal,
+    };
+  }
+
+  /**
+   * Calculate single item
+   */
+  private calculateItem(
+    item: InvoiceItemInput,
+    isIgst: boolean,
+  ): CalculatedItem {
+    const grossAmount = item.unitPrice * item.quantity;
+    const taxRate = item.taxRate;
+
+    // Tax is calculated after discount at item level
+    // But we need gross for discount calculation
+    return {
+      ...item,
+      grossAmount,
+      taxRate,
+      // Tax amounts will be calculated after discounts
+    };
+  }
+
+  /**
+   * Apply discounts in correct order
+   * Order: Auto promos → Membership → Coupons → Manual
+   * Rule: One auto discount + one manual discount allowed
+   */
+  private applyDiscounts(
+    items: CalculatedItem[],
+    discounts: DiscountInput[],
+    membershipId?: string,
+  ): { discountedItems: CalculatedItem[]; totalDiscount: number } {
+    let totalDiscount = 0;
+    const discountedItems = [...items];
+
+    // Sort discounts by priority
+    const sortedDiscounts = this.sortDiscountsByPriority(discounts);
+
+    // Track applied discount types
+    let autoDiscountApplied = false;
+    let manualDiscountApplied = false;
+
+    for (const discount of sortedDiscounts) {
+      // Check discount limits
+      if (
+        discount.discountType === DiscountType.AUTO_PROMO &&
+        autoDiscountApplied
+      ) {
+        continue; // Only one auto discount
+      }
+      if (
+        discount.discountType === DiscountType.MANUAL &&
+        manualDiscountApplied
+      ) {
+        continue; // Only one manual discount
+      }
+
+      // Apply discount
+      const discountAmount = this.calculateDiscountAmount(
+        discount,
+        discountedItems,
+        membershipId,
+      );
+
+      totalDiscount += discountAmount;
+
+      // Update tracking
+      if (discount.discountType === DiscountType.AUTO_PROMO) {
+        autoDiscountApplied = true;
+      }
+      if (discount.discountType === DiscountType.MANUAL) {
+        manualDiscountApplied = true;
+      }
+    }
+
+    return { discountedItems, totalDiscount };
+  }
+
+  /**
+   * Calculate GST breakdown
+   */
+  private calculateTaxes(
+    items: CalculatedItem[],
+    isIgst: boolean,
+  ): TaxBreakdown {
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+    let igstAmount = 0;
+
+    for (const item of items) {
+      const taxableAmount = item.grossAmount - item.discountAmount;
+      const taxAmount = taxableAmount * (item.taxRate / 100);
+
+      if (isIgst) {
+        igstAmount += taxAmount;
+        item.igstRate = item.taxRate;
+        item.igstAmount = taxAmount;
+        item.cgstRate = 0;
+        item.cgstAmount = 0;
+        item.sgstRate = 0;
+        item.sgstAmount = 0;
+      } else {
+        const halfRate = item.taxRate / 2;
+        const halfTax = taxAmount / 2;
+        cgstAmount += halfTax;
+        sgstAmount += halfTax;
+        item.cgstRate = halfRate;
+        item.cgstAmount = halfTax;
+        item.sgstRate = halfRate;
+        item.sgstAmount = halfTax;
+        item.igstRate = 0;
+        item.igstAmount = 0;
+      }
+
+      item.totalTax = taxAmount;
+      item.taxableAmount = taxableAmount;
+      item.netAmount = taxableAmount + taxAmount;
+    }
+
+    return {
+      cgstAmount: Math.round(cgstAmount * 100) / 100,
+      sgstAmount: Math.round(sgstAmount * 100) / 100,
+      igstAmount: Math.round(igstAmount * 100) / 100,
+      totalTax: Math.round((cgstAmount + sgstAmount + igstAmount) * 100) / 100,
+    };
+  }
+
+  /**
+   * Round to nearest rupee
+   */
+  private calculateRoundOff(amount: number): number {
+    const rounded = Math.round(amount);
+    return Math.round((rounded - amount) * 100) / 100;
+  }
+}
+```
+
+### 2. Invoice Service
+
+```typescript
+class InvoiceService {
+  /**
+   * Create invoice from appointment
+   */
+  async createFromAppointment(
+    appointmentId: string,
+    userId: string,
+  ): Promise<Invoice> {
+    const appointment = await this.getAppointmentWithServices(appointmentId);
+
+    // Build items from appointment services
+    const items = appointment.services.map((service) => ({
+      itemType: ItemType.SERVICE,
+      referenceId: service.serviceId,
+      quantity: service.quantity,
+      stylistId: service.stylistId,
+      assistantId: service.assistantId,
+      unitPrice: service.unitPrice, // Already locked at booking
+      taxRate: service.taxRate,
+      commissionRate: service.commissionRate,
+      commissionAmount: service.commissionAmount,
+    }));
+
+    return this.createInvoice(
+      {
+        branchId: appointment.branchId,
+        customerId: appointment.customerId,
+        customerName: appointment.customerName,
+        customerPhone: appointment.customerPhone,
+        appointmentId,
+        items,
+      },
+      userId,
+    );
+  }
+
+  /**
+   * Finalize invoice
+   */
+  async finalizeInvoice(
+    invoiceId: string,
+    payments: PaymentInput[],
+    userId: string,
+  ): Promise<Invoice> {
+    const invoice = await this.getInvoice(invoiceId);
+
+    // Validate invoice is in draft status
+    if (invoice.status !== InvoiceStatus.DRAFT) {
+      throw new BadRequestError(
+        "INVOICE_NOT_DRAFT",
+        "Only draft invoices can be finalized",
+      );
+    }
+
+    // Validate payments cover the amount
+    const totalPayment = payments.reduce((sum, p) => sum + p.amount, 0);
+    if (totalPayment < invoice.grandTotal) {
+      throw new BadRequestError(
+        "INSUFFICIENT_PAYMENT",
+        "Payment amount is less than invoice total",
+      );
+    }
+
+    return this.db.transaction(async (tx) => {
+      // 1. Generate invoice number
+      const invoiceNumber = await this.generateInvoiceNumber(invoice.branchId);
+
+      // 2. Record payments
+      for (const payment of payments) {
+        await this.recordPayment(tx, invoice.id, payment, userId);
+      }
+
+      // 3. Update invoice status
+      const finalizedInvoice = await tx.invoices.update(invoice.id, {
+        invoiceNumber,
+        status: InvoiceStatus.FINALIZED,
+        paymentStatus: PaymentStatus.PAID,
+        amountPaid: invoice.grandTotal,
+        amountDue: 0,
+        finalizedAt: new Date(),
+        finalizedBy: userId,
+      });
+
+      // 4. Award loyalty points
+      if (invoice.customerId) {
+        const pointsEarned = await this.loyaltyEngine.awardPurchasePoints(
+          invoice.customerId,
+          invoice.id,
+          invoice.taxableAmount,
+          invoice.branchId,
+        );
+
+        await tx.invoices.update(invoice.id, {
+          loyaltyPointsEarned: pointsEarned,
+        });
+      }
+
+      // 5. Deduct wallet if used
+      if (invoice.walletAmountUsed > 0) {
+        await this.walletService.debit(
+          invoice.customerId!,
+          invoice.walletAmountUsed,
+          invoice.id,
+          "Invoice payment",
+        );
+      }
+
+      // 6. Deduct loyalty points if redeemed
+      if (invoice.loyaltyPointsRedeemed > 0) {
+        await this.loyaltyEngine.redeemPoints(
+          invoice.customerId!,
+          invoice.loyaltyPointsRedeemed,
+          invoice.id,
+          invoice.branchId,
+        );
+      }
+
+      // 7. Lock commissions
+      await this.lockCommissions(tx, invoice);
+
+      // 8. Deduct inventory (consumables)
+      await this.deductInventory(tx, invoice);
+
+      // 9. Update customer stats
+      if (invoice.customerId) {
+        await this.customerService.updateCustomerStats(
+          invoice.customerId,
+          invoice.grandTotal,
+          invoice.branchId,
+        );
+
+        // Complete referral if first purchase
+        await this.referralService.completeReferral(
+          invoice.customerId,
+          invoice.id,
+        );
+      }
+
+      // 10. Update cash drawer
+      const cashPayment = payments.find(
+        (p) => p.paymentMethod === PaymentMethod.CASH,
+      );
+      if (cashPayment) {
+        await this.updateCashDrawer(
+          tx,
+          invoice.branchId,
+          cashPayment.amount,
+          invoice.id,
+        );
+      }
+
+      // 11. Update appointment status
+      if (invoice.appointmentId) {
+        await tx.appointments.update(invoice.appointmentId, {
+          status: "completed",
+        });
+      }
+
+      // 12. Emit event
+      this.eventEmitter.emit(BILLING_EVENTS.INVOICE_FINALIZED, {
+        invoiceId: invoice.id,
+        tenantId: invoice.tenantId,
+        branchId: invoice.branchId,
+        customerId: invoice.customerId,
+        amount: invoice.grandTotal,
+      });
+
+      return finalizedInvoice;
+    });
+  }
+
+  /**
+   * Generate sequential invoice number
+   * Format: INV-{BRANCH_CODE}-{YYYYMM}-{SEQUENCE}
+   */
+  private async generateInvoiceNumber(branchId: string): Promise<string> {
+    const branch = await this.getBranch(branchId);
+    const yearMonth = new Date().toISOString().slice(0, 7).replace("-", "");
+
+    // Get next sequence for this branch and month
+    const lastInvoice = await this.db.invoices.findFirst({
+      where: {
+        branchId,
+        invoiceNumber: { startsWith: `INV-${branch.code}-${yearMonth}` },
+      },
+      orderBy: { invoiceNumber: "desc" },
+    });
+
+    let sequence = 1;
+    if (lastInvoice) {
+      const lastSequence = parseInt(
+        lastInvoice.invoiceNumber.split("-").pop()!,
+      );
+      sequence = lastSequence + 1;
+    }
+
+    return `INV-${branch.code}-${yearMonth}-${sequence.toString().padStart(4, "0")}`;
+  }
+
+  /**
+   * Lock commissions at billing time
+   */
+  private async lockCommissions(
+    tx: Transaction,
+    invoice: Invoice,
+  ): Promise<void> {
+    for (const item of invoice.items!) {
+      if (item.stylistId && item.commissionRate) {
+        const commissionAmount = this.calculateCommission(
+          item.netAmount,
+          item.commissionType!,
+          item.commissionRate,
+        );
+
+        await tx.invoiceItems.update(item.id, {
+          commissionAmount,
+        });
+
+        // Also update assistant commission if applicable
+        if (item.assistantId && item.assistantCommissionAmount) {
+          // Assistant commission already calculated
+        }
+      }
+    }
+  }
+}
+```
+
+### 3. Refund Service
+
+```typescript
+class RefundService {
+  /**
+   * Process refund and create credit note
+   */
+  async processRefund(
+    request: CreateCreditNoteRequest,
+    userId: string,
+  ): Promise<CreditNote> {
+    const invoice = await this.getInvoice(request.originalInvoiceId);
+
+    // Validate invoice can be refunded
+    if (invoice.status !== InvoiceStatus.FINALIZED) {
+      throw new BadRequestError(
+        "INVALID_INVOICE_STATUS",
+        "Only finalized invoices can be refunded",
+      );
+    }
+
+    // Validate items
+    const itemsToRefund = await this.validateRefundItems(
+      invoice,
+      request.items,
+    );
+
+    return this.db.transaction(async (tx) => {
+      // 1. Calculate refund amounts
+      const refundCalculation = this.calculateRefund(itemsToRefund);
+
+      // 2. Generate credit note number
+      const creditNoteNumber = await this.generateCreditNoteNumber(
+        invoice.branchId,
+      );
+
+      // 3. Create credit note
+      const creditNote = await tx.creditNotes.create({
+        tenantId: invoice.tenantId,
+        branchId: invoice.branchId,
+        creditNoteNumber,
+        originalInvoiceId: invoice.id,
+        originalInvoiceNumber: invoice.invoiceNumber,
+        customerId: invoice.customerId,
+        customerName: invoice.customerName,
+        subtotal: refundCalculation.subtotal,
+        taxAmount: refundCalculation.taxAmount,
+        totalAmount: refundCalculation.totalAmount,
+        refundMethod: request.refundMethod,
+        reason: request.reason,
+        notes: request.notes,
+        createdBy: userId,
+      });
+
+      // 4. Create credit note items
+      for (const item of itemsToRefund) {
+        await tx.creditNoteItems.create({
+          tenantId: invoice.tenantId,
+          creditNoteId: creditNote.id,
+          originalItemId: item.originalItemId,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          taxRate: item.taxRate,
+          taxAmount: item.taxAmount,
+          totalAmount: item.totalAmount,
+        });
+      }
+
+      // 5. Process refund based on method
+      switch (request.refundMethod) {
+        case RefundMethod.WALLET:
+          await this.walletService.credit(
+            invoice.customerId!,
+            refundCalculation.totalAmount,
+            "refund",
+            creditNote.id,
+            `Refund for invoice ${invoice.invoiceNumber}`,
+          );
+          break;
+
+        case RefundMethod.CASH:
+          await this.updateCashDrawer(
+            tx,
+            invoice.branchId,
+            -refundCalculation.totalAmount,
+            creditNote.id,
+            "refund",
+          );
+          break;
+
+        case RefundMethod.ORIGINAL_METHOD:
+          // Create refund payment records
+          await this.createRefundPayments(
+            tx,
+            invoice,
+            refundCalculation.totalAmount,
+          );
+          break;
+      }
+
+      // 6. Reverse loyalty points if applicable
+      if (invoice.loyaltyPointsEarned > 0) {
+        const pointsToReverse = Math.floor(
+          invoice.loyaltyPointsEarned *
+            (refundCalculation.totalAmount / invoice.grandTotal),
+        );
+
+        await this.loyaltyEngine.adjustPoints(
+          invoice.customerId!,
+          -pointsToReverse,
+          "Refund reversal",
+          "credit_note",
+          creditNote.id,
+        );
+      }
+
+      // 7. Reverse commissions
+      await this.reverseCommissions(tx, itemsToRefund);
+
+      // 8. Update original invoice
+      await tx.invoices.update(invoice.id, {
+        status: InvoiceStatus.REFUNDED,
+        refundInvoiceId: creditNote.id,
+      });
+
+      // 9. Create audit log
+      await this.auditService.log({
+        action: "REFUND_PROCESSED",
+        entityType: "credit_note",
+        entityId: creditNote.id,
+        originalInvoiceId: invoice.id,
+        amount: refundCalculation.totalAmount,
+        reason: request.reason,
+        userId,
+      });
+
+      return creditNote;
+    });
+  }
+}
+```
+
+### 4. Day Closure Service
+
+```typescript
+class DayClosureService {
+  /**
+   * Open day for a branch
+   */
+  async openDay(branchId: string, userId: string): Promise<DayClosure> {
+    const today = new Date().toISOString().split("T")[0];
+
+    // Check if day already opened
+    const existing = await this.db.dayClosures.findFirst({
+      where: { branchId, closureDate: today },
+    });
+
+    if (existing) {
+      throw new ConflictError("DAY_ALREADY_OPEN", "Day is already opened");
+    }
+
+    // Get previous day's closing balance
+    const previousClosure = await this.db.dayClosures.findFirst({
+      where: { branchId, status: DayClosureStatus.CLOSED },
+      orderBy: { closureDate: "desc" },
+    });
+
+    const openingBalance = previousClosure?.actualCash ?? 0;
+
+    // Create day closure record
+    const closure = await this.db.dayClosures.create({
+      tenantId: this.tenantId,
+      branchId,
+      closureDate: today,
+      expectedCash: openingBalance,
+      actualCash: 0,
+      cashDifference: 0,
+      totalInvoices: 0,
+      totalRevenue: 0,
+      totalDiscounts: 0,
+      totalRefunds: 0,
+      totalTaxCollected: 0,
+      cashCollected: 0,
+      cardCollected: 0,
+      upiCollected: 0,
+      walletCollected: 0,
+      otherCollected: 0,
+      status: DayClosureStatus.OPEN,
+      openedBy: userId,
+    });
+
+    // Record opening balance in cash drawer
+    await this.db.cashDrawerTransactions.create({
+      tenantId: this.tenantId,
+      branchId,
+      transactionType: "opening",
+      amount: openingBalance,
+      balanceAfter: openingBalance,
+      description: "Opening balance",
+      createdBy: userId,
+    });
+
+    return closure;
+  }
+
+  /**
+   * Close day for a branch
+   */
+  async closeDay(
+    branchId: string,
+    actualCash: number,
+    notes: string,
+    userId: string,
+  ): Promise<DayClosure> {
+    const today = new Date().toISOString().split("T")[0];
+
+    // Get current day closure
+    const closure = await this.db.dayClosures.findFirst({
+      where: { branchId, closureDate: today, status: DayClosureStatus.OPEN },
+    });
+
+    if (!closure) {
+      throw new NotFoundError("DAY_NOT_OPEN", "Day is not opened");
+    }
+
+    // Calculate day summary
+    const summary = await this.calculateDaySummary(branchId, today);
+
+    // Calculate expected cash
+    const expectedCash =
+      closure.expectedCash + summary.cashCollected - summary.cashRefunds;
+    const cashDifference = actualCash - expectedCash;
+
+    // Update closure record
+    const updatedClosure = await this.db.dayClosures.update(closure.id, {
+      expectedCash,
+      actualCash,
+      cashDifference,
+      totalInvoices: summary.totalInvoices,
+      totalRevenue: summary.totalRevenue,
+      totalDiscounts: summary.totalDiscounts,
+      totalRefunds: summary.totalRefunds,
+      totalTaxCollected: summary.totalTaxCollected,
+      cashCollected: summary.cashCollected,
+      cardCollected: summary.cardCollected,
+      upiCollected: summary.upiCollected,
+      walletCollected: summary.walletCollected,
+      otherCollected: summary.otherCollected,
+      status: DayClosureStatus.CLOSED,
+      reconciliationNotes: notes,
+      closedAt: new Date(),
+      closedBy: userId,
+    });
+
+    // Record closing in cash drawer
+    await this.db.cashDrawerTransactions.create({
+      tenantId: this.tenantId,
+      branchId,
+      transactionType: "closing",
+      amount: -actualCash, // Cash removed for safekeeping
+      balanceAfter: 0,
+      description: `Day closure - Actual: ₹${actualCash}, Expected: ₹${expectedCash}`,
+      createdBy: userId,
+    });
+
+    // Create audit log if there's a discrepancy
+    if (Math.abs(cashDifference) > 0) {
+      await this.auditService.log({
+        action: "CASH_DISCREPANCY",
+        entityType: "day_closure",
+        entityId: closure.id,
+        branchId,
+        expectedCash,
+        actualCash,
+        difference: cashDifference,
+        notes,
+        userId,
+      });
+    }
+
+    return updatedClosure;
+  }
+
+  /**
+   * Calculate day summary from transactions
+   */
+  private async calculateDaySummary(
+    branchId: string,
+    date: string,
+  ): Promise<DaySummary> {
+    // Get all finalized invoices for the day
+    const invoices = await this.db.invoices.findMany({
+      where: {
+        branchId,
+        invoiceDate: date,
+        status: InvoiceStatus.FINALIZED,
+      },
+    });
+
+    // Get all payments for the day
+    const payments = await this.db.payments.findMany({
+      where: {
+        branchId,
+        paymentDate: date,
+        status: "completed",
+      },
+    });
+
+    // Get refunds
+    const refunds = await this.db.payments.findMany({
+      where: {
+        branchId,
+        paymentDate: date,
+        isRefund: true,
+      },
+    });
+
+    // Calculate totals
+    const totalRevenue = invoices.reduce((sum, inv) => sum + inv.grandTotal, 0);
+    const totalDiscounts = invoices.reduce(
+      (sum, inv) => sum + inv.discountAmount,
+      0,
+    );
+    const totalTaxCollected = invoices.reduce(
+      (sum, inv) => sum + inv.totalTax,
+      0,
+    );
+    const totalRefunds = refunds.reduce((sum, r) => sum + r.amount, 0);
+
+    // Payment breakdown
+    const byMethod = payments.reduce(
+      (acc, p) => {
+        acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + p.amount;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    return {
+      totalInvoices: invoices.length,
+      totalRevenue,
+      totalDiscounts,
+      totalRefunds,
+      totalTaxCollected,
+      cashCollected: byMethod[PaymentMethod.CASH] || 0,
+      cardCollected: byMethod[PaymentMethod.CARD] || 0,
+      upiCollected: byMethod[PaymentMethod.UPI] || 0,
+      walletCollected: byMethod[PaymentMethod.WALLET] || 0,
+      otherCollected:
+        (byMethod[PaymentMethod.BANK_TRANSFER] || 0) +
+        (byMethod[PaymentMethod.CHEQUE] || 0),
+      cashRefunds: refunds
+        .filter((r) => r.paymentMethod === PaymentMethod.CASH)
+        .reduce((sum, r) => sum + r.amount, 0),
+    };
+  }
+}
+```
+
+---
+
+## Validation Schemas
+
+```typescript
+import { z } from "zod";
+
+// =====================================================
+// CREATE INVOICE
+// =====================================================
+export const createInvoiceSchema = z
+  .object({
+    branchId: z.string().uuid(),
+
+    customerId: z.string().uuid().optional(),
+    customerName: z.string().min(2).max(255).optional(),
+    customerPhone: z
+      .string()
+      .regex(/^[6-9]\d{9}$/)
+      .optional(),
+    customerEmail: z.string().email().optional(),
+
+    appointmentId: z.string().uuid().optional(),
+
+    items: z
+      .array(
+        z.object({
+          itemType: z.enum(["service", "product", "combo", "package"]),
+          referenceId: z.string().uuid(),
+          variantId: z.string().uuid().optional(),
+          quantity: z.number().int().min(1).default(1),
+          stylistId: z.string().uuid().optional(),
+          assistantId: z.string().uuid().optional(),
+          isPackageRedemption: z.boolean().default(false),
+          packageRedemptionId: z.string().uuid().optional(),
+        }),
+      )
+      .min(1),
+
+    discounts: z
+      .array(
+        z.object({
+          discountType: z.enum([
+            "auto_promo",
+            "manual",
+            "coupon",
+            "membership",
+            "loyalty",
+            "referral",
+          ]),
+          discountSource: z.string().optional(),
+          calculationType: z.enum(["percentage", "flat"]),
+          calculationValue: z.number().min(0),
+          appliedTo: z.enum(["subtotal", "item"]),
+          appliedItemIndex: z.number().int().min(0).optional(),
+          reason: z.string().max(255).optional(),
+        }),
+      )
+      .optional(),
+
+    redeemLoyaltyPoints: z.number().int().min(0).optional(),
+    useWalletAmount: z.number().min(0).optional(),
+
+    gstin: z
+      .string()
+      .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/)
+      .optional(),
+    placeOfSupply: z.string().max(50).optional(),
+
+    notes: z.string().max(1000).optional(),
+  })
+  .refine((data) => data.customerId || data.customerName, {
+    message: "Either customerId or customerName is required",
+  });
+
+// =====================================================
+// ADD PAYMENT
+// =====================================================
+export const addPaymentSchema = z.object({
+  payments: z
+    .array(
+      z.object({
+        paymentMethod: z.enum([
+          "cash",
+          "card",
+          "upi",
+          "wallet",
+          "loyalty",
+          "bank_transfer",
+          "cheque",
+        ]),
+        amount: z.number().min(0.01),
+        cardLastFour: z.string().length(4).optional(),
+        cardType: z.enum(["visa", "mastercard", "rupay", "amex"]).optional(),
+        upiId: z.string().max(100).optional(),
+        transactionId: z.string().max(100).optional(),
+        bankName: z.string().max(100).optional(),
+        chequeNumber: z.string().max(50).optional(),
+        chequeDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+      }),
+    )
+    .min(1),
+});
+
+// =====================================================
+// APPLY DISCOUNT
+// =====================================================
+export const applyDiscountSchema = z
+  .object({
+    discountType: z.enum([
+      "auto_promo",
+      "manual",
+      "coupon",
+      "membership",
+      "loyalty",
+      "referral",
+    ]),
+    discountSource: z.string().optional(),
+    calculationType: z.enum(["percentage", "flat"]),
+    calculationValue: z.number().min(0),
+    appliedTo: z.enum(["subtotal", "item"]),
+    appliedItemId: z.string().uuid().optional(),
+    reason: z.string().max(255).optional(),
+  })
+  .refine((data) => !(data.appliedTo === "item" && !data.appliedItemId), {
+    message: 'appliedItemId is required when appliedTo is "item"',
+  });
+
+// =====================================================
+// CREATE CREDIT NOTE
+// =====================================================
+export const createCreditNoteSchema = z.object({
+  originalInvoiceId: z.string().uuid(),
+  items: z
+    .array(
+      z.object({
+        originalItemId: z.string().uuid(),
+        quantity: z.number().int().min(1),
+      }),
+    )
+    .min(1),
+  refundMethod: z.enum(["original_method", "wallet", "cash"]),
+  reason: z.string().min(10).max(500),
+  notes: z.string().max(1000).optional(),
+});
+
+// =====================================================
+// DAY CLOSURE
+// =====================================================
+export const closeDaySchema = z.object({
+  actualCash: z.number().min(0),
+  notes: z.string().max(1000).optional(),
+});
+```
+
+---
+
+## Integration Points
+
+### Inbound Dependencies (This module uses)
+
+| Module                 | Integration                              | Purpose                           |
+| ---------------------- | ---------------------------------------- | --------------------------------- |
+| Appointments           | Appointment data                         | Create invoice from appointment   |
+| Services & Pricing     | Service prices, tax rates                | Calculate line items              |
+| Customers              | Customer data, wallet, loyalty           | Apply discounts, process payments |
+| Memberships & Packages | Membership discounts, package redemption | Apply benefits                    |
+| Inventory              | Product prices                           | Bill products, deduct stock       |
+
+### Outbound Dependencies (Other modules use this)
+
+| Module           | Integration      | Purpose                      |
+| ---------------- | ---------------- | ---------------------------- |
+| Staff Management | Commission data  | Calculate staff payouts      |
+| Inventory        | Consumption data | Deduct consumables           |
+| Reports          | Invoice data     | Revenue reports, GST reports |
+| Expenses         | Cash drawer      | Track cash flow              |
+
+### Event Emissions
+
+```typescript
+// Events emitted by this module
+const BILLING_EVENTS = {
+  INVOICE_CREATED: "invoice.created",
+  INVOICE_FINALIZED: "invoice.finalized",
+  INVOICE_CANCELLED: "invoice.cancelled",
+
+  PAYMENT_RECEIVED: "payment.received",
+  PAYMENT_REFUNDED: "payment.refunded",
+
+  CREDIT_NOTE_ISSUED: "credit_note.issued",
+
+  DAY_OPENED: "day_closure.opened",
+  DAY_CLOSED: "day_closure.closed",
+  CASH_DISCREPANCY: "day_closure.cash_discrepancy",
+};
+
+// Event payload examples
+interface InvoiceFinalizedEvent {
+  invoiceId: string;
+  tenantId: string;
+  branchId: string;
+  customerId?: string;
+  invoiceNumber: string;
+  grandTotal: number;
+  paymentMethods: PaymentMethod[];
+  loyaltyPointsEarned: number;
+  commissions: { stylistId: string; amount: number }[];
+}
+```
+
+---
+
+## Error Handling
+
+```typescript
+// Billing-specific error codes
+export const BILLING_ERRORS = {
+  // Invoice errors
+  INVOICE_NOT_FOUND: {
+    code: "BIL_001",
+    message: "Invoice not found",
+    httpStatus: 404,
+  },
+  INVOICE_NOT_DRAFT: {
+    code: "BIL_002",
+    message: "Only draft invoices can be modified",
+    httpStatus: 400,
+  },
+  INVOICE_ALREADY_FINALIZED: {
+    code: "BIL_003",
+    message: "Invoice is already finalized",
+    httpStatus: 400,
+  },
+  INVOICE_CANCELLED: {
+    code: "BIL_004",
+    message: "Invoice has been cancelled",
+    httpStatus: 400,
+  },
+
+  // Payment errors
+  INSUFFICIENT_PAYMENT: {
+    code: "BIL_010",
+    message: "Payment amount is less than invoice total",
+    httpStatus: 400,
+  },
+  INVALID_PAYMENT_METHOD: {
+    code: "BIL_011",
+    message: "Invalid payment method",
+    httpStatus: 400,
+  },
+  PAYMENT_FAILED: {
+    code: "BIL_012",
+    message: "Payment processing failed",
+    httpStatus: 500,
+  },
+
+  // Discount errors
+  DISCOUNT_LIMIT_EXCEEDED: {
+    code: "BIL_020",
+    message: "Discount exceeds maximum allowed limit",
+    httpStatus: 400,
+  },
+  INVALID_COUPON: {
+    code: "BIL_021",
+    message: "Invalid or expired coupon code",
+    httpStatus: 400,
+  },
+  DISCOUNT_REQUIRES_APPROVAL: {
+    code: "BIL_022",
+    message: "Discount requires manager approval",
+    httpStatus: 403,
+  },
+
+  // Refund errors
+  REFUND_EXCEEDS_AMOUNT: {
+    code: "BIL_030",
+    message: "Refund amount exceeds original invoice amount",
+    httpStatus: 400,
+  },
+  ITEM_ALREADY_REFUNDED: {
+    code: "BIL_031",
+    message: "Item has already been refunded",
+    httpStatus: 400,
+  },
+  REFUND_PERIOD_EXPIRED: {
+    code: "BIL_032",
+    message: "Refund period has expired",
+    httpStatus: 400,
+  },
+
+  // Day closure errors
+  DAY_NOT_OPEN: {
+    code: "BIL_040",
+    message: "Day is not opened for this branch",
+    httpStatus: 400,
+  },
+  DAY_ALREADY_OPEN: {
+    code: "BIL_041",
+    message: "Day is already opened",
+    httpStatus: 409,
+  },
+  DAY_ALREADY_CLOSED: {
+    code: "BIL_042",
+    message: "Day is already closed",
+    httpStatus: 400,
+  },
+  PENDING_INVOICES: {
+    code: "BIL_043",
+    message: "Cannot close day with pending invoices",
+    httpStatus: 400,
+  },
+
+  // Wallet/Loyalty errors
+  INSUFFICIENT_WALLET: {
+    code: "BIL_050",
+    message: "Insufficient wallet balance",
+    httpStatus: 400,
+  },
+  INSUFFICIENT_LOYALTY_POINTS: {
+    code: "BIL_051",
+    message: "Insufficient loyalty points",
+    httpStatus: 400,
+  },
+};
+```
+
+---
+
+## Testing Considerations
+
+### Unit Tests
+
+```typescript
+describe("InvoiceCalculator", () => {
+  describe("calculate", () => {
+    it("should calculate subtotal from items");
+    it("should apply percentage discount correctly");
+    it("should apply flat discount correctly");
+    it("should calculate CGST/SGST for intra-state");
+    it("should calculate IGST for inter-state");
+    it("should apply loyalty discount after tax");
+    it("should apply wallet amount after loyalty");
+    it("should round off to nearest rupee");
+    it("should enforce one auto + one manual discount limit");
+  });
+});
+
+describe("InvoiceService", () => {
+  describe("createFromAppointment", () => {
+    it("should create invoice with locked prices from appointment");
+    it("should include all appointment services");
+    it("should set correct stylist for commission");
+  });
+
+  describe("finalizeInvoice", () => {
+    it("should generate sequential invoice number");
+    it("should record all payments");
+    it("should award loyalty points");
+    it("should deduct wallet if used");
+    it("should lock commissions");
+    it("should deduct inventory");
+    it("should update customer stats");
+    it("should update cash drawer for cash payments");
+  });
+});
+
+describe("RefundService", () => {
+  describe("processRefund", () => {
+    it("should create credit note with correct amounts");
+    it("should credit wallet for wallet refund");
+    it("should update cash drawer for cash refund");
+    it("should reverse loyalty points proportionally");
+    it("should reverse commissions");
+    it("should update original invoice status");
+  });
+});
+
+describe("DayClosureService", () => {
+  describe("closeDay", () => {
+    it("should calculate expected cash correctly");
+    it("should record cash discrepancy");
+    it("should create audit log for discrepancy");
+    it("should prevent closing with pending invoices");
+  });
+});
+```
+
+### Integration Tests
+
+```typescript
+describe("Billing Flow Integration", () => {
+  it(
+    "should complete full billing flow: create → add items → apply discount → finalize → payment",
+  );
+  it("should handle split payment across multiple methods");
+  it("should process refund and update all related records");
+  it("should reconcile day closure with actual transactions");
+});
+```
+
+---
+
+## Performance Considerations
+
+1. **Invoice Number Generation**: Use database sequence or atomic increment to prevent race conditions
+2. **Day Summary Calculation**: Cache intermediate results, recalculate on transaction
+3. **Tax Calculation**: Pre-compute tax rates, avoid repeated lookups
+4. **Bulk Operations**: Use batch inserts for invoice items and payments
+5. **Report Queries**: Index on (branch_id, invoice_date, status) for efficient filtering
+
+---
+
+## Security Considerations
+
+1. **Price Manipulation**: Validate all prices against service catalog, reject client-provided prices
+2. **Discount Limits**: Enforce maximum discount percentage, require approval for high discounts
+3. **Refund Authorization**: Require Branch_Manager or higher for refunds
+4. **Cash Drawer Access**: Log all cash drawer transactions with user ID
+5. **Invoice Immutability**: Finalized invoices cannot be modified, only refunded
+6. **Audit Trail**: Log all sensitive operations (discounts, refunds, cancellations)
+7. **GST Compliance**: Validate GSTIN format, ensure correct tax calculation

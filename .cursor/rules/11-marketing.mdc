@@ -1,0 +1,1937 @@
+# Marketing & Engagement Module
+
+## Overview
+
+This module handles marketing configuration, consent management, audience segmentation, campaign management (WhatsApp, SMS, Email), automated lifecycle campaigns, offers/coupons, referral programs, loyalty communication, feedback automation, message templates, scheduling/throttling, and campaign analytics. It integrates with customer CRM, billing, and membership modules.
+
+**Related Requirements:** 11.1 - 11.20
+
+---
+
+## Database Schema
+
+```sql
+-- =====================================================
+-- MARKETING CONFIGURATION (Tenant-level settings)
+-- =====================================================
+CREATE TABLE marketing_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) UNIQUE,
+
+  -- Feature toggles
+  marketing_enabled BOOLEAN DEFAULT true,
+  whatsapp_enabled BOOLEAN DEFAULT true,
+  sms_enabled BOOLEAN DEFAULT true,
+  email_enabled BOOLEAN DEFAULT false,
+
+  -- WhatsApp settings
+  whatsapp_provider VARCHAR(50), -- gupshup, twilio, wati, etc.
+  whatsapp_api_key_encrypted TEXT,
+  whatsapp_business_number VARCHAR(20),
+  whatsapp_business_id VARCHAR(100),
+
+  -- SMS settings
+  sms_provider VARCHAR(50), -- msg91, twilio, etc.
+  sms_api_key_encrypted TEXT,
+  sms_sender_id VARCHAR(20),
+  sms_fallback_enabled BOOLEAN DEFAULT true,
+
+  -- Email settings
+  email_provider VARCHAR(50), -- sendgrid, ses, etc.
+  email_api_key_encrypted TEXT,
+  email_from_address VARCHAR(255),
+  email_from_name VARCHAR(100),
+
+  -- Send time windows
+  send_window_start TIME DEFAULT '09:00',
+  send_window_end TIME DEFAULT '21:00',
+
+  -- Throttling
+  daily_message_limit_per_customer INTEGER DEFAULT 2,
+  weekly_message_limit_per_customer INTEGER DEFAULT 5,
+
+  -- Budget
+  monthly_budget_limit DECIMAL(10, 2),
+  budget_alert_threshold_percent INTEGER DEFAULT 80,
+
+  -- Approval settings
+  campaign_approval_required BOOLEAN DEFAULT true,
+  campaign_approval_threshold_recipients INTEGER DEFAULT 100,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- BRANCH MARKETING CONFIG
+-- =====================================================
+CREATE TABLE branch_marketing_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id) UNIQUE,
+
+  marketing_enabled BOOLEAN DEFAULT true,
+  monthly_budget_limit DECIMAL(10, 2),
+  current_month_spend DECIMAL(10, 2) DEFAULT 0,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- CUSTOMER CONSENT
+-- =====================================================
+CREATE TABLE customer_consent (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  customer_id UUID NOT NULL REFERENCES customers(id),
+
+  -- Channel-specific consent
+  whatsapp_consent BOOLEAN DEFAULT true,
+  sms_consent BOOLEAN DEFAULT true,
+  email_consent BOOLEAN DEFAULT true,
+
+  -- DND flags
+  is_dnd BOOLEAN DEFAULT false,
+
+  -- Overall marketing opt-out
+  marketing_opted_out BOOLEAN DEFAULT false,
+  opted_out_at TIMESTAMP,
+  opt_out_source VARCHAR(50),
+
+  -- Preferred channel
+  preferred_channel VARCHAR(20) DEFAULT 'whatsapp',
+
+  -- Language preference
+  preferred_language VARCHAR(10) DEFAULT 'en',
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+  UNIQUE(tenant_id, customer_id)
+);
+
+CREATE INDEX idx_customer_consent ON customer_consent(customer_id);
+
+-- =====================================================
+-- CONSENT HISTORY (Audit trail)
+-- =====================================================
+CREATE TABLE consent_history (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  customer_id UUID NOT NULL REFERENCES customers(id),
+
+  field_changed VARCHAR(50) NOT NULL,
+  old_value VARCHAR(100),
+  new_value VARCHAR(100),
+  change_source VARCHAR(50) NOT NULL,
+  change_reason TEXT,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_consent_history ON consent_history(customer_id, created_at);
+
+-- =====================================================
+-- SEGMENTS
+-- =====================================================
+CREATE TABLE segments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+
+  -- Type
+  segment_type VARCHAR(20) NOT NULL DEFAULT 'custom',
+
+  -- Dynamic vs Static
+  is_dynamic BOOLEAN DEFAULT true,
+
+  -- Rules (JSON for flexibility)
+  rules JSONB NOT NULL DEFAULT '{}',
+
+  -- Cached count
+  customer_count INTEGER DEFAULT 0,
+  last_refreshed_at TIMESTAMP,
+
+  -- Branch scope
+  branch_ids UUID[],
+
+  is_active BOOLEAN DEFAULT true,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_segments ON segments(tenant_id, is_active);
+
+-- =====================================================
+-- SEGMENT CUSTOMERS (Cached membership)
+-- =====================================================
+CREATE TABLE segment_customers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  segment_id UUID NOT NULL REFERENCES segments(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL REFERENCES customers(id),
+
+  added_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+  UNIQUE(segment_id, customer_id)
+);
+
+CREATE INDEX idx_segment_customers ON segment_customers(segment_id);
+CREATE INDEX idx_segment_customers_customer ON segment_customers(customer_id);
+
+-- =====================================================
+-- MESSAGE TEMPLATES
+-- =====================================================
+CREATE TABLE message_templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+
+  -- Channel
+  channel VARCHAR(20) NOT NULL,
+
+  -- Template type
+  template_type VARCHAR(30) NOT NULL,
+
+  -- Content
+  content_en TEXT NOT NULL,
+  content_hi TEXT,
+
+  -- For WhatsApp
+  whatsapp_template_name VARCHAR(100),
+  whatsapp_template_status VARCHAR(20),
+  whatsapp_template_id VARCHAR(100),
+
+  -- For Email
+  email_subject_en VARCHAR(255),
+  email_subject_hi VARCHAR(255),
+  email_html_content TEXT,
+
+  -- Placeholders used
+  placeholders VARCHAR(100)[],
+
+  -- Category
+  category VARCHAR(50),
+
+  -- Version tracking
+  version INTEGER DEFAULT 1,
+
+  is_system BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_message_templates ON message_templates(tenant_id, channel, is_active);
+
+-- =====================================================
+-- CAMPAIGNS
+-- =====================================================
+CREATE TABLE campaigns (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+
+  -- Type
+  campaign_type VARCHAR(20) NOT NULL,
+
+  -- Channel
+  channel VARCHAR(20) NOT NULL,
+
+  -- Template
+  template_id UUID NOT NULL REFERENCES message_templates(id),
+
+  -- Audience
+  segment_id UUID REFERENCES segments(id),
+  target_all_customers BOOLEAN DEFAULT false,
+
+  -- Branch scope
+  branch_ids UUID[],
+
+  -- Schedule
+  scheduled_at TIMESTAMP,
+
+  -- For recurring
+  recurrence_pattern VARCHAR(20),
+  recurrence_day INTEGER,
+  recurrence_time TIME,
+  next_run_at TIMESTAMP,
+
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',
+
+  -- Approval
+  requires_approval BOOLEAN DEFAULT false,
+  approved_by UUID REFERENCES users(id),
+  approved_at TIMESTAMP,
+  rejected_by UUID REFERENCES users(id),
+  rejected_at TIMESTAMP,
+  rejection_reason TEXT,
+
+  -- Metrics
+  total_recipients INTEGER DEFAULT 0,
+  sent_count INTEGER DEFAULT 0,
+  delivered_count INTEGER DEFAULT 0,
+  read_count INTEGER DEFAULT 0,
+  failed_count INTEGER DEFAULT 0,
+
+  -- Cost
+  estimated_cost DECIMAL(10, 2),
+  actual_cost DECIMAL(10, 2) DEFAULT 0,
+
+  -- Coupon link
+  coupon_id UUID REFERENCES coupons(id),
+
+  -- Execution
+  started_at TIMESTAMP,
+  completed_at TIMESTAMP,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_campaigns ON campaigns(tenant_id, status);
+CREATE INDEX idx_campaigns_scheduled ON campaigns(scheduled_at, status);
+
+-- =====================================================
+-- CAMPAIGN RECIPIENTS
+-- =====================================================
+CREATE TABLE campaign_recipients (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL REFERENCES customers(id),
+
+  -- Contact info at send time
+  phone VARCHAR(20),
+  email VARCHAR(255),
+
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+
+  -- Delivery tracking
+  sent_at TIMESTAMP,
+  delivered_at TIMESTAMP,
+  read_at TIMESTAMP,
+  failed_at TIMESTAMP,
+  failure_reason TEXT,
+
+  -- Provider reference
+  provider_message_id VARCHAR(100),
+
+  -- Cost
+  message_cost DECIMAL(6, 4),
+
+  -- Retry tracking
+  retry_count INTEGER DEFAULT 0,
+  last_retry_at TIMESTAMP,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_campaign_recipients ON campaign_recipients(campaign_id, status);
+CREATE INDEX idx_campaign_recipients_customer ON campaign_recipients(customer_id);
+
+-- =====================================================
+-- MESSAGE LOG (All messages sent)
+-- =====================================================
+CREATE TABLE message_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID REFERENCES branches(id),
+  customer_id UUID NOT NULL REFERENCES customers(id),
+
+  -- Message details
+  channel VARCHAR(20) NOT NULL,
+  message_type VARCHAR(30) NOT NULL,
+
+  -- Source
+  campaign_id UUID REFERENCES campaigns(id),
+  trigger_type VARCHAR(50),
+
+  -- Content
+  template_id UUID REFERENCES message_templates(id),
+  content_sent TEXT,
+
+  -- Contact
+  recipient_phone VARCHAR(20),
+  recipient_email VARCHAR(255),
+
+  -- Status
+  status VARCHAR(20) NOT NULL,
+
+  -- Tracking
+  sent_at TIMESTAMP,
+  delivered_at TIMESTAMP,
+  read_at TIMESTAMP,
+  failed_at TIMESTAMP,
+  failure_reason TEXT,
+
+  -- Provider
+  provider VARCHAR(50),
+  provider_message_id VARCHAR(100),
+
+  -- Cost
+  message_cost DECIMAL(6, 4),
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_message_log_customer ON message_log(customer_id, created_at);
+CREATE INDEX idx_message_log_campaign ON message_log(campaign_id);
+CREATE INDEX idx_message_log_date ON message_log(tenant_id, created_at);
+
+-- =====================================================
+-- TRIGGER CONFIGURATIONS
+-- =====================================================
+CREATE TABLE trigger_configs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+
+  -- Trigger type
+  trigger_type VARCHAR(50) NOT NULL,
+
+  -- Configuration
+  is_enabled BOOLEAN DEFAULT true,
+
+  -- Timing
+  delay_minutes INTEGER DEFAULT 0,
+  days_before INTEGER,
+  days_after INTEGER,
+
+  -- Time window
+  send_time TIME,
+
+  -- Template
+  template_id UUID REFERENCES message_templates(id),
+
+  -- Channel preference
+  channel VARCHAR(20) DEFAULT 'whatsapp',
+  fallback_channel VARCHAR(20) DEFAULT 'sms',
+
+  -- Branch scope
+  branch_ids UUID[],
+
+  -- Deduplication
+  cooldown_days INTEGER DEFAULT 7,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+
+  UNIQUE(tenant_id, trigger_type)
+);
+
+CREATE INDEX idx_trigger_configs ON trigger_configs(tenant_id, is_enabled);
+
+-- =====================================================
+-- TRIGGER HISTORY
+-- =====================================================
+CREATE TABLE trigger_history (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  customer_id UUID NOT NULL REFERENCES customers(id),
+  trigger_type VARCHAR(50) NOT NULL,
+
+  -- Reference
+  reference_id UUID,
+
+  -- Status
+  status VARCHAR(20) NOT NULL,
+  skip_reason VARCHAR(100),
+
+  message_log_id UUID REFERENCES message_log(id),
+
+  triggered_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_trigger_history ON trigger_history(customer_id, trigger_type, triggered_at);
+
+-- =====================================================
+-- COUPONS
+-- =====================================================
+CREATE TABLE coupons (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+
+  -- Code
+  code VARCHAR(50) NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+
+  -- Discount type
+  discount_type VARCHAR(20) NOT NULL,
+  discount_value DECIMAL(10, 2) NOT NULL,
+
+  -- For free service
+  free_service_id UUID REFERENCES services(id),
+
+  -- Validity
+  valid_from DATE NOT NULL,
+  valid_until DATE NOT NULL,
+
+  -- Usage limits
+  max_total_uses INTEGER,
+  max_uses_per_customer INTEGER DEFAULT 1,
+  current_uses INTEGER DEFAULT 0,
+
+  -- Minimum order
+  min_order_amount DECIMAL(10, 2),
+  max_discount_amount DECIMAL(10, 2),
+
+  -- Restrictions
+  branch_ids UUID[],
+  service_ids UUID[],
+  category_ids UUID[],
+  segment_id UUID REFERENCES segments(id),
+
+  -- Stacking
+  allow_stacking BOOLEAN DEFAULT false,
+
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+
+  -- Campaign link
+  campaign_id UUID REFERENCES campaigns(id),
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+
+  UNIQUE(tenant_id, code)
+);
+
+CREATE INDEX idx_coupons ON coupons(tenant_id, is_active);
+CREATE INDEX idx_coupons_code ON coupons(code);
+
+-- =====================================================
+-- COUPON REDEMPTIONS
+-- =====================================================
+CREATE TABLE coupon_redemptions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  coupon_id UUID NOT NULL REFERENCES coupons(id),
+  customer_id UUID NOT NULL REFERENCES customers(id),
+  invoice_id UUID NOT NULL REFERENCES invoices(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+
+  -- Discount applied
+  discount_amount DECIMAL(10, 2) NOT NULL,
+
+  redeemed_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_coupon_redemptions ON coupon_redemptions(coupon_id);
+CREATE INDEX idx_coupon_redemptions_customer ON coupon_redemptions(customer_id);
+
+-- =====================================================
+-- REFERRAL PROGRAM CONFIG
+-- =====================================================
+CREATE TABLE referral_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) UNIQUE,
+
+  is_enabled BOOLEAN DEFAULT true,
+
+  -- Referrer reward
+  referrer_reward_type VARCHAR(20) NOT NULL DEFAULT 'points',
+  referrer_reward_value DECIMAL(10, 2) NOT NULL DEFAULT 100,
+  referrer_reward_service_id UUID REFERENCES services(id),
+
+  -- Referred customer reward
+  referred_reward_type VARCHAR(20) NOT NULL DEFAULT 'discount',
+  referred_reward_value DECIMAL(10, 2) NOT NULL DEFAULT 10,
+  referred_reward_service_id UUID REFERENCES services(id),
+
+  -- Anti-fraud
+  max_referrals_per_month INTEGER DEFAULT 10,
+  min_order_for_reward DECIMAL(10, 2) DEFAULT 500,
+
+  -- Reward timing
+  reward_on VARCHAR(20) DEFAULT 'first_paid_visit',
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- REFERRALS
+-- =====================================================
+CREATE TABLE referrals (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+
+  -- Referrer
+  referrer_customer_id UUID NOT NULL REFERENCES customers(id),
+  referral_code VARCHAR(20) NOT NULL,
+
+  -- Referred
+  referred_customer_id UUID REFERENCES customers(id),
+  referred_phone VARCHAR(20),
+
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+
+  -- Conversion
+  converted_at TIMESTAMP,
+  first_invoice_id UUID REFERENCES invoices(id),
+  first_invoice_amount DECIMAL(10, 2),
+
+  -- Rewards
+  referrer_rewarded BOOLEAN DEFAULT false,
+  referrer_reward_at TIMESTAMP,
+  referrer_reward_type VARCHAR(20),
+  referrer_reward_value DECIMAL(10, 2),
+
+  referred_rewarded BOOLEAN DEFAULT false,
+  referred_reward_at TIMESTAMP,
+
+  -- Fraud check
+  fraud_flag BOOLEAN DEFAULT false,
+  fraud_reason TEXT,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_referrals_referrer ON referrals(referrer_customer_id);
+CREATE INDEX idx_referrals_code ON referrals(referral_code);
+CREATE INDEX idx_referrals_referred ON referrals(referred_customer_id);
+
+-- =====================================================
+-- STAFF FOLLOW-UP REMINDERS
+-- =====================================================
+CREATE TABLE staff_followup_reminders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  staff_id UUID NOT NULL REFERENCES users(id),
+  customer_id UUID NOT NULL REFERENCES customers(id),
+
+  reminder_date DATE NOT NULL,
+  reminder_time TIME,
+
+  note TEXT,
+
+  status VARCHAR(20) DEFAULT 'pending',
+
+  completed_at TIMESTAMP,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_staff_followups ON staff_followup_reminders(staff_id, reminder_date, status);
+```
+
+---
+
+## TypeScript Types
+
+```typescript
+// =====================================================
+// ENUMS
+// =====================================================
+export enum MarketingChannel {
+  WHATSAPP = 'whatsapp',
+  SMS = 'sms',
+  EMAIL = 'email',
+}
+
+export enum CampaignType {
+  ONE_TIME = 'one_time',
+  RECURRING = 'recurring',
+  TRIGGER = 'trigger',
+}
+
+export enum CampaignStatus {
+  DRAFT = 'draft',
+  PENDING_APPROVAL = 'pending_approval',
+  APPROVED = 'approved',
+  SCHEDULED = 'scheduled',
+  SENDING = 'sending',
+  SENT = 'sent',
+  PAUSED = 'paused',
+  CANCELLED = 'cancelled',
+}
+
+export enum MessageStatus {
+  PENDING = 'pending',
+  SENT = 'sent',
+  DELIVERED = 'delivered',
+  READ = 'read',
+  FAILED = 'failed',
+  SKIPPED = 'skipped',
+}
+
+export enum MessageType {
+  CAMPAIGN = 'campaign',
+  TRIGGER = 'trigger',
+  TRANSACTIONAL = 'transactional',
+}
+
+export enum TemplateType {
+  PROMOTIONAL = 'promotional',
+  TRANSACTIONAL = 'transactional',
+  TRIGGER = 'trigger',
+}
+
+export enum WhatsAppTemplateStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
+export enum TriggerType {
+  POST_VISIT_THANK_YOU = 'post_visit_thank_you',
+  REBOOKING_REMINDER = 'rebooking_reminder',
+  PACKAGE_EXPIRY = 'package_expiry',
+  MEMBERSHIP_EXPIRY = 'membership_expiry',
+  MISS_YOU = 'miss_you',
+  FIRST_VISIT_FOLLOWUP = 'first_visit_followup',
+  BIRTHDAY_WISH = 'birthday_wish',
+  ANNIVERSARY_WISH = 'anniversary_wish',
+  FEEDBACK_REQUEST = 'feedback_request',
+  LOYALTY_POINTS_EARNED = 'loyalty_points_earned',
+  LOYALTY_POINTS_EXPIRING = 'loyalty_points_expiring',
+}
+
+export enum DiscountType {
+  PERCENTAGE = 'percentage',
+  FLAT = 'flat',
+  FREE_SERVICE = 'free_service',
+}
+
+export enum ReferralStatus {
+  PENDING = 'pending',
+  CONVERTED = 'converted',
+  REWARDED = 'rewarded',
+  EXPIRED = 'expired',
+  FRAUD = 'fraud',
+}
+
+export enum RewardType {
+  POINTS = 'points',
+  DISCOUNT = 'discount',
+  FREE_SERVICE = 'free_service',
+}
+
+export enum SegmentType {
+  SYSTEM = 'system',
+  CUSTOM = 'custom',
+}
+
+// =====================================================
+// CORE TYPES
+// =====================================================
+export interface MarketingConfig {
+  id: string;
+  tenantId: string;
+  marketingEnabled: boolean;
+  whatsappEnabled: boolean;
+  smsEnabled: boolean;
+  emailEnabled: boolean;
+  whatsappProvider?: string;
+  whatsappBusinessNumber?: string;
+  smsProvider?: string;
+  smsSenderId?: string;
+  smsFallbackEnabled: boolean;
+  emailProvider?: string;
+  emailFromAddress?: string;
+  emailFromName?: string;
+  sendWindowStart: string;
+  sendWindowEnd: string;
+  dailyMessageLimitPerCustomer: number;
+  weeklyMessageLimitPerCustomer: number;
+  monthlyBudgetLimit?: number;
+  budgetAlertThresholdPercent: number;
+  campaignApprovalRequired: boolean;
+  campaignApprovalThresholdRecipients: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CustomerConsent {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  whatsappConsent: boolean;
+  smsConsent: boolean;
+  emailConsent: boolean;
+  isDnd: boolean;
+  marketingOptedOut: boolean;
+  optedOutAt?: Date;
+  optOutSource?: string;
+  preferredChannel: MarketingChannel;
+  preferredLanguage: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Segment {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  segmentType: SegmentType;
+  isDynamic: boolean;
+  rules: SegmentRules;
+  customerCount: number;
+  lastRefreshedAt?: Date;
+  branchIds?: string[];
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+}
+
+export interface SegmentRules {
+  operator: 'AND' | 'OR';
+  conditions: SegmentCondition[];
+}
+
+export interface SegmentCondition {
+  field: string;
+  op: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'contains';
+  value: any;
+}
+
+export interface MessageTemplate {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  channel: MarketingChannel;
+  templateType: TemplateType;
+  contentEn: string;
+  contentHi?: string;
+  whatsappTemplateName?: string;
+  whatsappTemplateStatus?: WhatsAppTemplateStatus;
+  whatsappTemplateId?: string;
+  emailSubjectEn?: string;
+  emailSubjectHi?: string;
+  emailHtmlContent?: string;
+  placeholders: string[];
+  category?: string;
+  version: number;
+  isSystem: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+}
+
+export interface Campaign {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  campaignType: CampaignType;
+  channel: MarketingChannel;
+  templateId: string;
+  segmentId?: string;
+  targetAllCustomers: boolean;
+  branchIds?: string[];
+  scheduledAt?: Date;
+  recurrencePattern?: string;
+  recurrenceDay?: number;
+  recurrenceTime?: string;
+  nextRunAt?: Date;
+  status: CampaignStatus;
+  requiresApproval: boolean;
+  approvedBy?: string;
+  approvedAt?: Date;
+  rejectedBy?: string;
+  rejectedAt?: Date;
+  rejectionReason?: string;
+  totalRecipients: number;
+  sentCount: number;
+  deliveredCount: number;
+  readCount: number;
+  failedCount: number;
+  estimatedCost?: number;
+  actualCost: number;
+  couponId?: string;
+  startedAt?: Date;
+  completedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  template?: MessageTemplate;
+  segment?: Segment;
+  coupon?: Coupon;
+}
+
+export interface TriggerConfig {
+  id: string;
+  tenantId: string;
+  triggerType: TriggerType;
+  isEnabled: boolean;
+  delayMinutes: number;
+  daysBefore?: number;
+  daysAfter?: number;
+  sendTime?: string;
+  templateId?: string;
+  channel: MarketingChannel;
+  fallbackChannel?: MarketingChannel;
+  branchIds?: string[];
+  cooldownDays: number;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  template?: MessageTemplate;
+}
+
+export interface Coupon {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  description?: string;
+  discountType: DiscountType;
+  discountValue: number;
+  freeServiceId?: string;
+  validFrom: string;
+  validUntil: string;
+  maxTotalUses?: number;
+  maxUsesPerCustomer: number;
+  currentUses: number;
+  minOrderAmount?: number;
+  maxDiscountAmount?: number;
+  branchIds?: string[];
+  serviceIds?: string[];
+  categoryIds?: string[];
+  segmentId?: string;
+  allowStacking: boolean;
+  isActive: boolean;
+  campaignId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+}
+
+export interface ReferralConfig {
+  id: string;
+  tenantId: string;
+  isEnabled: boolean;
+  referrerRewardType: RewardType;
+  referrerRewardValue: number;
+  referrerRewardServiceId?: string;
+  referredRewardType: RewardType;
+  referredRewardValue: number;
+  referredRewardServiceId?: string;
+  maxReferralsPerMonth: number;
+  minOrderForReward: number;
+  rewardOn: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Referral {
+  id: string;
+  tenantId: string;
+  referrerCustomerId: string;
+  referralCode: string;
+  referredCustomerId?: string;
+  referredPhone?: string;
+  status: ReferralStatus;
+  convertedAt?: Date;
+  firstInvoiceId?: string;
+  firstInvoiceAmount?: number;
+  referrerRewarded: boolean;
+  referrerRewardAt?: Date;
+  referrerRewardType?: RewardType;
+  referrerRewardValue?: number;
+  referredRewarded: boolean;
+  referredRewardAt?: Date;
+  fraudFlag: boolean;
+  fraudReason?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// =====================================================
+// ANALYTICS TYPES
+// =====================================================
+export interface CampaignAnalytics {
+  campaignId: string;
+  campaignName: string;
+  channel: MarketingChannel;
+
+  metrics: {
+    totalRecipients: number;
+    sentCount: number;
+    deliveredCount: number;
+    readCount: number;
+    failedCount: number;
+    deliveryRate: number;
+    readRate: number;
+  };
+
+  couponMetrics?: {
+    couponCode: string;
+    redemptionCount: number;
+    redemptionRate: number;
+    revenueGenerated: number;
+  };
+
+  cost: {
+    totalCost: number;
+    costPerMessage: number;
+    roi?: number;
+  };
+
+  period: {
+    startedAt: Date;
+    completedAt?: Date;
+  };
+}
+```
+
+---
+
+## API Endpoints
+
+### Marketing Configuration
+
+```
+GET    /api/v1/marketing/config             Get marketing config
+PATCH  /api/v1/marketing/config             Update marketing config
+GET    /api/v1/marketing/config/branch/:id  Get branch marketing config
+PATCH  /api/v1/marketing/config/branch/:id  Update branch marketing config
+```
+
+### Consent Management
+
+```
+GET    /api/v1/customers/:id/consent        Get customer consent
+PATCH  /api/v1/customers/:id/consent        Update customer consent
+POST   /api/v1/marketing/opt-out            Process opt-out request
+```
+
+### Segments
+
+```
+GET    /api/v1/segments                     List segments
+POST   /api/v1/segments                     Create segment
+GET    /api/v1/segments/:id                 Get segment details
+PATCH  /api/v1/segments/:id                 Update segment
+DELETE /api/v1/segments/:id                 Delete segment
+GET    /api/v1/segments/:id/customers       Get segment customers
+POST   /api/v1/segments/:id/refresh         Refresh segment membership
+GET    /api/v1/segments/preview             Preview segment with rules
+```
+
+### Message Templates
+
+```
+GET    /api/v1/templates                    List templates
+POST   /api/v1/templates                    Create template
+GET    /api/v1/templates/:id                Get template details
+PATCH  /api/v1/templates/:id                Update template
+DELETE /api/v1/templates/:id                Delete template
+POST   /api/v1/templates/:id/preview        Preview template with data
+POST   /api/v1/templates/whatsapp/submit    Submit WhatsApp template for approval
+```
+
+### Campaigns
+
+```
+GET    /api/v1/campaigns                    List campaigns
+POST   /api/v1/campaigns                    Create campaign
+GET    /api/v1/campaigns/:id                Get campaign details
+PATCH  /api/v1/campaigns/:id                Update campaign
+DELETE /api/v1/campaigns/:id                Delete draft campaign
+POST   /api/v1/campaigns/:id/submit         Submit for approval
+POST   /api/v1/campaigns/:id/approve        Approve campaign
+POST   /api/v1/campaigns/:id/reject         Reject campaign
+POST   /api/v1/campaigns/:id/schedule       Schedule campaign
+POST   /api/v1/campaigns/:id/send           Send campaign now
+POST   /api/v1/campaigns/:id/pause          Pause campaign
+POST   /api/v1/campaigns/:id/cancel         Cancel campaign
+POST   /api/v1/campaigns/:id/test           Send test message
+GET    /api/v1/campaigns/:id/recipients     Get campaign recipients
+GET    /api/v1/campaigns/:id/analytics      Get campaign analytics
+```
+
+### Triggers
+
+```
+GET    /api/v1/triggers                     List trigger configs
+PATCH  /api/v1/triggers/:type               Update trigger config
+POST   /api/v1/triggers/:type/enable        Enable trigger
+POST   /api/v1/triggers/:type/disable       Disable trigger
+POST   /api/v1/triggers/:type/test          Test trigger
+```
+
+### Coupons
+
+```
+GET    /api/v1/coupons                      List coupons
+POST   /api/v1/coupons                      Create coupon
+GET    /api/v1/coupons/:id                  Get coupon details
+PATCH  /api/v1/coupons/:id                  Update coupon
+DELETE /api/v1/coupons/:id                  Deactivate coupon
+POST   /api/v1/coupons/validate             Validate coupon code
+GET    /api/v1/coupons/:id/redemptions      Get coupon redemptions
+```
+
+### Referrals
+
+```
+GET    /api/v1/referrals/config             Get referral config
+PATCH  /api/v1/referrals/config             Update referral config
+GET    /api/v1/referrals                    List referrals
+GET    /api/v1/customers/:id/referral-code  Get customer's referral code
+POST   /api/v1/referrals/apply              Apply referral code
+GET    /api/v1/referrals/leaderboard        Get referral leaderboard
+```
+
+### Customer Engagement
+
+```
+GET    /api/v1/customers/:id/timeline       Get engagement timeline
+GET    /api/v1/customers/:id/messages       Get messages sent to customer
+```
+
+### Analytics
+
+```
+GET    /api/v1/marketing/analytics          Get marketing analytics
+GET    /api/v1/marketing/analytics/campaigns  Get campaign performance
+GET    /api/v1/marketing/analytics/channels Get channel performance
+GET    /api/v1/marketing/analytics/spend    Get spend summary
+```
+
+---
+
+## Business Logic
+
+### 1. Campaign Service
+
+```typescript
+class CampaignService {
+  /**
+   * Create campaign with validation
+   */
+  async createCampaign(
+    data: CreateCampaignRequest,
+    userId: string
+  ): Promise<CreateCampaignResponse> {
+    // 1. Validate template exists and matches channel
+    const template = await this.templateRepo.findById(data.templateId);
+    if (template.channel !== data.channel) {
+      throw new MarketingError('TEMPLATE_CHANNEL_MISMATCH',
+        'Template channel does not match campaign channel');
+    }
+
+    // 2. For WhatsApp, ensure template is approved
+    if (data.channel === MarketingChannel.WHATSAPP &&
+        template.whatsappTemplateStatus !== WhatsAppTemplateStatus.APPROVED) {
+      throw new MarketingError('WHATSAPP_TEMPLATE_NOT_APPROVED',
+        'WhatsApp template must be approved before use');
+    }
+
+    // 3. Calculate estimated recipients
+    const estimatedRecipients = await this.calculateRecipients(data);
+
+    // 4. Calculate estimated cost
+    const estimatedCost = await this.calculateCost(data.channel, estimatedRecipients);
+
+    // 5. Check budget
+    await this.checkBudget(data.branchIds, estimatedCost);
+
+    // 6. Determine if approval required
+    const config = await this.getMarketingConfig();
+    const requiresApproval = config.campaignApprovalRequired &&
+      estimatedRecipients >= config.campaignApprovalThresholdRecipients;
+
+    // 7. Create campaign
+    const campaign = await this.campaignRepo.create({
+      ...data,
+      status: CampaignStatus.DRAFT,
+      requiresApproval,
+      totalRecipients: estimatedRecipients,
+      estimatedCost,
+      createdBy: userId,
+    });
+
+    return {
+      success: true,
+      data: {
+        campaign,
+        estimatedRecipients,
+        estimatedCost,
+        requiresApproval,
+      },
+    };
+  }
+
+  /**
+   * Send campaign
+   */
+  async sendCampaign(
+    campaignId: string,
+    userId: string
+  ): Promise<SendCampaignResponse> {
+    const campaign = await this.campaignRepo.findById(campaignId);
+
+    if (![CampaignStatus.APPROVED, CampaignStatus.SCHEDULED].includes(campaign.status)) {
+      throw new MarketingError('INVALID_CAMPAIGN_STATUS',
+        'Campaign must be approved or scheduled to send');
+    }
+
+    await this.campaignRepo.update(campaignId, {
+      status: CampaignStatus.SENDING,
+      startedAt: new Date(),
+    });
+
+    const recipients = await this.getEligibleRecipients(campaign);
+    await this.createRecipientRecords(campaignId, recipients);
+    await this.queueCampaignMessages(campaign, recipients);
+
+    return {
+      success: true,
+      data: {
+        campaign: await this.campaignRepo.findById(campaignId),
+        recipientsQueued: recipients.length,
+        estimatedCompletionTime: this.estimateCompletionTime(recipients.length),
+      },
+    };
+  }
+
+  /**
+   * Get eligible recipients (respecting consent and throttling)
+   */
+  private async getEligibleRecipients(campaign: Campaign): Promise<Customer[]> {
+    let customers: Customer[];
+    if (campaign.segmentId) {
+      customers = await this.segmentService.getCustomers(campaign.segmentId);
+    } else if (campaign.targetAllCustomers) {
+      customers = await this.customerRepo.findAll(campaign.branchIds);
+    } else {
+      return [];
+    }
+
+    const eligibleCustomers = [];
+    for (const customer of customers) {
+      const consent = await this.consentService.getConsent(customer.id);
+
+      if (consent.marketingOptedOut) continue;
+      if (campaign.channel === MarketingChannel.WHATSAPP && !consent.whatsappConsent) continue;
+      if (campaign.channel === MarketingChannel.SMS && !consent.smsConsent) continue;
+      if (campaign.channel === MarketingChannel.EMAIL && !consent.emailConsent) continue;
+      if (consent.isDnd && campaign.channel === MarketingChannel.SMS) continue;
+
+      const canSend = await this.throttleService.canSendMessage(customer.id);
+      if (!canSend) continue;
+
+      eligibleCustomers.push(customer);
+    }
+
+    return eligibleCustomers;
+  }
+}
+```
+
+### 2. Trigger Service
+
+```typescript
+class TriggerService {
+  /**
+   * Process triggers (called by scheduler)
+   */
+  async processTriggers(): Promise<void> {
+    const enabledTriggers = await this.triggerConfigRepo.findEnabled();
+
+    for (const trigger of enabledTriggers) {
+      try {
+        await this.processTrigger(trigger);
+      } catch (error) {
+        this.logger.error('Trigger processing failed', {
+          triggerType: trigger.triggerType,
+          error,
+        });
+      }
+    }
+  }
+
+  /**
+   * Process single trigger type
+   */
+  private async processTrigger(config: TriggerConfig): Promise<void> {
+    switch (config.triggerType) {
+      case TriggerType.POST_VISIT_THANK_YOU:
+        await this.processPostVisitTrigger(config);
+        break;
+      case TriggerType.REBOOKING_REMINDER:
+        await this.processRebookingTrigger(config);
+        break;
+      case TriggerType.BIRTHDAY_WISH:
+        await this.processBirthdayTrigger(config);
+        break;
+      case TriggerType.PACKAGE_EXPIRY:
+        await this.processPackageExpiryTrigger(config);
+        break;
+      case TriggerType.MISS_YOU:
+        await this.processMissYouTrigger(config);
+        break;
+      case TriggerType.FEEDBACK_REQUEST:
+        await this.processFeedbackTrigger(config);
+        break;
+    }
+  }
+
+  /**
+   * Birthday wish trigger
+   */
+  private async processBirthdayTrigger(config: TriggerConfig): Promise<void> {
+    const targetDate = new Date();
+    if (config.daysBefore) {
+      targetDate.setDate(targetDate.getDate() + config.daysBefore);
+    }
+
+    const customers = await this.customerRepo.findByBirthday(
+      targetDate.getMonth() + 1,
+      targetDate.getDate()
+    );
+
+    for (const customer of customers) {
+      const lastTrigger = await this.getLastTrigger(customer.id, TriggerType.BIRTHDAY_WISH);
+      if (lastTrigger && this.isWithinCooldown(lastTrigger, config.cooldownDays)) {
+        continue;
+      }
+
+      const canSend = await this.canSendTrigger(customer.id, config);
+      if (!canSend) continue;
+
+      await this.sendTriggerMessage(config, customer, {});
+      await this.recordTriggerSent(customer.id, config.triggerType);
+    }
+  }
+}
+```
+
+### 3. Coupon Service
+
+```typescript
+class CouponService {
+  /**
+   * Validate coupon for use
+   */
+  async validateCoupon(
+    request: ValidateCouponRequest
+  ): Promise<ValidateCouponResponse> {
+    const { code, customerId, branchId, serviceIds, orderAmount } = request;
+
+    const coupon = await this.couponRepo.findByCode(code);
+    if (!coupon || !coupon.isActive) {
+      return { success: true, data: { valid: false, invalidReason: 'invalid_code' } };
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    if (today < coupon.validFrom || today > coupon.validUntil) {
+      return { success: true, data: { valid: false, invalidReason: 'expired' } };
+    }
+
+    if (coupon.maxTotalUses && coupon.currentUses >= coupon.maxTotalUses) {
+      return { success: true, data: { valid: false, invalidReason: 'max_uses_reached' } };
+    }
+
+    const customerUses = await this.redemptionRepo.countByCustomer(coupon.id, customerId);
+    if (customerUses >= coupon.maxUsesPerCustomer) {
+      return { success: true, data: { valid: false, invalidReason: 'customer_limit_reached' } };
+    }
+
+    if (coupon.minOrderAmount && orderAmount < coupon.minOrderAmount) {
+      return { success: true, data: { valid: false, invalidReason: 'min_order_not_met' } };
+    }
+
+    if (coupon.branchIds?.length && !coupon.branchIds.includes(branchId)) {
+      return { success: true, data: { valid: false, invalidReason: 'branch_not_eligible' } };
+    }
+
+    if (coupon.serviceIds?.length && serviceIds) {
+      const hasEligibleService = serviceIds.some(s => coupon.serviceIds.includes(s));
+      if (!hasEligibleService) {
+        return { success: true, data: { valid: false, invalidReason: 'service_not_eligible' } };
+      }
+    }
+
+    if (coupon.segmentId) {
+      const inSegment = await this.segmentService.isCustomerInSegment(customerId, coupon.segmentId);
+      if (!inSegment) {
+        return { success: true, data: { valid: false, invalidReason: 'segment_not_eligible' } };
+      }
+    }
+
+    const discountAmount = this.calculateDiscount(coupon, orderAmount);
+
+    return {
+      success: true,
+      data: { valid: true, coupon, discountAmount },
+    };
+  }
+
+  /**
+   * Calculate discount amount
+   */
+  private calculateDiscount(coupon: Coupon, orderAmount: number): number {
+    let discount = 0;
+
+    switch (coupon.discountType) {
+      case DiscountType.PERCENTAGE:
+        discount = orderAmount * (coupon.discountValue / 100);
+        break;
+      case DiscountType.FLAT:
+        discount = coupon.discountValue;
+        break;
+      case DiscountType.FREE_SERVICE:
+        discount = 0;
+        break;
+    }
+
+    if (coupon.maxDiscountAmount && discount > coupon.maxDiscountAmount) {
+      discount = coupon.maxDiscountAmount;
+    }
+
+    if (discount > orderAmount) {
+      discount = orderAmount;
+    }
+
+    return Math.round(discount * 100) / 100;
+  }
+}
+```
+
+### 4. Referral Service
+
+```typescript
+class ReferralService {
+  /**
+   * Apply referral code for new customer
+   */
+  async applyReferralCode(
+    referralCode: string,
+    referredPhone: string,
+    referredName?: string
+  ): Promise<ApplyReferralResponse> {
+    const referrerReferral = await this.referralRepo.findByCode(referralCode);
+    if (!referrerReferral) {
+      throw new MarketingError('INVALID_REFERRAL_CODE', 'Referral code not found');
+    }
+
+    const referrerId = referrerReferral.referrerCustomerId;
+    const referrer = await this.customerRepo.findById(referrerId);
+
+    if (referrer.phone === referredPhone) {
+      throw new MarketingError('SELF_REFERRAL', 'Cannot refer yourself');
+    }
+
+    const config = await this.getReferralConfig();
+    const monthlyReferrals = await this.referralRepo.countMonthlyReferrals(referrerId);
+    if (monthlyReferrals >= config.maxReferralsPerMonth) {
+      throw new MarketingError('REFERRAL_LIMIT_REACHED', 'Monthly referral limit reached');
+    }
+
+    const existingReferral = await this.referralRepo.findByReferredPhone(referredPhone);
+    if (existingReferral) {
+      throw new MarketingError('ALREADY_REFERRED', 'This phone number has already been referred');
+    }
+
+    let referredCustomer = await this.customerRepo.findByPhone(referredPhone);
+    if (!referredCustomer) {
+      referredCustomer = await this.customerRepo.create({
+        phone: referredPhone,
+        name: referredName || 'New Customer',
+        source: 'referral',
+      });
+    }
+
+    const referral = await this.referralRepo.create({
+      referrerCustomerId: referrerId,
+      referralCode,
+      referredCustomerId: referredCustomer.id,
+      referredPhone,
+      status: ReferralStatus.PENDING,
+    });
+
+    const referredReward = this.getReferredReward(config);
+
+    return {
+      success: true,
+      data: { referral, referredCustomer, referredReward },
+    };
+  }
+
+  /**
+   * Process referral reward after first paid visit
+   */
+  async processReferralReward(
+    referredCustomerId: string,
+    invoiceId: string,
+    invoiceAmount: number
+  ): Promise<void> {
+    const referral = await this.referralRepo.findByReferred(referredCustomerId);
+    if (!referral || referral.status !== ReferralStatus.PENDING) {
+      return;
+    }
+
+    const config = await this.getReferralConfig();
+    if (invoiceAmount < config.minOrderForReward) {
+      return;
+    }
+
+    await this.referralRepo.update(referral.id, {
+      status: ReferralStatus.CONVERTED,
+      convertedAt: new Date(),
+      firstInvoiceId: invoiceId,
+      firstInvoiceAmount: invoiceAmount,
+    });
+
+    await this.creditReferrerReward(referral, config);
+    await this.notifyReferrer(referral);
+  }
+}
+```
+
+---
+
+## Validation Schemas
+
+```typescript
+import { z } from 'zod';
+
+// Segment
+export const createSegmentSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+  rules: z.object({
+    operator: z.enum(['AND', 'OR']),
+    conditions: z.array(z.object({
+      field: z.string(),
+      op: z.enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'contains']),
+      value: z.any(),
+    })).min(1),
+  }),
+  branchIds: z.array(z.string().uuid()).optional(),
+});
+
+// Campaign
+export const createCampaignSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+  campaignType: z.nativeEnum(CampaignType),
+  channel: z.nativeEnum(MarketingChannel),
+  templateId: z.string().uuid(),
+  segmentId: z.string().uuid().optional(),
+  targetAllCustomers: z.boolean().default(false),
+  branchIds: z.array(z.string().uuid()).optional(),
+  scheduledAt: z.string().datetime().optional(),
+  recurrencePattern: z.enum(['daily', 'weekly', 'monthly']).optional(),
+  recurrenceDay: z.number().int().min(0).max(31).optional(),
+  recurrenceTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  couponId: z.string().uuid().optional(),
+}).refine(
+  (data) => data.segmentId || data.targetAllCustomers,
+  { message: 'Either segmentId or targetAllCustomers must be specified' }
+);
+
+// Coupon
+export const createCouponSchema = z.object({
+  code: z.string().max(50).optional(),
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+  discountType: z.nativeEnum(DiscountType),
+  discountValue: z.number().positive(),
+  freeServiceId: z.string().uuid().optional(),
+  validFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  maxTotalUses: z.number().int().positive().optional(),
+  maxUsesPerCustomer: z.number().int().positive().default(1),
+  minOrderAmount: z.number().min(0).optional(),
+  maxDiscountAmount: z.number().positive().optional(),
+  branchIds: z.array(z.string().uuid()).optional(),
+  serviceIds: z.array(z.string().uuid()).optional(),
+  categoryIds: z.array(z.string().uuid()).optional(),
+  segmentId: z.string().uuid().optional(),
+  allowStacking: z.boolean().default(false),
+}).refine(
+  (data) => new Date(data.validFrom) <= new Date(data.validUntil),
+  { message: 'validFrom must be before or equal to validUntil' }
+);
+
+// Template
+export const createTemplateSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+  channel: z.nativeEnum(MarketingChannel),
+  templateType: z.nativeEnum(TemplateType),
+  contentEn: z.string().min(1),
+  contentHi: z.string().optional(),
+  whatsappTemplateName: z.string().optional(),
+  emailSubjectEn: z.string().optional(),
+  emailSubjectHi: z.string().optional(),
+  emailHtmlContent: z.string().optional(),
+  category: z.string().optional(),
+});
+
+// Trigger config
+export const updateTriggerConfigSchema = z.object({
+  isEnabled: z.boolean().optional(),
+  delayMinutes: z.number().int().min(0).optional(),
+  daysBefore: z.number().int().min(0).optional(),
+  daysAfter: z.number().int().min(0).optional(),
+  sendTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  templateId: z.string().uuid().optional(),
+  channel: z.nativeEnum(MarketingChannel).optional(),
+  fallbackChannel: z.nativeEnum(MarketingChannel).optional(),
+  branchIds: z.array(z.string().uuid()).optional(),
+  cooldownDays: z.number().int().min(0).optional(),
+});
+```
+
+---
+
+## Integration Points
+
+### Inbound Dependencies
+
+| Module             | Integration           | Purpose                        |
+| ------------------ | --------------------- | ------------------------------ |
+| Customers          | Customer data         | Segmentation, consent          |
+| Appointments       | Appointment events    | Post-visit triggers            |
+| Billing            | Invoice events        | Referral rewards               |
+| Memberships        | Expiry events         | Expiry notifications           |
+
+### Event Emissions
+
+```typescript
+// Campaign Events
+'campaign.created'        -> { campaign: Campaign, userId: string }
+'campaign.approved'       -> { campaign: Campaign, userId: string }
+'campaign.rejected'       -> { campaign: Campaign, reason: string, userId: string }
+'campaign.sent'           -> { campaign: Campaign, recipientCount: number }
+'campaign.completed'      -> { campaign: Campaign, metrics: CampaignMetrics }
+
+// Message Events
+'message.sent'            -> { messageLog: MessageLog }
+'message.delivered'       -> { messageLogId: string }
+'message.read'            -> { messageLogId: string }
+'message.failed'          -> { messageLogId: string, reason: string }
+
+// Trigger Events
+'trigger.fired'           -> { triggerType: TriggerType, customerId: string }
+'trigger.skipped'         -> { triggerType: TriggerType, customerId: string, reason: string }
+
+// Coupon Events
+'coupon.created'          -> { coupon: Coupon, userId: string }
+'coupon.redeemed'         -> { couponId: string, customerId: string, invoiceId: string }
+'coupon.exhausted'        -> { coupon: Coupon }
+
+// Referral Events
+'referral.created'        -> { referral: Referral }
+'referral.converted'      -> { referral: Referral }
+'referral.rewarded'       -> { referral: Referral, referrerId: string }
+
+// Consent Events
+'consent.updated'         -> { customerId: string, field: string, oldValue: any, newValue: any }
+'consent.opted_out'       -> { customerId: string, source: string }
+```
+
+---
+
+## Error Handling
+
+```typescript
+export enum MarketingErrorCode {
+  // Config errors
+  MARKETING_DISABLED = 'MARKETING_001',
+  CHANNEL_DISABLED = 'MARKETING_002',
+
+  // Consent errors
+  NO_CONSENT = 'MARKETING_010',
+  OPTED_OUT = 'MARKETING_011',
+  DND_REGISTERED = 'MARKETING_012',
+
+  // Campaign errors
+  INVALID_CAMPAIGN_STATUS = 'MARKETING_020',
+  TEMPLATE_CHANNEL_MISMATCH = 'MARKETING_021',
+  WHATSAPP_TEMPLATE_NOT_APPROVED = 'MARKETING_022',
+  BUDGET_EXCEEDED = 'MARKETING_023',
+
+  // Coupon errors
+  INVALID_COUPON_CODE = 'MARKETING_030',
+  COUPON_EXPIRED = 'MARKETING_031',
+  COUPON_MAX_USES = 'MARKETING_032',
+  COUPON_CUSTOMER_LIMIT = 'MARKETING_033',
+  COUPON_MIN_ORDER = 'MARKETING_034',
+  COUPON_NOT_ELIGIBLE = 'MARKETING_035',
+
+  // Referral errors
+  INVALID_REFERRAL_CODE = 'MARKETING_040',
+  SELF_REFERRAL = 'MARKETING_041',
+  REFERRAL_LIMIT_REACHED = 'MARKETING_042',
+  ALREADY_REFERRED = 'MARKETING_043',
+
+  // Send errors
+  OUTSIDE_SEND_WINDOW = 'MARKETING_050',
+  THROTTLE_LIMIT = 'MARKETING_051',
+  PROVIDER_ERROR = 'MARKETING_052',
+}
+
+export class MarketingError extends Error {
+  constructor(
+    public code: MarketingErrorCode,
+    message: string,
+    public details?: Record<string, any>
+  ) {
+    super(message);
+    this.name = 'MarketingError';
+  }
+}
+```
+
+---
+
+## Testing Considerations
+
+### Unit Tests
+
+```typescript
+describe('CampaignService', () => {
+  describe('createCampaign', () => {
+    it('should create campaign with valid data');
+    it('should validate template channel matches');
+    it('should require WhatsApp template approval');
+    it('should calculate estimated recipients');
+    it('should check budget limits');
+    it('should determine approval requirement');
+  });
+
+  describe('sendCampaign', () => {
+    it('should filter recipients by consent');
+    it('should respect throttling limits');
+    it('should queue messages for sending');
+  });
+});
+
+describe('TriggerService', () => {
+  describe('processTriggers', () => {
+    it('should process post-visit trigger');
+    it('should process birthday trigger');
+    it('should respect cooldown period');
+    it('should skip opted-out customers');
+  });
+});
+
+describe('CouponService', () => {
+  describe('validateCoupon', () => {
+    it('should validate coupon code');
+    it('should check validity period');
+    it('should check usage limits');
+    it('should check minimum order');
+    it('should check branch eligibility');
+    it('should check segment eligibility');
+    it('should calculate discount correctly');
+  });
+});
+
+describe('ReferralService', () => {
+  describe('applyReferralCode', () => {
+    it('should apply valid referral code');
+    it('should prevent self-referral');
+    it('should enforce monthly limit');
+    it('should prevent duplicate referrals');
+  });
+
+  describe('processReferralReward', () => {
+    it('should credit referrer reward');
+    it('should check minimum order');
+    it('should update referral status');
+  });
+});
+```
+
+---
+
+## Performance Considerations
+
+### Caching Strategy
+
+```typescript
+// Cache marketing config (rarely changes)
+const MARKETING_CONFIG_CACHE_TTL = 3600; // 1 hour
+
+// Cache customer consent (check frequently)
+const CONSENT_CACHE_TTL = 300; // 5 minutes
+
+// Cache segment customer count
+const SEGMENT_COUNT_CACHE_TTL = 600; // 10 minutes
+
+// Cache coupon validation (short TTL)
+const COUPON_CACHE_TTL = 60; // 1 minute
+```
+
+### Message Queue
+
+```typescript
+interface CampaignMessageJob {
+  campaignId: string;
+  recipientId: string;
+  customerId: string;
+  priority: number;
+}
+
+const CAMPAIGN_QUEUE = 'campaign-messages';
+const MAX_CONCURRENT_SENDS = 50;
+const RATE_LIMIT_PER_SECOND = 10;
+```
+
+---
+
+## Security Considerations
+
+### Access Control
+
+```typescript
+const MARKETING_PERMISSIONS = {
+  'campaign.view': ['Receptionist', 'Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+  'campaign.create': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+  'campaign.approve': ['Regional_Manager', 'Super_Owner'],
+  'campaign.send': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+  'template.manage': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+  'coupon.manage': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+  'segment.manage': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+  'referral.config': ['Super_Owner'],
+  'budget.config': ['Super_Owner'],
+  'consent.update': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+};
+```
+
+---
+
+## Scheduled Jobs
+
+```typescript
+// Trigger processing
+'*/5 * * * *'   -> processTriggers()              // Every 5 minutes
+
+// Campaign scheduling
+'* * * * *'     -> processScheduledCampaigns()    // Every minute
+
+// Recurring campaigns
+'0 * * * *'     -> processRecurringCampaigns()    // Every hour
+
+// Segment refresh
+'0 */6 * * *'   -> refreshAllSegments()           // Every 6 hours
+
+// Delivery status updates
+'*/2 * * * *'   -> updateDeliveryStatuses()       // Every 2 minutes
+
+// Budget reset
+'0 0 1 * *'     -> resetMonthlyBudgets()          // 1st of month
+
+// Cleanup
+'0 3 * * *'     -> cleanupOldMessageLogs()        // Daily at 3 AM
+```
+
+---
+
+## Pre-built Segments
+
+```typescript
+const SYSTEM_SEGMENTS = [
+  {
+    name: 'New Customers',
+    rules: { operator: 'AND', conditions: [{ field: 'visit_count', op: 'eq', value: 1 }] },
+  },
+  {
+    name: 'Repeat Customers',
+    rules: { operator: 'AND', conditions: [{ field: 'visit_count', op: 'gt', value: 1 }] },
+  },
+  {
+    name: 'Inactive Customers (30+ days)',
+    rules: { operator: 'AND', conditions: [{ field: 'last_visit_days', op: 'gt', value: 30 }] },
+  },
+  {
+    name: 'High-Value Customers',
+    rules: { operator: 'AND', conditions: [{ field: 'total_spend', op: 'gt', value: 10000 }] },
+  },
+  {
+    name: 'Package Holders',
+    rules: { operator: 'AND', conditions: [{ field: 'has_active_package', op: 'eq', value: true }] },
+  },
+  {
+    name: 'Members',
+    rules: { operator: 'AND', conditions: [{ field: 'has_active_membership', op: 'eq', value: true }] },
+  },
+  {
+    name: 'Birthday This Month',
+    rules: { operator: 'AND', conditions: [{ field: 'birthday_month', op: 'eq', value: 'current' }] },
+  },
+];
+```
+
+---
+
+## Default Trigger Configurations
+
+```typescript
+const DEFAULT_TRIGGER_CONFIGS = [
+  {
+    triggerType: TriggerType.POST_VISIT_THANK_YOU,
+    isEnabled: true,
+    delayMinutes: 120,
+    channel: MarketingChannel.WHATSAPP,
+    cooldownDays: 1,
+  },
+  {
+    triggerType: TriggerType.REBOOKING_REMINDER,
+    isEnabled: true,
+    daysAfter: 30,
+    channel: MarketingChannel.WHATSAPP,
+    cooldownDays: 7,
+  },
+  {
+    triggerType: TriggerType.BIRTHDAY_WISH,
+    isEnabled: true,
+    daysBefore: 0,
+    sendTime: '09:00',
+    channel: MarketingChannel.WHATSAPP,
+    cooldownDays: 365,
+  },
+  {
+    triggerType: TriggerType.FEEDBACK_REQUEST,
+    isEnabled: true,
+    delayMinutes: 60,
+    channel: MarketingChannel.WHATSAPP,
+    cooldownDays: 7,
+  },
+  {
+    triggerType: TriggerType.PACKAGE_EXPIRY,
+    isEnabled: true,
+    daysBefore: 7,
+    channel: MarketingChannel.WHATSAPP,
+    cooldownDays: 7,
+  },
+  {
+    triggerType: TriggerType.MISS_YOU,
+    isEnabled: false,
+    daysAfter: 60,
+    channel: MarketingChannel.WHATSAPP,
+    cooldownDays: 30,
+  },
+];
+```
