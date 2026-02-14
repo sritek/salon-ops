@@ -1,0 +1,987 @@
+{
+  "common": {
+    "actions": {
+      "save": "सहेजें",
+      "cancel": "रद्द करें",
+      "delete": "हटाएं",
+      "edit": "संपादित करें",
+      "add": "जोड़ें",
+      "search": "खोजें",
+      "filter": "फ़िल्टर",
+      "export": "निर्यात",
+      "back": "वापस",
+      "next": "अगला",
+      "previous": "पिछला",
+      "confirm": "पुष्टि करें",
+      "close": "बंद करें",
+      "view": "देखें",
+      "create": "बनाएं",
+      "update": "अपडेट करें",
+      "submit": "जमा करें",
+      "reset": "रीसेट",
+      "clear": "साफ़ करें",
+      "apply": "लागू करें",
+      "refresh": "रिफ्रेश",
+      "duplicate": "डुप्लिकेट",
+      "viewDetails": "विवरण देखें"
+    },
+    "status": {
+      "loading": "लोड हो रहा है...",
+      "saving": "सहेजा जा रहा है...",
+      "creating": "बनाया जा रहा है...",
+      "success": "सफल",
+      "error": "त्रुटि",
+      "pending": "लंबित",
+      "completed": "पूर्ण",
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय",
+      "enabled": "सक्षम",
+      "disabled": "अक्षम",
+      "confirmed": "पुष्टि",
+      "inProgress": "प्रगति में",
+      "popular": "लोकप्रिय"
+    },
+    "validation": {
+      "required": "यह फ़ील्ड आवश्यक है",
+      "invalidEmail": "अमान्य ईमेल पता",
+      "invalidPhone": "अमान्य फ़ोन नंबर",
+      "minLength": "कम से कम {min} अक्षर होने चाहिए",
+      "maxLength": "अधिकतम {max} अक्षर होने चाहिए",
+      "minValue": "कम से कम {min} होना चाहिए",
+      "maxValue": "अधिकतम {max} होना चाहिए",
+      "phoneMinLength": "फ़ोन नंबर कम से कम 10 अंकों का होना चाहिए",
+      "phoneMaxLength": "फ़ोन नंबर बहुत लंबा है",
+      "phoneFormat": "अमान्य फ़ोन नंबर प्रारूप",
+      "nameMinLength": "नाम कम से कम 2 अक्षरों का होना चाहिए"
+    },
+    "pagination": {
+      "page": "पृष्ठ",
+      "of": "का",
+      "showing": "दिखा रहा है",
+      "to": "से",
+      "results": "परिणाम",
+      "rowsPerPage": "प्रति पृष्ठ पंक्तियाँ",
+      "noResults": "कोई परिणाम नहीं मिला"
+    },
+    "empty": {
+      "title": "कोई डेटा नहीं",
+      "description": "प्रदर्शित करने के लिए कोई आइटम नहीं"
+    },
+    "confirm": {
+      "deleteTitle": "हटाने की पुष्टि करें",
+      "deleteDescription": "क्या आप वाकई इस आइटम को हटाना चाहते हैं? यह क्रिया पूर्ववत नहीं की जा सकती।"
+    },
+    "time": {
+      "today": "आज",
+      "tomorrow": "कल",
+      "yesterday": "कल",
+      "min": "मिनट"
+    }
+  },
+  "navigation": {
+    "dashboard": "डैशबोर्ड",
+    "customers": "ग्राहक",
+    "appointments": "अपॉइंटमेंट",
+    "walkIn": "वॉक-इन कतार",
+    "services": "सेवाएं",
+    "staff": "स्टाफ",
+    "staffList": "स्टाफ सूची",
+    "attendance": "उपस्थिति",
+    "leaves": "छुट्टियां",
+    "payroll": "वेतन",
+    "billing": "बिलिंग",
+    "invoices": "इनवॉइस",
+    "dayClosure": "दिन समापन",
+    "creditNotes": "क्रेडिट नोट्स",
+    "inventory": "इन्वेंटरी",
+    "stock": "स्टॉक",
+    "products": "उत्पाद",
+    "vendors": "विक्रेता",
+    "purchaseOrders": "खरीद आदेश",
+    "goodsReceipts": "माल रसीद",
+    "transfers": "स्थानांतरण",
+    "audits": "ऑडिट",
+    "inventoryReports": "इन्वेंटरी रिपोर्ट",
+    "memberships": "सदस्यता",
+    "membershipPlans": "सदस्यता योजनाएं",
+    "customerMemberships": "ग्राहक सदस्यता",
+    "packages": "पैकेज",
+    "customerPackages": "ग्राहक पैकेज",
+    "reports": "रिपोर्ट",
+    "settings": "सेटिंग्स",
+    "marketing": "मार्केटिंग",
+    "help": "सहायता",
+    "categories": "श्रेणियां",
+    "combos": "कॉम्बो"
+  },
+  "dashboard": {
+    "greeting": {
+      "morning": "सुप्रभात",
+      "afternoon": "नमस्कार",
+      "evening": "शुभ संध्या"
+    },
+    "subtitle": "आज {salon} में क्या हो रहा है",
+    "quickActions": {
+      "newAppointment": "नई अपॉइंटमेंट",
+      "walkIn": "वॉक-इन",
+      "addCustomer": "ग्राहक जोड़ें"
+    },
+    "stats": {
+      "todayAppointments": "आज की अपॉइंटमेंट",
+      "pendingConfirmations": "लंबित पुष्टि",
+      "todayRevenue": "आज की आय",
+      "walkInSlots": "वॉक-इन स्लॉट"
+    },
+    "schedule": {
+      "title": "आज का शेड्यूल",
+      "noAppointments": "आज कोई अपॉइंटमेंट नहीं",
+      "noAppointmentsDesc": "आपका शेड्यूल खाली है। नई अपॉइंटमेंट जोड़ें या ऑनलाइन बुकिंग की प्रतीक्षा करें।"
+    },
+    "activity": {
+      "title": "हाल की गतिविधि",
+      "noActivity": "कोई हाल की गतिविधि नहीं",
+      "noActivityDesc": "जैसे ही आप अपने सैलून का प्रबंधन करेंगे, गतिविधि यहां दिखाई देगी।"
+    }
+  },
+  "customers": {
+    "list": {
+      "title": "ग्राहक",
+      "description": "अपने ग्राहक डेटाबेस और प्रोफाइल प्रबंधित करें",
+      "addCustomer": "ग्राहक जोड़ें",
+      "noCustomers": "कोई ग्राहक नहीं मिला",
+      "noCustomersFiltered": "जो आप खोज रहे हैं उसे खोजने के लिए अपने फ़िल्टर समायोजित करें।",
+      "noCustomersEmpty": "अपना पहला ग्राहक जोड़कर शुरू करें।",
+      "searchPlaceholder": "नाम या फ़ोन से खोजें...",
+      "confirmDelete": "क्या आप वाकई इस ग्राहक को निष्क्रिय करना चाहते हैं?"
+    },
+    "detail": {
+      "title": "ग्राहक विवरण",
+      "overview": "अवलोकन",
+      "loyalty": "लॉयल्टी",
+      "wallet": "वॉलेट",
+      "notes": "नोट्स",
+      "history": "इतिहास",
+      "notFound": "ग्राहक नहीं मिला",
+      "notFoundDesc": "जिस ग्राहक को आप खोज रहे हैं वह मौजूद नहीं है या हटा दिया गया है।",
+      "backToCustomers": "ग्राहकों पर वापस जाएं"
+    },
+    "form": {
+      "addTitle": "ग्राहक जोड़ें",
+      "addDescription": "नई ग्राहक प्रोफ़ाइल बनाएं",
+      "editTitle": "{name} संपादित करें",
+      "editDescription": "ग्राहक जानकारी अपडेट करें",
+      "basicInfo": "मूल जानकारी",
+      "basicInfoDesc": "ग्राहक संपर्क विवरण",
+      "personalDetails": "व्यक्तिगत विवरण",
+      "personalDetailsDesc": "महत्वपूर्ण तिथियां और पता",
+      "healthSafety": "स्वास्थ्य और सुरक्षा",
+      "healthSafetyDesc": "सेवा प्रदाताओं के लिए महत्वपूर्ण स्वास्थ्य जानकारी",
+      "communication": "संचार",
+      "communicationDesc": "मार्केटिंग और सूचना प्राथमिकताएं",
+      "phone": {
+        "label": "फ़ोन नंबर",
+        "placeholder": "जैसे, 9876543210",
+        "description": "प्राथमिक संपर्क नंबर (अद्वितीय पहचानकर्ता)",
+        "cannotChange": "फ़ोन नंबर यहां बदला नहीं जा सकता"
+      },
+      "name": {
+        "label": "पूरा नाम",
+        "placeholder": "जैसे, राहुल शर्मा"
+      },
+      "email": {
+        "label": "ईमेल",
+        "placeholder": "जैसे, rahul@example.com"
+      },
+      "gender": {
+        "label": "लिंग",
+        "placeholder": "लिंग चुनें",
+        "male": "पुरुष",
+        "female": "महिला",
+        "other": "अन्य"
+      },
+      "dateOfBirth": {
+        "label": "जन्म तिथि",
+        "description": "जन्मदिन की शुभकामनाओं के लिए"
+      },
+      "anniversary": {
+        "label": "सालगिरह तिथि",
+        "description": "सालगिरह की शुभकामनाओं के लिए"
+      },
+      "address": {
+        "label": "पता",
+        "placeholder": "पूरा पता..."
+      },
+      "allergies": {
+        "label": "एलर्जी और संवेदनशीलता",
+        "placeholder": "जैसे, लेटेक्स, अमोनिया, कुछ हेयर डाई...",
+        "description": "कई एलर्जी को अल्पविराम से अलग करें। यह स्टाफ को चेतावनी दिखाएगा।"
+      },
+      "marketingConsent": {
+        "label": "मार्केटिंग सहमति",
+        "description": "ग्राहक प्रचार संदेश और ऑफ़र प्राप्त करने के लिए सहमत है"
+      },
+      "saveChanges": "परिवर्तन सहेजें",
+      "createCustomer": "ग्राहक बनाएं"
+    },
+    "table": {
+      "name": "नाम",
+      "phone": "फ़ोन",
+      "email": "ईमेल",
+      "loyaltyPoints": "लॉयल्टी पॉइंट्स",
+      "walletBalance": "वॉलेट बैलेंस",
+      "visits": "विज़िट",
+      "lastVisit": "अंतिम विज़िट",
+      "status": "स्थिति",
+      "actions": "कार्रवाई"
+    },
+    "filters": {
+      "allTags": "सभी टैग",
+      "allStatus": "सभी स्थिति",
+      "normal": "सामान्य",
+      "vip": "VIP",
+      "blocked": "अवरुद्ध",
+      "restricted": "प्रतिबंधित"
+    },
+    "overview": {
+      "basicInfo": "मूल जानकारी",
+      "personalDetails": "व्यक्तिगत विवरण",
+      "tags": "टैग",
+      "tagsDesc": "ग्राहक टैग और सेगमेंट",
+      "addTag": "टैग जोड़ें",
+      "noTags": "कोई टैग असाइन नहीं",
+      "allergies": "एलर्जी और संवेदनशीलता",
+      "customerSince": "ग्राहक बने",
+      "marketingConsent": "मार्केटिंग सहमति",
+      "yes": "हां",
+      "no": "नहीं"
+    },
+    "stats": {
+      "totalCustomers": "कुल ग्राहक",
+      "newThisMonth": "इस महीने नए",
+      "activeCustomers": "सक्रिय ग्राहक",
+      "totalLoyaltyPoints": "कुल लॉयल्टी पॉइंट्स",
+      "totalSpend": "कुल खर्च",
+      "totalVisits": "कुल विज़िट",
+      "avgTicket": "औसत टिकट",
+      "noShows": "नो-शो"
+    },
+    "loyalty": {
+      "currentBalance": "वर्तमान बैलेंस",
+      "adjustPoints": "पॉइंट्स समायोजित करें",
+      "transactionHistory": "लेनदेन इतिहास",
+      "noTransactions": "अभी तक कोई लेनदेन नहीं"
+    },
+    "wallet": {
+      "currentBalance": "वर्तमान बैलेंस",
+      "adjustBalance": "बैलेंस समायोजित करें",
+      "transactionHistory": "लेनदेन इतिहास",
+      "noTransactions": "अभी तक कोई लेनदेन नहीं"
+    },
+    "notes": {
+      "addNote": "नोट जोड़ें",
+      "addNotePlaceholder": "इस ग्राहक के बारे में नोट जोड़ें...",
+      "adding": "जोड़ा जा रहा है...",
+      "notesHistory": "नोट्स इतिहास",
+      "noNotes": "अभी तक कोई नोट नहीं"
+    },
+    "dialogs": {
+      "delete": {
+        "title": "ग्राहक हटाएं",
+        "description": "क्या आप वाकई इस ग्राहक को हटाना चाहते हैं? यह क्रिया पूर्ववत नहीं की जा सकती।"
+      },
+      "adjustLoyalty": {
+        "title": "लॉयल्टी पॉइंट्स समायोजित करें",
+        "currentPoints": "वर्तमान पॉइंट्स",
+        "adjustment": "समायोजन",
+        "reason": "कारण",
+        "add": "पॉइंट्स जोड़ें",
+        "deduct": "पॉइंट्स घटाएं"
+      },
+      "adjustWallet": {
+        "title": "वॉलेट बैलेंस समायोजित करें",
+        "currentBalance": "वर्तमान बैलेंस",
+        "adjustment": "समायोजन",
+        "reason": "कारण",
+        "credit": "क्रेडिट",
+        "debit": "डेबिट"
+      },
+      "addTag": {
+        "title": "टैग जोड़ें",
+        "selectTag": "टैग चुनें",
+        "noTags": "कोई टैग उपलब्ध नहीं"
+      }
+    },
+    "tags": {
+      "new": "नया",
+      "regular": "नियमित",
+      "vip": "VIP",
+      "inactive": "निष्क्रिय"
+    }
+  },
+  "services": {
+    "list": {
+      "title": "सेवाएं",
+      "description": "अपनी सैलून सेवाओं और मूल्य निर्धारण का प्रबंधन करें",
+      "addService": "सेवा जोड़ें",
+      "noServices": "कोई सेवा नहीं मिली",
+      "noServicesFiltered": "जो आप खोज रहे हैं उसे खोजने के लिए अपने फ़िल्टर समायोजित करें।",
+      "noServicesEmpty": "अपनी पहली सेवा बनाकर शुरू करें।",
+      "searchPlaceholder": "सेवाएं खोजें...",
+      "confirmDelete": "क्या आप वाकई इस सेवा को हटाना चाहते हैं?"
+    },
+    "table": {
+      "service": "सेवा",
+      "category": "श्रेणी",
+      "price": "मूल्य",
+      "duration": "अवधि",
+      "status": "स्थिति"
+    },
+    "filters": {
+      "allCategories": "सभी श्रेणियां",
+      "allStatus": "सभी स्थिति",
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय"
+    },
+    "detail": {
+      "errorLoading": "सेवाएं लोड करने में त्रुटि",
+      "errorLoadingDesc": "आपकी सेवाओं को लोड करने में समस्या हुई। कृपया पुनः प्रयास करें।"
+    }
+  },
+  "settings": {
+    "title": "सेटिंग्स",
+    "general": "सामान्य",
+    "loyalty": {
+      "title": "लॉयल्टी सेटिंग्स",
+      "description": "लॉयल्टी प्रोग्राम सेटिंग्स कॉन्फ़िगर करें"
+    },
+    "tags": {
+      "title": "ग्राहक टैग",
+      "description": "ग्राहक टैग प्रबंधित करें"
+    }
+  },
+  "appointments": {
+    "list": {
+      "title": "अपॉइंटमेंट",
+      "description": "अपने सैलून अपॉइंटमेंट और शेड्यूल प्रबंधित करें",
+      "newAppointment": "नई अपॉइंटमेंट",
+      "viewCalendar": "कैलेंडर",
+      "noAppointments": "कोई अपॉइंटमेंट नहीं मिली",
+      "noAppointmentsFiltered": "जो आप खोज रहे हैं उसे खोजने के लिए अपने फ़िल्टर समायोजित करें।",
+      "noAppointmentsEmpty": "इस तारीख के लिए कोई अपॉइंटमेंट शेड्यूल नहीं है।",
+      "searchPlaceholder": "ग्राहक नाम या फ़ोन से खोजें...",
+      "cancelReason": "कृपया रद्द करने का कारण दर्ज करें:",
+      "confirmNoShow": "क्या आप वाकई इस अपॉइंटमेंट को नो-शो के रूप में चिह्नित करना चाहते हैं?"
+    },
+    "status": {
+      "booked": "बुक किया गया",
+      "confirmed": "पुष्टि",
+      "checked_in": "चेक इन",
+      "in_progress": "प्रगति में",
+      "completed": "पूर्ण",
+      "cancelled": "रद्द",
+      "no_show": "नो शो",
+      "rescheduled": "पुनर्निर्धारित"
+    },
+    "filters": {
+      "selectDate": "तारीख चुनें",
+      "allStatus": "सभी स्थिति",
+      "allTypes": "सभी प्रकार"
+    },
+    "bookingType": {
+      "online": "ऑनलाइन",
+      "phone": "फ़ोन",
+      "walk_in": "वॉक-इन"
+    },
+    "actions": {
+      "checkIn": "चेक इन",
+      "start": "सेवा शुरू करें",
+      "complete": "पूर्ण करें",
+      "cancel": "रद्द करें",
+      "noShow": "नो-शो चिह्नित करें",
+      "reschedule": "पुनर्निर्धारित करें",
+      "viewDetails": "विवरण देखें"
+    },
+    "calendar": {
+      "title": "अपॉइंटमेंट कैलेंडर",
+      "description": "कैलेंडर व्यू में अपॉइंटमेंट देखें और प्रबंधित करें",
+      "today": "आज",
+      "dayView": "दिन",
+      "weekView": "सप्ताह",
+      "monthView": "महीना",
+      "listView": "सूची दृश्य",
+      "total": "कुल"
+    },
+    "form": {
+      "title": "नई अपॉइंटमेंट",
+      "description": "नई अपॉइंटमेंट शेड्यूल करें",
+      "customer": "ग्राहक",
+      "searchCustomer": "मौजूदा ग्राहक खोजें...",
+      "changeCustomer": "ग्राहक बदलें",
+      "orEnterDetails": "या ग्राहक विवरण दर्ज करें:",
+      "customerName": "ग्राहक का नाम",
+      "customerPhone": "फ़ोन नंबर",
+      "dateTime": "तारीख और समय",
+      "date": "तारीख",
+      "selectDate": "तारीख चुनें",
+      "time": "समय",
+      "selectTime": "समय चुनें",
+      "bookingType": "बुकिंग प्रकार",
+      "services": "सेवाएं",
+      "notes": "नोट्स",
+      "customerNotes": "ग्राहक नोट्स",
+      "internalNotes": "आंतरिक नोट्स",
+      "totalDuration": "कुल अवधि",
+      "totalPrice": "कुल मूल्य",
+      "cancel": "रद्द करें",
+      "create": "अपॉइंटमेंट बनाएं",
+      "creating": "बनाया जा रहा है..."
+    },
+    "detail": {
+      "title": "अपॉइंटमेंट विवरण",
+      "backToList": "अपॉइंटमेंट पर वापस जाएं",
+      "backToDetail": "अपॉइंटमेंट पर वापस जाएं",
+      "notFound": "अपॉइंटमेंट नहीं मिली",
+      "notFoundDesc": "जिस अपॉइंटमेंट को आप खोज रहे हैं वह मौजूद नहीं है या हटा दी गई है।",
+      "appointmentInfo": "अपॉइंटमेंट जानकारी",
+      "date": "तारीख",
+      "time": "समय",
+      "token": "टोकन",
+      "customer": "ग्राहक",
+      "customerInfo": "ग्राहक जानकारी",
+      "services": "सेवाएं",
+      "total": "कुल",
+      "statusHistory": "स्थिति इतिहास",
+      "actions": "कार्रवाई",
+      "notes": "नोट्स",
+      "customerNotes": "ग्राहक नोट्स",
+      "internalNotes": "आंतरिक नोट्स",
+      "bookingInfo": "बुकिंग जानकारी",
+      "bookingType": "बुकिंग प्रकार",
+      "createdAt": "बनाया गया",
+      "priceLocked": "मूल्य लॉक"
+    },
+    "reschedule": {
+      "title": "अपॉइंटमेंट पुनर्निर्धारित करें",
+      "description": "इस अपॉइंटमेंट की तारीख और समय बदलें",
+      "backToDetail": "अपॉइंटमेंट पर वापस जाएं",
+      "currentAppointment": "वर्तमान अपॉइंटमेंट",
+      "newDateTime": "नई तारीख और समय",
+      "newDate": "नई तारीख",
+      "newTime": "नया समय",
+      "selectDate": "तारीख चुनें",
+      "selectTime": "समय चुनें",
+      "reason": "पुनर्निर्धारण का कारण",
+      "reasonPlaceholder": "वैकल्पिक: पुनर्निर्धारण का कारण दर्ज करें...",
+      "count": "पुनर्निर्धारण गणना",
+      "confirm": "अपॉइंटमेंट पुनर्निर्धारित करें",
+      "rescheduling": "पुनर्निर्धारित किया जा रहा है...",
+      "success": "अपॉइंटमेंट सफलतापूर्वक पुनर्निर्धारित",
+      "error": "अपॉइंटमेंट पुनर्निर्धारित करने में विफल",
+      "notAllowed": "पुनर्निर्धारित नहीं कर सकते",
+      "maxReached": "इस अपॉइंटमेंट ने अधिकतम पुनर्निर्धारण (3) की सीमा पूरी कर ली है।",
+      "invalidStatus": "इस अपॉइंटमेंट को वर्तमान स्थिति में पुनर्निर्धारित नहीं किया जा सकता।",
+      "lastReschedule": "अंतिम पुनर्निर्धारण चेतावनी",
+      "lastRescheduleWarning": "यह इस अपॉइंटमेंट के लिए अनुमत अंतिम पुनर्निर्धारण होगा।"
+    }
+  },
+  "walkIn": {
+    "title": "वॉक-इन कतार",
+    "description": "वॉक-इन ग्राहकों और कतार का प्रबंधन करें",
+    "addToQueue": "कतार में जोड़ें",
+    "currentlyServing": "वर्तमान में सेवा",
+    "called": "बुलाया गया",
+    "waitingQueue": "प्रतीक्षा कतार",
+    "noWaiting": "कोई ग्राहक प्रतीक्षा में नहीं",
+    "waitTime": "अनुमानित प्रतीक्षा",
+    "stats": {
+      "waiting": "प्रतीक्षा में",
+      "serving": "सेवा में",
+      "avgWait": "औसत प्रतीक्षा",
+      "completed": "आज पूर्ण"
+    },
+    "form": {
+      "name": "ग्राहक का नाम",
+      "phone": "फ़ोन (वैकल्पिक)",
+      "services": "सेवाएं",
+      "stylistPreference": "स्टाइलिस्ट प्राथमिकता",
+      "any": "कोई भी",
+      "male": "पुरुष",
+      "female": "महिला",
+      "add": "कतार में जोड़ें",
+      "adding": "जोड़ा जा रहा है..."
+    },
+    "actions": {
+      "call": "बुलाएं",
+      "serve": "सेवा शुरू करें",
+      "complete": "पूर्ण करें",
+      "left": "चला गया"
+    }
+  },
+  "stylistSchedule": {
+    "title": "शेड्यूल",
+    "description": "स्टाइलिस्ट शेड्यूल, ब्रेक और ब्लॉक स्लॉट देखें और प्रबंधित करें",
+    "backToStaff": "स्टाफ पर वापस जाएं",
+    "addBreak": "ब्रेक जोड़ें",
+    "blockSlot": "स्लॉट ब्लॉक करें",
+    "today": "आज",
+    "noSchedule": "कोई शेड्यूल नहीं",
+    "fullDayBlocked": "पूरा दिन ब्लॉक",
+    "blocked": "ब्लॉक",
+    "confirmDeleteBreak": "क्या आप वाकई इस ब्रेक को हटाना चाहते हैं?",
+    "confirmDeleteBlock": "क्या आप वाकई इस ब्लॉक स्लॉट को हटाना चाहते हैं?",
+    "legend": {
+      "appointment": "अपॉइंटमेंट",
+      "break": "ब्रेक",
+      "blocked": "ब्लॉक"
+    },
+    "error": {
+      "title": "शेड्यूल लोड करने में त्रुटि",
+      "description": "शेड्यूल लोड करने में समस्या हुई। कृपया पुनः प्रयास करें।"
+    },
+    "breakDialog": {
+      "title": "आवर्ती ब्रेक जोड़ें",
+      "description": "इस स्टाइलिस्ट के लिए आवर्ती ब्रेक बनाएं",
+      "name": "ब्रेक का नाम",
+      "namePlaceholder": "जैसे, लंच ब्रेक",
+      "dayOfWeek": "सप्ताह का दिन",
+      "selectDay": "दिन चुनें",
+      "dayHint": "दैनिक ब्रेक के लिए खाली छोड़ें",
+      "startTime": "शुरू का समय",
+      "endTime": "समाप्ति का समय",
+      "cancel": "रद्द करें",
+      "add": "ब्रेक जोड़ें",
+      "adding": "जोड़ा जा रहा है..."
+    },
+    "blockDialog": {
+      "title": "समय स्लॉट ब्लॉक करें",
+      "description": "इस स्टाइलिस्ट के लिए विशिष्ट तारीख या समय ब्लॉक करें",
+      "date": "तारीख",
+      "fullDay": "पूरा दिन",
+      "fullDayHint": "पूरे दिन को ब्लॉक करें",
+      "startTime": "शुरू का समय",
+      "endTime": "समाप्ति का समय",
+      "reason": "कारण (वैकल्पिक)",
+      "reasonPlaceholder": "जैसे, व्यक्तिगत छुट्टी, प्रशिक्षण",
+      "cancel": "रद्द करें",
+      "block": "स्लॉट ब्लॉक करें",
+      "blocking": "ब्लॉक किया जा रहा है..."
+    }
+  },
+  "billing": {
+    "title": "बिलिंग",
+    "description": "इनवॉइस और भुगतान प्रबंधित करें",
+    "newInvoice": "नया इनवॉइस",
+    "searchPlaceholder": "इनवॉइस नंबर, ग्राहक से खोजें...",
+    "filterStatus": "स्थिति से फ़िल्टर करें",
+    "filterPayment": "भुगतान से फ़िल्टर करें",
+    "allStatuses": "सभी स्थितियां",
+    "allPayments": "सभी भुगतान",
+    "status": {
+      "draft": "ड्राफ्ट",
+      "finalized": "अंतिम",
+      "cancelled": "रद्द",
+      "refunded": "वापसी"
+    },
+    "payment": {
+      "pending": "लंबित",
+      "partial": "आंशिक",
+      "paid": "भुगतान",
+      "refunded": "वापसी"
+    },
+    "table": {
+      "invoiceNumber": "इनवॉइस #",
+      "date": "तारीख",
+      "customer": "ग्राहक",
+      "amount": "राशि",
+      "status": "स्थिति",
+      "payment": "भुगतान"
+    },
+    "empty": {
+      "title": "कोई इनवॉइस नहीं मिला",
+      "description": "शुरू करने के लिए अपना पहला इनवॉइस बनाएं।"
+    },
+    "pagination": {
+      "showing": "{total} में से {from} से {to} इनवॉइस दिखा रहा है",
+      "previous": "पिछला",
+      "next": "अगला"
+    },
+    "detail": {
+      "title": "इनवॉइस विवरण",
+      "backToList": "इनवॉइस पर वापस जाएं",
+      "notFound": "इनवॉइस नहीं मिला",
+      "notFoundDesc": "जो इनवॉइस आप खोज रहे हैं वह मौजूद नहीं है।",
+      "invoiceInfo": "इनवॉइस जानकारी",
+      "customerInfo": "ग्राहक जानकारी",
+      "items": "आइटम",
+      "payments": "भुगतान",
+      "summary": "सारांश",
+      "subtotal": "उप-योग",
+      "discount": "छूट",
+      "taxable": "कर योग्य राशि",
+      "cgst": "CGST",
+      "sgst": "SGST",
+      "igst": "IGST",
+      "totalTax": "कुल कर",
+      "roundOff": "राउंड ऑफ",
+      "grandTotal": "कुल योग",
+      "amountPaid": "भुगतान राशि",
+      "amountDue": "बकाया राशि",
+      "loyaltyEarned": "अर्जित लॉयल्टी पॉइंट्स",
+      "loyaltyRedeemed": "रिडीम लॉयल्टी पॉइंट्स",
+      "walletUsed": "वॉलेट राशि उपयोग"
+    },
+    "form": {
+      "title": "नया इनवॉइस",
+      "description": "नया इनवॉइस बनाएं",
+      "customer": "ग्राहक",
+      "searchCustomer": "ग्राहक खोजें...",
+      "services": "सेवाएं",
+      "addService": "सेवा जोड़ें",
+      "selectService": "सेवा चुनें",
+      "quantity": "मात्रा",
+      "price": "कीमत",
+      "total": "कुल",
+      "remove": "हटाएं",
+      "payment": "भुगतान",
+      "paymentMethod": "भुगतान विधि",
+      "amount": "राशि",
+      "addPayment": "भुगतान जोड़ें",
+      "notes": "नोट्स",
+      "create": "इनवॉइस बनाएं",
+      "createAndFinalize": "बनाएं और अंतिम करें",
+      "creating": "बनाया जा रहा है...",
+      "products": "उत्पाद",
+      "addProduct": "उत्पाद जोड़ें",
+      "searchProduct": "उत्पाद खोजें...",
+      "outOfStock": "स्टॉक में नहीं",
+      "lowStock": "कम स्टॉक",
+      "stockAvailable": "स्टॉक: {count}",
+      "exceedsStock": "उपलब्ध स्टॉक से अधिक",
+      "insufficientStock": "{product} के लिए अपर्याप्त स्टॉक। उपलब्ध: {available}, अनुरोधित: {requested}"
+    },
+    "paymentMethods": {
+      "cash": "नकद",
+      "card": "कार्ड",
+      "upi": "UPI",
+      "wallet": "वॉलेट",
+      "loyalty": "लॉयल्टी पॉइंट्स",
+      "bank_transfer": "बैंक ट्रांसफर",
+      "cheque": "चेक"
+    },
+    "actions": {
+      "finalize": "अंतिम करें",
+      "cancel": "इनवॉइस रद्द करें",
+      "addPayment": "भुगतान जोड़ें",
+      "print": "प्रिंट",
+      "download": "PDF डाउनलोड करें"
+    },
+    "dayClosureTitle": "दिन समापन",
+    "dayClosureDescription": "दैनिक नकद समाधान और समापन प्रबंधित करें",
+    "openDay": "दिन खोलें",
+    "closeDay": "दिन बंद करें",
+    "todayStatus": "आज की स्थिति",
+    "dayOpen": "दिन खुला",
+    "dayClosed": "दिन बंद",
+    "currentCashBalance": "वर्तमान नकद शेष",
+    "todayRevenue": "आज का राजस्व",
+    "todayInvoices": "आज के इनवॉइस",
+    "closureHistory": "समापन इतिहास",
+    "noClosures": "अभी तक कोई समापन नहीं",
+    "noClosuresDescription": "दिन समापन इतिहास यहां दिखाई देगा।",
+    "date": "तारीख",
+    "revenue": "राजस्व",
+    "invoices": "इनवॉइस",
+    "expectedCash": "अपेक्षित नकद",
+    "actualCash": "वास्तविक नकद",
+    "difference": "अंतर",
+    "openDayTitle": "दिन खोलें",
+    "openingCash": "शुरुआती नकद",
+    "openingCashHint": "पिछले दिन के समापन शेष का उपयोग करने के लिए खाली छोड़ें",
+    "cancel": "रद्द करें",
+    "opening": "खोला जा रहा है...",
+    "closeDayTitle": "दिन बंद करें",
+    "notes": "नोट्स",
+    "closureNotesPlaceholder": "दिन समापन के बारे में कोई नोट जोड़ें...",
+    "closing": "बंद किया जा रहा है...",
+    "creditNotes": "क्रेडिट नोट्स",
+    "creditNotesDescription": "वापसी और क्रेडिट नोट्स प्रबंधित करें"
+  },
+  "staff": {
+    "title": "स्टाफ",
+    "description": "स्टाफ प्रोफाइल, उपस्थिति और वेतन प्रबंधित करें",
+    "addStaff": "स्टाफ जोड़ें",
+    "searchPlaceholder": "नाम, फ़ोन या कर्मचारी कोड से खोजें...",
+    "noStaff": "कोई स्टाफ नहीं मिला",
+    "noStaffFiltered": "जो आप खोज रहे हैं उसे खोजने के लिए अपने फ़िल्टर समायोजित करें।",
+    "noStaffEmpty": "अपना पहला स्टाफ सदस्य जोड़कर शुरू करें।",
+    "notFound": "स्टाफ नहीं मिला",
+    "notFoundDesc": "जिस स्टाफ सदस्य को आप खोज रहे हैं वह मौजूद नहीं है या हटा दिया गया है।",
+    "backToList": "स्टाफ पर वापस जाएं",
+    "form": {
+      "addTitle": "स्टाफ सदस्य जोड़ें",
+      "addDescription": "नई स्टाफ प्रोफ़ाइल बनाएं",
+      "editTitle": "स्टाफ सदस्य संपादित करें",
+      "editDescription": "स्टाफ जानकारी अपडेट करें",
+      "basicInfo": "मूल जानकारी",
+      "basicInfoDesc": "स्टाफ संपर्क और लॉगिन विवरण",
+      "personalDetails": "व्यक्तिगत विवरण",
+      "personalDetailsDesc": "व्यक्तिगत जानकारी और आपातकालीन संपर्क",
+      "employmentDetails": "रोजगार विवरण",
+      "employmentDetailsDesc": "नौकरी की भूमिका और रोजगार जानकारी",
+      "salaryCommission": "वेतन और कमीशन",
+      "salaryCommissionDesc": "मुआवजा और कमीशन सेटिंग्स",
+      "bankDetails": "बैंक विवरण",
+      "bankDetailsDesc": "वेतन भुगतान के लिए बैंक खाता",
+      "idDocuments": "पहचान दस्तावेज",
+      "idDocumentsDesc": "सरकारी पहचान संख्या",
+      "name": "पूरा नाम",
+      "phone": "फ़ोन नंबर",
+      "email": "ईमेल",
+      "password": "पासवर्ड",
+      "role": "भूमिका",
+      "gender": "लिंग",
+      "dateOfBirth": "जन्म तिथि",
+      "bloodGroup": "रक्त समूह",
+      "emergencyContactName": "आपातकालीन संपर्क नाम",
+      "emergencyContactPhone": "आपातकालीन संपर्क फ़ोन",
+      "address": "पता",
+      "city": "शहर",
+      "state": "राज्य",
+      "pincode": "पिन कोड",
+      "employeeCode": "कर्मचारी कोड",
+      "designation": "पदनाम",
+      "department": "विभाग",
+      "dateOfJoining": "शामिल होने की तारीख",
+      "employmentType": "रोजगार प्रकार",
+      "skillLevel": "कौशल स्तर",
+      "salaryType": "वेतन प्रकार",
+      "baseSalary": "मूल वेतन",
+      "commissionEnabled": "कमीशन सक्षम करें",
+      "commissionEnabledDesc": "स्टाफ सेवाओं पर कमीशन कमाएगा",
+      "commissionType": "कमीशन प्रकार",
+      "commissionRate": "कमीशन दर",
+      "bankName": "बैंक का नाम",
+      "bankAccountNumber": "खाता संख्या",
+      "bankIfsc": "IFSC कोड",
+      "aadharNumber": "आधार नंबर",
+      "panNumber": "पैन नंबर",
+      "saveChanges": "परिवर्तन सहेजें",
+      "createStaff": "स्टाफ बनाएं"
+    },
+    "tabs": {
+      "profile": "प्रोफ़ाइल",
+      "employment": "रोजगार",
+      "salary": "वेतन और बैंक",
+      "documents": "दस्तावेज"
+    },
+    "sections": {
+      "basicInfo": "मूल जानकारी",
+      "basicInfoDesc": "संपर्क और भूमिका विवरण",
+      "personalDetails": "व्यक्तिगत विवरण",
+      "employmentDetails": "रोजगार विवरण",
+      "salaryDetails": "वेतन विवरण",
+      "bankDetails": "बैंक विवरण",
+      "idDocuments": "पहचान दस्तावेज"
+    },
+    "fields": {
+      "name": "नाम",
+      "phone": "फ़ोन",
+      "email": "ईमेल",
+      "role": "भूमिका",
+      "gender": "लिंग",
+      "status": "स्थिति",
+      "dateOfBirth": "जन्म तिथि",
+      "bloodGroup": "रक्त समूह",
+      "emergencyContact": "आपातकालीन संपर्क",
+      "address": "पता",
+      "employeeCode": "कर्मचारी कोड",
+      "designation": "पदनाम",
+      "department": "विभाग",
+      "employmentType": "रोजगार प्रकार",
+      "dateOfJoining": "शामिल होने की तारीख",
+      "skillLevel": "कौशल स्तर",
+      "primaryBranch": "प्राथमिक शाखा",
+      "specializations": "विशेषज्ञता",
+      "salaryType": "वेतन प्रकार",
+      "baseSalary": "मूल वेतन",
+      "commissionEnabled": "कमीशन सक्षम",
+      "commissionType": "कमीशन प्रकार",
+      "commissionRate": "कमीशन दर",
+      "bankName": "बैंक का नाम",
+      "accountNumber": "खाता संख्या",
+      "ifscCode": "IFSC कोड",
+      "aadharNumber": "आधार नंबर",
+      "panNumber": "पैन नंबर"
+    },
+    "stats": {
+      "attendance": "उपस्थिति",
+      "commissions": "कमीशन",
+      "baseSalary": "मूल वेतन",
+      "overtime": "ओवरटाइम",
+      "daysThisMonth": "इस महीने दिन",
+      "thisMonth": "इस महीने"
+    },
+    "filters": {
+      "allRoles": "सभी भूमिकाएं",
+      "allStatus": "सभी स्थिति",
+      "allBranches": "सभी शाखाएं",
+      "allTypes": "सभी प्रकार"
+    },
+    "table": {
+      "name": "नाम",
+      "employeeCode": "कर्मचारी कोड",
+      "role": "भूमिका",
+      "phone": "फ़ोन",
+      "branch": "शाखा",
+      "status": "स्थिति",
+      "joiningDate": "शामिल होने की तारीख"
+    },
+    "roles": {
+      "super_owner": "सुपर ओनर",
+      "regional_manager": "क्षेत्रीय प्रबंधक",
+      "branch_manager": "शाखा प्रबंधक",
+      "receptionist": "रिसेप्शनिस्ट",
+      "stylist": "स्टाइलिस्ट",
+      "accountant": "अकाउंटेंट"
+    },
+    "employmentTypes": {
+      "full_time": "पूर्णकालिक",
+      "part_time": "अंशकालिक",
+      "contract": "अनुबंध",
+      "intern": "इंटर्न"
+    },
+    "attendance": {
+      "title": "उपस्थिति",
+      "description": "स्टाफ उपस्थिति और कार्य घंटे ट्रैक करें",
+      "checkIn": "चेक इन",
+      "checkOut": "चेक आउट",
+      "manualEntry": "मैनुअल एंट्री",
+      "selectDate": "तारीख चुनें",
+      "selectStaff": "स्टाफ चुनें",
+      "status": {
+        "present": "उपस्थित",
+        "absent": "अनुपस्थित",
+        "half_day": "आधा दिन",
+        "on_leave": "छुट्टी पर",
+        "holiday": "छुट्टी",
+        "week_off": "साप्ताहिक छुट्टी"
+      },
+      "table": {
+        "staff": "स्टाफ",
+        "date": "तारीख",
+        "checkIn": "चेक इन",
+        "checkOut": "चेक आउट",
+        "hours": "घंटे",
+        "overtime": "ओवरटाइम",
+        "status": "स्थिति"
+      },
+      "summary": {
+        "present": "उपस्थित",
+        "absent": "अनुपस्थित",
+        "onLeave": "छुट्टी पर",
+        "overtime": "ओवरटाइम घंटे"
+      },
+      "noRecords": "कोई उपस्थिति रिकॉर्ड नहीं मिला",
+      "noRecordsDesc": "उपस्थिति रिकॉर्ड यहां दिखाई देंगे।"
+    },
+    "leaves": {
+      "title": "छुट्टियां",
+      "description": "छुट्टी अनुरोध और शेष प्रबंधित करें",
+      "applyLeave": "छुट्टी के लिए आवेदन करें",
+      "leaveBalance": "छुट्टी शेष",
+      "status": {
+        "pending": "लंबित",
+        "approved": "स्वीकृत",
+        "rejected": "अस्वीकृत",
+        "cancelled": "रद्द"
+      },
+      "types": {
+        "casual": "आकस्मिक छुट्टी",
+        "sick": "बीमारी की छुट्टी",
+        "earned": "अर्जित छुट्टी",
+        "unpaid": "बिना वेतन छुट्टी",
+        "maternity": "मातृत्व अवकाश",
+        "paternity": "पितृत्व अवकाश",
+        "comp_off": "प्रतिपूरक छुट्टी"
+      },
+      "table": {
+        "staff": "स्टाफ",
+        "type": "प्रकार",
+        "from": "से",
+        "to": "तक",
+        "days": "दिन",
+        "reason": "कारण",
+        "status": "स्थिति"
+      },
+      "noLeaves": "कोई छुट्टी अनुरोध नहीं मिला",
+      "noLeavesDesc": "छुट्टी अनुरोध यहां दिखाई देंगे।",
+      "actions": {
+        "approve": "स्वीकृत करें",
+        "reject": "अस्वीकार करें",
+        "cancel": "रद्द करें"
+      },
+      "form": {
+        "title": "छुट्टी के लिए आवेदन करें",
+        "leaveType": "छुट्टी का प्रकार",
+        "startDate": "शुरू की तारीख",
+        "endDate": "समाप्ति की तारीख",
+        "halfDay": "आधा दिन",
+        "halfDayType": "आधे दिन का प्रकार",
+        "firstHalf": "पहला आधा",
+        "secondHalf": "दूसरा आधा",
+        "reason": "कारण",
+        "reasonPlaceholder": "छुट्टी का कारण दर्ज करें...",
+        "submit": "अनुरोध जमा करें",
+        "submitting": "जमा किया जा रहा है..."
+      }
+    },
+    "payroll": {
+      "title": "वेतन",
+      "description": "मासिक वेतन जनरेट और प्रबंधित करें",
+      "generatePayroll": "वेतन जनरेट करें",
+      "status": {
+        "draft": "ड्राफ्ट",
+        "processing": "प्रोसेसिंग",
+        "approved": "स्वीकृत",
+        "paid": "भुगतान",
+        "cancelled": "रद्द"
+      },
+      "table": {
+        "month": "महीना",
+        "employees": "कर्मचारी",
+        "grossSalary": "सकल वेतन",
+        "deductions": "कटौती",
+        "commissions": "कमीशन",
+        "netSalary": "शुद्ध वेतन",
+        "status": "स्थिति"
+      },
+      "noPayroll": "कोई वेतन रिकॉर्ड नहीं मिला",
+      "noPayrollDesc": "शुरू करने के लिए अपना पहला वेतन जनरेट करें।",
+      "actions": {
+        "process": "प्रोसेस करें",
+        "approve": "स्वीकृत करें",
+        "markPaid": "भुगतान के रूप में चिह्नित करें",
+        "viewDetails": "विवरण देखें"
+      },
+      "form": {
+        "title": "वेतन जनरेट करें",
+        "month": "वेतन महीना",
+        "branch": "शाखा",
+        "allBranches": "सभी शाखाएं",
+        "generate": "जनरेट करें",
+        "generating": "जनरेट किया जा रहा है..."
+      },
+      "detail": {
+        "title": "वेतन विवरण",
+        "backToList": "वेतन पर वापस जाएं",
+        "summary": "सारांश",
+        "employees": "कर्मचारी विवरण",
+        "totalEmployees": "कुल कर्मचारी",
+        "totalGross": "कुल सकल",
+        "totalDeductions": "कुल कटौती",
+        "totalCommissions": "कुल कमीशन",
+        "totalNet": "कुल शुद्ध"
+      }
+    }
+  }
+}

@@ -6,10 +6,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api/client';
-
 import type {
   CreateServiceInput,
-  PaginatedResponse,
   Service,
   ServiceCatalog,
   ServiceFilters,
@@ -26,12 +24,14 @@ export const serviceKeys = {
   catalog: (branchId?: string) => [...serviceKeys.all, 'catalog', branchId] as const,
 };
 
-// Get all services with pagination
+/**
+ * Get services with pagination
+ */
 export function useServices(filters: ServiceFilters = {}) {
   return useQuery({
     queryKey: serviceKeys.list(filters),
     queryFn: () =>
-      api.get<Service[]>('/services', {
+      api.getPaginated<Service>('/services', {
         page: filters.page,
         limit: filters.limit,
         categoryId: filters.categoryId,
@@ -47,35 +47,16 @@ export function useServices(filters: ServiceFilters = {}) {
   });
 }
 
-// Get services with pagination meta
+/**
+ * @deprecated Use useServices instead - it now returns paginated results
+ */
 export function useServicesPaginated(filters: ServiceFilters = {}) {
-  return useQuery({
-    queryKey: serviceKeys.list(filters),
-    queryFn: async () => {
-      // The API returns { success: true, data: [...], meta: {...} }
-      // but our api client only returns data, so we need direct fetch for meta
-      const { accessToken } = await import('@/stores/auth-store').then(m => m.useAuthStore.getState());
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/services?${new URLSearchParams(
-          Object.entries(filters).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
-        ).toString()}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-          },
-        }
-      );
-      const json = await response.json();
-      return {
-        data: json.data as Service[],
-        meta: json.meta as PaginatedResponse<Service>['meta'],
-      };
-    },
-  });
+  return useServices(filters);
 }
 
-// Get single service
+/**
+ * Get single service by ID
+ */
 export function useService(id: string) {
   return useQuery({
     queryKey: serviceKeys.detail(id),
@@ -84,7 +65,9 @@ export function useService(id: string) {
   });
 }
 
-// Get service catalog
+/**
+ * Get service catalog (hierarchical view)
+ */
 export function useServiceCatalog(branchId?: string, includeInactive = false) {
   return useQuery({
     queryKey: serviceKeys.catalog(branchId),
@@ -96,13 +79,14 @@ export function useServiceCatalog(branchId?: string, includeInactive = false) {
   });
 }
 
-// Create service
+/**
+ * Create a new service
+ */
 export function useCreateService() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateServiceInput) =>
-      api.post<Service>('/services', data),
+    mutationFn: (data: CreateServiceInput) => api.post<Service>('/services', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: serviceKeys.lists() });
       queryClient.invalidateQueries({ queryKey: serviceKeys.catalog() });
@@ -110,7 +94,9 @@ export function useCreateService() {
   });
 }
 
-// Update service
+/**
+ * Update a service
+ */
 export function useUpdateService() {
   const queryClient = useQueryClient();
 
@@ -125,13 +111,14 @@ export function useUpdateService() {
   });
 }
 
-// Delete service
+/**
+ * Delete a service
+ */
 export function useDeleteService() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) =>
-      api.delete<{ message: string }>(`/services/${id}`),
+    mutationFn: (id: string) => api.delete<{ message: string }>(`/services/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: serviceKeys.lists() });
       queryClient.invalidateQueries({ queryKey: serviceKeys.catalog() });
@@ -139,13 +126,14 @@ export function useDeleteService() {
   });
 }
 
-// Duplicate service
+/**
+ * Duplicate a service
+ */
 export function useDuplicateService() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) =>
-      api.post<Service>(`/services/${id}/duplicate`),
+    mutationFn: (id: string) => api.post<Service>(`/services/${id}/duplicate`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: serviceKeys.lists() });
     },

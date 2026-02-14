@@ -9,9 +9,9 @@ import { MobileNav } from '@/components/layout/mobile-nav';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop Sidebar */}
-      <Sidebar className="hidden lg:flex lg:flex-col" />
+      <Sidebar className="hidden lg:flex flex-col" />
 
       {/* Mobile Navigation Drawer */}
       <MobileNav />

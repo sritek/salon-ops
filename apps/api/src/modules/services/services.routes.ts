@@ -1,18 +1,15 @@
 /**
  * Services Module Routes
- * All route definitions for the services module
+ * All route definitions for the services module using Zod type provider
  * Protected with authentication and role-based permission guards
  */
 
 import type { FastifyInstance } from 'fastify';
+import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { PERMISSIONS } from '@salon-ops/shared';
 
-import {
-  authenticate,
-  requirePermission,
-  requireBranchAccess,
-} from '../../middleware';
+import { authenticate, requirePermission, requireBranchAccess } from '../../middleware';
 import { addOnsController } from './addons.controller';
 import { branchPricingController } from './branch-pricing.controller';
 import { categoriesController } from './categories.controller';
@@ -22,6 +19,7 @@ import { servicesController } from './services.controller';
 import { variantsController } from './variants.controller';
 
 import {
+  // Input schemas
   bulkUpdateBranchPricesBodySchema,
   calculatePriceBodySchema,
   catalogQuerySchema,
@@ -40,448 +38,491 @@ import {
   updateComboBodySchema,
   updateServiceBodySchema,
   updateVariantBodySchema,
+  // Response schemas
+  successResponseSchema,
+  paginatedResponseSchema,
+  messageResponseSchema,
+  errorResponseSchema,
+  // Param schemas
+  idParamSchema,
+  serviceVariantParamsSchema,
+  branchServiceParamsSchema,
+  includeInactiveQuerySchema,
 } from './services.schema';
-
-import type {
-  BulkUpdateBranchPricesBody,
-  CalculatePriceBody,
-  CatalogQuery,
-  CategoryQuery,
-  CreateAddOnBody,
-  CreateCategoryBody,
-  CreateComboBody,
-  CreateServiceBody,
-  CreateVariantBody,
-  MapAddOnsToServiceBody,
-  ReorderCategoriesBody,
-  ServiceQuery,
-  UpdateAddOnBody,
-  UpdateBranchPriceBody,
-  UpdateCategoryBody,
-  UpdateComboBody,
-  UpdateServiceBody,
-  UpdateVariantBody,
-} from './services.schema';
-
-// Validation preHandler factory
-function createValidationHandler<T>(schema: { safeParse: (data: unknown) => { success: boolean; error?: { errors: unknown[] } } }) {
-  return async (request: { body: T }, reply: { code: (n: number) => { send: (d: unknown) => void } }) => {
-    const result = schema.safeParse(request.body);
-    if (!result.success) {
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid input',
-          details: result.error?.errors,
-        },
-      });
-    }
-  };
-}
-
-// Query validation preHandler factory
-function createQueryValidationHandler<T>(schema: { safeParse: (data: unknown) => { success: boolean; data?: T; error?: { errors: unknown[] } } }) {
-  return async (request: { query: T }, reply: { code: (n: number) => { send: (d: unknown) => void } }) => {
-    const result = schema.safeParse(request.query);
-    if (!result.success) {
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Invalid query parameters',
-          details: result.error?.errors,
-        },
-      });
-    }
-    request.query = result.data as T;
-  };
-}
 
 export default async function servicesRoutes(fastify: FastifyInstance) {
+  // Cast to ZodTypeProvider for type inference
+  const app = fastify.withTypeProvider<ZodTypeProvider>();
+
   // ============================================
   // Categories Routes
   // ============================================
 
-  // GET /service-categories - Read permission required
-  fastify.get<{ Querystring: CategoryQuery }>(
+  // GET /service-categories
+  app.get(
     '/service-categories',
     {
       schema: {
         description: 'Get all service categories',
         tags: ['Service Categories'],
         security: [{ bearerAuth: [] }],
+        querystring: categoryQuerySchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-        createQueryValidationHandler<CategoryQuery>(categoryQuerySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
-    categoriesController.getCategories.bind(categoriesController)
+    async (request, reply) => {
+      return categoriesController.getCategories(request as any, reply);
+    }
   );
 
-  // POST /service-categories - Write permission required
-  fastify.post<{ Body: CreateCategoryBody }>(
+  // POST /service-categories
+  app.post(
     '/service-categories',
     {
       schema: {
         description: 'Create a new service category',
         tags: ['Service Categories'],
         security: [{ bearerAuth: [] }],
+        body: createCategoryBodySchema,
+        response: {
+          201: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<CreateCategoryBody>(createCategoryBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    categoriesController.createCategory.bind(categoriesController)
+    async (request, reply) => {
+      return categoriesController.createCategory(request as any, reply);
+    }
   );
 
-  // GET /service-categories/:id - Read permission required
-  fastify.get<{ Params: { id: string } }>(
+  // GET /service-categories/:id
+  app.get(
     '/service-categories/:id',
     {
       schema: {
         description: 'Get a single service category',
         tags: ['Service Categories'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
-    categoriesController.getCategoryById.bind(categoriesController)
+    async (request, reply) => {
+      return categoriesController.getCategoryById(request as any, reply);
+    }
   );
 
-  // PATCH /service-categories/:id - Write permission required
-  fastify.patch<{ Params: { id: string }; Body: UpdateCategoryBody }>(
+  // PATCH /service-categories/:id
+  app.patch(
     '/service-categories/:id',
     {
       schema: {
         description: 'Update a service category',
         tags: ['Service Categories'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        body: updateCategoryBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<UpdateCategoryBody>(updateCategoryBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    categoriesController.updateCategory.bind(categoriesController)
+    async (request, reply) => {
+      return categoriesController.updateCategory(request as any, reply);
+    }
   );
 
-  // DELETE /service-categories/:id - Write permission required
-  fastify.delete<{ Params: { id: string } }>(
+  // DELETE /service-categories/:id
+  app.delete(
     '/service-categories/:id',
     {
       schema: {
         description: 'Delete a service category',
         tags: ['Service Categories'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          200: messageResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    categoriesController.deleteCategory.bind(categoriesController)
+    async (request, reply) => {
+      return categoriesController.deleteCategory(request as any, reply);
+    }
   );
 
-  // PATCH /service-categories/reorder - Write permission required
-  fastify.patch<{ Body: ReorderCategoriesBody }>(
+  // PATCH /service-categories/reorder
+  app.patch(
     '/service-categories/reorder',
     {
       schema: {
         description: 'Reorder service categories',
         tags: ['Service Categories'],
         security: [{ bearerAuth: [] }],
+        body: reorderCategoriesBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<ReorderCategoriesBody>(reorderCategoriesBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    categoriesController.reorderCategories.bind(categoriesController)
+    async (request, reply) => {
+      return categoriesController.reorderCategories(request as any, reply);
+    }
   );
 
   // ============================================
   // Services Routes
   // ============================================
 
-  // GET /services - Read permission required
-  fastify.get<{ Querystring: ServiceQuery }>(
+  // GET /services
+  app.get(
     '/services',
     {
       schema: {
         description: 'Get all services',
         tags: ['Services'],
         security: [{ bearerAuth: [] }],
+        querystring: serviceQuerySchema,
+        response: {
+          200: paginatedResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-        createQueryValidationHandler<ServiceQuery>(serviceQuerySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
-    servicesController.getServices.bind(servicesController)
+    async (request, reply) => {
+      return servicesController.getServices(request as any, reply);
+    }
   );
 
-  // POST /services - Write permission required
-  fastify.post<{ Body: CreateServiceBody }>(
+  // POST /services
+  app.post(
     '/services',
     {
       schema: {
         description: 'Create a new service',
         tags: ['Services'],
         security: [{ bearerAuth: [] }],
+        body: createServiceBodySchema,
+        response: {
+          201: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<CreateServiceBody>(createServiceBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    servicesController.createService.bind(servicesController)
+    async (request, reply) => {
+      return servicesController.createService(request as any, reply);
+    }
   );
 
-  // GET /services/catalog - Read permission required
-  fastify.get<{ Querystring: CatalogQuery }>(
+  // GET /services/catalog
+  app.get(
     '/services/catalog',
     {
       schema: {
         description: 'Get service catalog (hierarchical view)',
         tags: ['Services'],
         security: [{ bearerAuth: [] }],
+        querystring: catalogQuerySchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-        createQueryValidationHandler<CatalogQuery>(catalogQuerySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
-    servicesController.getServiceCatalog.bind(servicesController)
+    async (request, reply) => {
+      return servicesController.getServiceCatalog(request as any, reply);
+    }
   );
 
-  // POST /services/calculate-price - Read permission required (for billing/booking)
-  fastify.post<{ Body: CalculatePriceBody }>(
+  // POST /services/calculate-price
+  app.post(
     '/services/calculate-price',
     {
       schema: {
         description: 'Calculate price for services',
         tags: ['Services'],
         security: [{ bearerAuth: [] }],
+        body: calculatePriceBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-        createValidationHandler<CalculatePriceBody>(calculatePriceBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
     async (request, reply) => {
       try {
-        const { tenantId } = request.user;
-
+        const { tenantId } = (request as any).user;
         const result = await priceEngine.calculatePrice(tenantId, request.body);
-
-        return reply.send({
-          success: true,
-          data: result,
-        });
+        return reply.send({ success: true, data: result });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to calculate price';
         return reply.code(400).send({
           success: false,
-          error: {
-            code: 'CALCULATION_FAILED',
-            message,
-          },
+          error: { code: 'CALCULATION_FAILED', message },
         });
       }
     }
   );
 
-  // GET /services/:id - Read permission required
-  fastify.get<{ Params: { id: string } }>(
+  // GET /services/:id
+  app.get(
     '/services/:id',
     {
       schema: {
         description: 'Get a single service',
         tags: ['Services'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
-    servicesController.getServiceById.bind(servicesController)
+    async (request, reply) => {
+      return servicesController.getServiceById(request as any, reply);
+    }
   );
 
-  // PATCH /services/:id - Write permission required
-  fastify.patch<{ Params: { id: string }; Body: UpdateServiceBody }>(
+  // PATCH /services/:id
+  app.patch(
     '/services/:id',
     {
       schema: {
         description: 'Update a service',
         tags: ['Services'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        body: updateServiceBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<UpdateServiceBody>(updateServiceBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    servicesController.updateService.bind(servicesController)
+    async (request, reply) => {
+      return servicesController.updateService(request as any, reply);
+    }
   );
 
-  // DELETE /services/:id - Write permission required
-  fastify.delete<{ Params: { id: string } }>(
+  // DELETE /services/:id
+  app.delete(
     '/services/:id',
     {
       schema: {
         description: 'Delete a service',
         tags: ['Services'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          200: messageResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    servicesController.deleteService.bind(servicesController)
+    async (request, reply) => {
+      return servicesController.deleteService(request as any, reply);
+    }
   );
 
-  // POST /services/:id/duplicate - Write permission required
-  fastify.post<{ Params: { id: string } }>(
+  // POST /services/:id/duplicate
+  app.post(
     '/services/:id/duplicate',
     {
       schema: {
         description: 'Duplicate a service',
         tags: ['Services'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          201: successResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    servicesController.duplicateService.bind(servicesController)
+    async (request, reply) => {
+      return servicesController.duplicateService(request as any, reply);
+    }
   );
 
   // ============================================
   // Variants Routes
   // ============================================
 
-  // GET /services/:id/variants - Read permission required
-  fastify.get<{ Params: { id: string } }>(
+  // GET /services/:id/variants
+  app.get(
     '/services/:id/variants',
     {
       schema: {
         description: 'Get all variants for a service',
         tags: ['Service Variants'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
-    variantsController.getVariants.bind(variantsController)
+    async (request, reply) => {
+      return variantsController.getVariants(request as any, reply);
+    }
   );
 
-  // POST /services/:id/variants - Write permission required
-  fastify.post<{ Params: { id: string }; Body: CreateVariantBody }>(
+  // POST /services/:id/variants
+  app.post(
     '/services/:id/variants',
     {
       schema: {
         description: 'Create a new variant for a service',
         tags: ['Service Variants'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        body: createVariantBodySchema,
+        response: {
+          201: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<CreateVariantBody>(createVariantBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    variantsController.createVariant.bind(variantsController)
+    async (request, reply) => {
+      return variantsController.createVariant(request as any, reply);
+    }
   );
 
-  // PATCH /services/:id/variants/:vid - Write permission required
-  fastify.patch<{ Params: { id: string; vid: string }; Body: UpdateVariantBody }>(
+  // PATCH /services/:id/variants/:vid
+  app.patch(
     '/services/:id/variants/:vid',
     {
       schema: {
         description: 'Update a variant',
         tags: ['Service Variants'],
         security: [{ bearerAuth: [] }],
+        params: serviceVariantParamsSchema,
+        body: updateVariantBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<UpdateVariantBody>(updateVariantBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    variantsController.updateVariant.bind(variantsController)
+    async (request, reply) => {
+      return variantsController.updateVariant(request as any, reply);
+    }
   );
 
-  // DELETE /services/:id/variants/:vid - Write permission required
-  fastify.delete<{ Params: { id: string; vid: string } }>(
+  // DELETE /services/:id/variants/:vid
+  app.delete(
     '/services/:id/variants/:vid',
     {
       schema: {
         description: 'Delete a variant',
         tags: ['Service Variants'],
         security: [{ bearerAuth: [] }],
+        params: serviceVariantParamsSchema,
+        response: {
+          200: messageResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    variantsController.deleteVariant.bind(variantsController)
+    async (request, reply) => {
+      return variantsController.deleteVariant(request as any, reply);
+    }
   );
 
   // ============================================
   // Service Add-ons Routes (mapping to services)
   // ============================================
 
-  // POST /services/:id/add-ons - Write permission required
-  fastify.post<{ Params: { id: string }; Body: MapAddOnsToServiceBody }>(
+  // POST /services/:id/add-ons
+  app.post(
     '/services/:id/add-ons',
     {
       schema: {
         description: 'Map add-ons to a service',
         tags: ['Service Add-ons'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        body: mapAddOnsToServiceBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<MapAddOnsToServiceBody>(mapAddOnsToServiceBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    addOnsController.mapAddOnsToService.bind(addOnsController)
+    async (request, reply) => {
+      return addOnsController.mapAddOnsToService(request as any, reply);
+    }
   );
 
   // ============================================
   // Branch Pricing Routes
   // ============================================
 
-  // GET /branches/:id/service-prices - Read permission + Branch access required
-  fastify.get<{ Params: { id: string } }>(
+  // GET /branches/:id/service-prices
+  app.get(
     '/branches/:id/service-prices',
     {
       schema: {
         description: 'Get all service prices for a branch',
         tags: ['Branch Pricing'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+        },
       },
       preHandler: [
         authenticate,
@@ -489,209 +530,273 @@ export default async function servicesRoutes(fastify: FastifyInstance) {
         requireBranchAccess('id'),
       ],
     },
-    branchPricingController.getBranchServicePrices.bind(branchPricingController)
+    async (request, reply) => {
+      return branchPricingController.getBranchServicePrices(request as any, reply);
+    }
   );
 
-  // PATCH /branches/:id/service-prices - Write permission + Branch access required
-  fastify.patch<{ Params: { id: string }; Body: BulkUpdateBranchPricesBody }>(
+  // PATCH /branches/:id/service-prices
+  app.patch(
     '/branches/:id/service-prices',
     {
       schema: {
         description: 'Bulk update service prices for a branch',
         tags: ['Branch Pricing'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        body: bulkUpdateBranchPricesBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+        },
       },
       preHandler: [
         authenticate,
         requirePermission(PERMISSIONS.SERVICES_WRITE),
         requireBranchAccess('id'),
-        createValidationHandler<BulkUpdateBranchPricesBody>(bulkUpdateBranchPricesBodySchema),
       ],
     },
-    branchPricingController.bulkUpdateBranchServicePrices.bind(branchPricingController)
+    async (request, reply) => {
+      return branchPricingController.bulkUpdateBranchServicePrices(request as any, reply);
+    }
   );
 
-  // PATCH /branches/:id/services/:sid/price - Write permission + Branch access required
-  fastify.patch<{ Params: { id: string; sid: string }; Body: UpdateBranchPriceBody }>(
+  // PATCH /branches/:id/services/:sid/price
+  app.patch(
     '/branches/:id/services/:sid/price',
     {
       schema: {
         description: 'Update a single service price for a branch',
         tags: ['Branch Pricing'],
         security: [{ bearerAuth: [] }],
+        params: branchServiceParamsSchema,
+        body: updateBranchPriceBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
       preHandler: [
         authenticate,
         requirePermission(PERMISSIONS.SERVICES_WRITE),
         requireBranchAccess('id'),
-        createValidationHandler<UpdateBranchPriceBody>(updateBranchPriceBodySchema),
       ],
     },
-    branchPricingController.updateBranchServicePrice.bind(branchPricingController)
+    async (request, reply) => {
+      return branchPricingController.updateBranchServicePrice(request as any, reply);
+    }
   );
 
   // ============================================
   // Add-ons Routes (CRUD)
   // ============================================
 
-  // GET /service-add-ons - Read permission required
-  fastify.get<{ Querystring: { includeInactive?: boolean } }>(
+  // GET /service-add-ons
+  app.get(
     '/service-add-ons',
     {
       schema: {
         description: 'Get all service add-ons',
         tags: ['Service Add-ons'],
         security: [{ bearerAuth: [] }],
+        querystring: includeInactiveQuerySchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
-    addOnsController.getAddOns.bind(addOnsController)
+    async (request, reply) => {
+      return addOnsController.getAddOns(request as any, reply);
+    }
   );
 
-  // POST /service-add-ons - Write permission required
-  fastify.post<{ Body: CreateAddOnBody }>(
+  // POST /service-add-ons
+  app.post(
     '/service-add-ons',
     {
       schema: {
         description: 'Create a new service add-on',
         tags: ['Service Add-ons'],
         security: [{ bearerAuth: [] }],
+        body: createAddOnBodySchema,
+        response: {
+          201: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<CreateAddOnBody>(createAddOnBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    addOnsController.createAddOn.bind(addOnsController)
+    async (request, reply) => {
+      return addOnsController.createAddOn(request as any, reply);
+    }
   );
 
-  // PATCH /service-add-ons/:id - Write permission required
-  fastify.patch<{ Params: { id: string }; Body: UpdateAddOnBody }>(
+  // PATCH /service-add-ons/:id
+  app.patch(
     '/service-add-ons/:id',
     {
       schema: {
         description: 'Update a service add-on',
         tags: ['Service Add-ons'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        body: updateAddOnBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<UpdateAddOnBody>(updateAddOnBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    addOnsController.updateAddOn.bind(addOnsController)
+    async (request, reply) => {
+      return addOnsController.updateAddOn(request as any, reply);
+    }
   );
 
-  // DELETE /service-add-ons/:id - Write permission required
-  fastify.delete<{ Params: { id: string } }>(
+  // DELETE /service-add-ons/:id
+  app.delete(
     '/service-add-ons/:id',
     {
       schema: {
         description: 'Delete a service add-on',
         tags: ['Service Add-ons'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          200: messageResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    addOnsController.deleteAddOn.bind(addOnsController)
+    async (request, reply) => {
+      return addOnsController.deleteAddOn(request as any, reply);
+    }
   );
 
   // ============================================
   // Combo Services Routes
   // ============================================
 
-  // GET /combo-services - Read permission required
-  fastify.get<{ Querystring: { includeInactive?: boolean } }>(
+  // GET /combo-services
+  app.get(
     '/combo-services',
     {
       schema: {
         description: 'Get all combo services',
         tags: ['Combo Services'],
         security: [{ bearerAuth: [] }],
+        querystring: includeInactiveQuerySchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
-    combosController.getCombos.bind(combosController)
+    async (request, reply) => {
+      return combosController.getCombos(request as any, reply);
+    }
   );
 
-  // POST /combo-services - Write permission required
-  fastify.post<{ Body: CreateComboBody }>(
+  // POST /combo-services
+  app.post(
     '/combo-services',
     {
       schema: {
         description: 'Create a new combo service',
         tags: ['Combo Services'],
         security: [{ bearerAuth: [] }],
+        body: createComboBodySchema,
+        response: {
+          201: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<CreateComboBody>(createComboBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    combosController.createCombo.bind(combosController)
+    async (request, reply) => {
+      return combosController.createCombo(request as any, reply);
+    }
   );
 
-  // GET /combo-services/:id - Read permission required
-  fastify.get<{ Params: { id: string } }>(
+  // GET /combo-services/:id
+  app.get(
     '/combo-services/:id',
     {
       schema: {
         description: 'Get a single combo service',
         tags: ['Combo Services'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_READ),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_READ)],
     },
-    combosController.getComboById.bind(combosController)
+    async (request, reply) => {
+      return combosController.getComboById(request as any, reply);
+    }
   );
 
-  // PATCH /combo-services/:id - Write permission required
-  fastify.patch<{ Params: { id: string }; Body: UpdateComboBody }>(
+  // PATCH /combo-services/:id
+  app.patch(
     '/combo-services/:id',
     {
       schema: {
         description: 'Update a combo service',
         tags: ['Combo Services'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        body: updateComboBodySchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-        createValidationHandler<UpdateComboBody>(updateComboBodySchema),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    combosController.updateCombo.bind(combosController)
+    async (request, reply) => {
+      return combosController.updateCombo(request as any, reply);
+    }
   );
 
-  // DELETE /combo-services/:id - Write permission required
-  fastify.delete<{ Params: { id: string } }>(
+  // DELETE /combo-services/:id
+  app.delete(
     '/combo-services/:id',
     {
       schema: {
         description: 'Delete a combo service',
         tags: ['Combo Services'],
         security: [{ bearerAuth: [] }],
+        params: idParamSchema,
+        response: {
+          200: messageResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
       },
-      preHandler: [
-        authenticate,
-        requirePermission(PERMISSIONS.SERVICES_WRITE),
-      ],
+      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
     },
-    combosController.deleteCombo.bind(combosController)
+    async (request, reply) => {
+      return combosController.deleteCombo(request as any, reply);
+    }
   );
 }

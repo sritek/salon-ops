@@ -1,0 +1,1294 @@
+---
+# Coding standards and best practices - TypeScript, React, file organization, and naming conventions
+inclusion: fileMatch
+fileMatchPattern: '**/*.ts, **/*.tsx'
+---
+
+# Coding Standards & Best Practices
+
+## Overview
+
+This document defines coding standards, best practices, and guidelines for developing the Salon Management SaaS platform. All contributors must follow these standards to ensure consistency, maintainability, and quality.
+
+---
+
+> **See also:** `20-modular-components.md` for detailed page decomposition patterns and file size guidelines.
+
+---
+
+## 1. Core Principles
+
+### Clean Code Principles
+
+1. **Single Responsibility**: Each function, class, or component should do one thing well
+2. **DRY (Don't Repeat Yourself)**: Extract common logic into reusable functions/components
+3. **KISS (Keep It Simple, Stupid)**: Prefer simple solutions over clever ones
+4. **YAGNI (You Aren't Gonna Need It)**: Don't add functionality until it's needed
+5. **Separation of Concerns**: Keep business logic, UI, and data access separate
+
+### Code Quality Standards
+
+- Write self-documenting code with meaningful names
+- Keep functions small (under 30 lines ideally)
+- Keep files focused (under 300 lines ideally)
+- Maximum nesting depth: 3 levels
+- Maximum function parameters: 4 (use object for more)
+- Always handle errors explicitly
+- Write tests for business logic
+
+---
+
+## 2. File Organization
+
+### One Component Per File
+
+**ALWAYS** create separate files for each component. Never define multiple components in a single file.
+
+```typescript
+// ❌ BAD - Multiple components in one file
+// components/appointment.tsx
+export function AppointmentCard() { ... }
+export function AppointmentList() { ... }
+export function AppointmentHeader() { ... }
+
+// ✅ GOOD - Separate files for each component
+// components/appointments/appointment-card.tsx
+export function AppointmentCard() { ... }
+
+// components/appointments/appointment-list.tsx
+export function AppointmentList() { ... }
+
+// components/appointments/appointment-header.tsx
+export function AppointmentHeader() { ... }
+
+// components/appointments/index.ts (barrel export)
+export * from './appointment-card';
+export * from './appointment-list';
+export * from './appointment-header';
+```
+
+### File Naming Conventions
+
+| Type       | Convention                      | Example                     |
+| ---------- | ------------------------------- | --------------------------- |
+| Components | kebab-case                      | `appointment-card.tsx`      |
+| Hooks      | camelCase with `use` prefix     | `use-appointments.ts`       |
+| Utilities  | kebab-case                      | `format-currency.ts`        |
+| Types      | kebab-case                      | `appointment.types.ts`      |
+| Constants  | kebab-case                      | `api-endpoints.ts`          |
+| Stores     | kebab-case with `-store` suffix | `appointment-store.ts`      |
+| Tests      | Same as source with `.test`     | `appointment-card.test.tsx` |
+
+### Directory Structure by Feature
+
+Organize code by feature/domain, not by type:
+
+```
+// ❌ BAD - Organized by type
+src/
+├── components/
+│   ├── AppointmentCard.tsx
+│   ├── CustomerCard.tsx
+│   └── ServiceCard.tsx
+├── hooks/
+│   ├── useAppointments.ts
+│   └── useCustomers.ts
+└── services/
+    ├── appointmentService.ts
+    └── customerService.ts
+
+// ✅ GOOD - Organized by feature
+src/
+├── features/
+│   ├── appointments/
+│   │   ├── components/
+│   │   │   ├── appointment-card.tsx
+│   │   │   ├── appointment-list.tsx
+│   │   │   └── appointment-form.tsx
+│   │   ├── hooks/
+│   │   │   └── use-appointments.ts
+│   │   ├── services/
+│   │   │   └── appointment.service.ts
+│   │   ├── types/
+│   │   │   └── appointment.types.ts
+│   │   └── index.ts
+│   ├── customers/
+│   │   └── ...
+│   └── services/
+│       └── ...
+└── shared/
+    ├── components/
+    ├── hooks/
+    └── utils/
+```
+
+---
+
+## 3. Frontend Component Guidelines
+
+### Page Decomposition
+
+**ALWAYS** break pages into smaller, focused components:
+
+```typescript
+// ❌ BAD - Monolithic page component
+// app/(dashboard)/appointments/page.tsx
+export default function AppointmentsPage() {
+  return (
+    <div>
+      <div className="flex justify-between">
+        <h1>Appointments</h1>
+        <div className="flex gap-2">
+          <input type="text" placeholder="Search..." />
+          <select>...</select>
+          <button>New Appointment</button>
+        </div>
+      </div>
+      <div className="mt-4">
+        <table>
+          {/* 200 lines of table markup */}
+        </table>
+      </div>
+      <div className="mt-4 flex justify-center">
+        {/* Pagination */}
+      </div>
+    </div>
+  );
+}
+
+// ✅ GOOD - Decomposed into focused components
+// app/(dashboard)/appointments/page.tsx
+import { AppointmentsHeader } from './components/appointments-header';
+import { AppointmentsFilters } from './components/appointments-filters';
+import { AppointmentsTable } from './components/appointments-table';
+import { AppointmentsPagination } from './components/appointments-pagination';
+
+export default function AppointmentsPage() {
+  return (
+    <div className="space-y-4">
+      <AppointmentsHeader />
+      <AppointmentsFilters />
+      <AppointmentsTable />
+      <AppointmentsPagination />
+    </div>
+  );
+}
+```
+
+### Component Size Guidelines
+
+| Component Type    | Max Lines | Responsibility                                   |
+| ----------------- | --------- | ------------------------------------------------ |
+| Page              | 50        | Composition, layout, data fetching orchestration |
+| Feature Component | 150       | Feature-specific logic and UI                    |
+| UI Component      | 100       | Presentation only, no business logic             |
+| Hook              | 100       | Single concern (data, state, effect)             |
+
+### Component Hierarchy
+
+```
+Page (Composition)
+├── Layout Components (Structure)
+│   ├── Header
+│   ├── Sidebar
+│   └── Footer
+├── Feature Components (Business Logic)
+│   ├── AppointmentList
+│   ├── AppointmentForm
+│   └── AppointmentCalendar
+└── UI Components (Presentation)
+    ├── Button
+    ├── Card
+    ├── Input
+    └── Modal
+```
+
+---
+
+## 4. Reusable UI Components
+
+### Common UI Components (Required)
+
+Create and use these shared components consistently:
+
+```typescript
+// components/shared/page-header.tsx
+interface PageHeaderProps {
+  title: string;
+  description?: string;
+  actions?: React.ReactNode;
+}
+
+export function PageHeader({ title, description, actions }: PageHeaderProps) {
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        {description && (
+          <p className="text-muted-foreground">{description}</p>
+        )}
+      </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+// components/shared/data-table-wrapper.tsx
+interface DataTableWrapperProps<T> {
+  data: T[];
+  columns: ColumnDef<T>[];
+  isLoading?: boolean;
+  emptyMessage?: string;
+  searchPlaceholder?: string;
+  onSearch?: (value: string) => void;
+}
+
+export function DataTableWrapper<T>({ ... }: DataTableWrapperProps<T>) {
+  // Reusable table with search, pagination, loading states
+}
+
+// components/shared/empty-state.tsx
+interface EmptyStateProps {
+  icon?: React.ReactNode;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}
+
+export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      {icon && <div className="mb-4 text-muted-foreground">{icon}</div>}
+      <h3 className="text-lg font-semibold">{title}</h3>
+      {description && <p className="text-muted-foreground mt-1">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+// components/shared/loading-skeleton.tsx
+interface LoadingSkeletonProps {
+  variant: 'card' | 'table' | 'form' | 'list';
+  count?: number;
+}
+
+export function LoadingSkeleton({ variant, count = 1 }: LoadingSkeletonProps) {
+  // Render appropriate skeleton based on variant
+}
+
+// components/shared/confirm-dialog.tsx
+interface ConfirmDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  variant?: 'default' | 'destructive';
+  onConfirm: () => void;
+  isLoading?: boolean;
+}
+
+export function ConfirmDialog({ ... }: ConfirmDialogProps) {
+  // Reusable confirmation dialog
+}
+
+// components/shared/status-badge.tsx
+interface StatusBadgeProps {
+  status: string;
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
+}
+
+export function StatusBadge({ status, variant }: StatusBadgeProps) {
+  // Consistent status display
+}
+```
+
+### Form Components (Required)
+
+```typescript
+// components/forms/form-field-wrapper.tsx
+interface FormFieldWrapperProps {
+  label: string;
+  error?: string;
+  required?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}
+
+export function FormFieldWrapper({ ... }: FormFieldWrapperProps) {
+  // Consistent form field layout with label, error, hint
+}
+
+// components/forms/search-input.tsx
+interface SearchInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  debounceMs?: number;
+}
+
+export function SearchInput({ ... }: SearchInputProps) {
+  // Debounced search input with clear button
+}
+
+// components/forms/date-range-picker.tsx
+interface DateRangePickerProps {
+  from?: Date;
+  to?: Date;
+  onChange: (range: { from?: Date; to?: Date }) => void;
+  presets?: { label: string; from: Date; to: Date }[];
+}
+
+export function DateRangePicker({ ... }: DateRangePickerProps) {
+  // Consistent date range selection
+}
+```
+
+### Component Export Pattern
+
+Always use barrel exports for cleaner imports:
+
+```typescript
+// components/shared/index.ts
+export * from './page-header';
+export * from './empty-state';
+export * from './loading-skeleton';
+export * from './confirm-dialog';
+export * from './status-badge';
+export * from './data-table-wrapper';
+
+// Usage
+import { PageHeader, EmptyState, StatusBadge } from '@/components/shared';
+```
+
+---
+
+## 5. TypeScript Standards
+
+### Type Definitions
+
+```typescript
+// ✅ GOOD - Explicit interfaces for props
+interface AppointmentCardProps {
+  appointment: Appointment;
+  onEdit: (id: string) => void;
+  onCancel: (id: string) => void;
+  isLoading?: boolean;
+}
+
+// ✅ GOOD - Use type for unions/intersections
+type AppointmentStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
+type ButtonVariant = 'default' | 'destructive' | 'outline' | 'ghost';
+
+// ❌ BAD - Using `any`
+function processData(data: any) { ... }
+
+// ✅ GOOD - Use `unknown` and narrow
+function processData(data: unknown) {
+  if (isAppointment(data)) {
+    // Now TypeScript knows data is Appointment
+  }
+}
+
+// ✅ GOOD - Separate type files
+// types/appointment.types.ts
+export interface Appointment {
+  id: string;
+  customerId: string;
+  branchId: string;
+  // ...
+}
+
+export interface CreateAppointmentInput {
+  customerId: string;
+  branchId: string;
+  // ...
+}
+
+export type AppointmentWithRelations = Appointment & {
+  customer: Customer;
+  branch: Branch;
+  services: AppointmentService[];
+};
+```
+
+### Avoid These Patterns
+
+```typescript
+// ❌ BAD - Implicit any
+const handleClick = (e) => { ... }
+
+// ✅ GOOD - Explicit type
+const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => { ... }
+
+// ❌ BAD - Type assertion without validation
+const data = response.data as Appointment;
+
+// ✅ GOOD - Validate before assertion
+if (isAppointment(response.data)) {
+  const data = response.data;
+}
+
+// ❌ BAD - Non-null assertion
+const name = user!.name;
+
+// ✅ GOOD - Handle null case
+const name = user?.name ?? 'Unknown';
+
+// ❌ BAD - Inline object types in function signatures
+function createAppointment(data: { customerId: string; branchId: string; ... }) { }
+
+// ✅ GOOD - Named interface
+function createAppointment(data: CreateAppointmentInput) { }
+```
+
+---
+
+## 6. React/Next.js Best Practices
+
+### Component Patterns
+
+```typescript
+// ✅ GOOD - Functional component with explicit return type
+export function AppointmentCard({ appointment }: AppointmentCardProps): JSX.Element {
+  return <div>...</div>;
+}
+
+// ✅ GOOD - Memoize expensive components
+export const AppointmentList = memo(function AppointmentList({
+  appointments
+}: AppointmentListProps) {
+  return <div>...</div>;
+});
+
+// ✅ GOOD - Custom hooks for logic extraction
+function useAppointmentActions(appointmentId: string) {
+  const queryClient = useQueryClient();
+
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelAppointment(appointmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    },
+  });
+
+  return { cancel: cancelMutation.mutate, isLoading: cancelMutation.isPending };
+}
+
+// ✅ GOOD - Separate container and presentation
+// Container (data fetching)
+function AppointmentListContainer() {
+  const { data, isLoading } = useAppointments();
+  return <AppointmentListView appointments={data} isLoading={isLoading} />;
+}
+
+// Presentation (pure UI)
+function AppointmentListView({ appointments, isLoading }: AppointmentListViewProps) {
+  if (isLoading) return <LoadingSkeleton variant="list" />;
+  return <div>{appointments.map(apt => <AppointmentCard key={apt.id} {...apt} />)}</div>;
+}
+```
+
+### Server vs Client Components
+
+```typescript
+// ✅ GOOD - Server Component (default) for data fetching
+// app/(dashboard)/appointments/page.tsx
+export default async function AppointmentsPage() {
+  const appointments = await getAppointments(); // Server-side fetch
+  return <AppointmentsList appointments={appointments} />;
+}
+
+// ✅ GOOD - Client Component only when needed
+// components/appointments/appointment-actions.tsx
+'use client';
+
+import { useState } from 'react';
+
+export function AppointmentActions({ appointmentId }: { appointmentId: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  // Interactive UI logic
+}
+
+// ❌ BAD - Unnecessary 'use client'
+'use client';
+export function AppointmentCard({ appointment }: AppointmentCardProps) {
+  // No hooks, no interactivity - doesn't need 'use client'
+  return <div>{appointment.title}</div>;
+}
+```
+
+### State Management Guidelines
+
+```typescript
+// ✅ GOOD - Use appropriate state solution
+
+// 1. Local state for component-specific UI state
+const [isOpen, setIsOpen] = useState(false);
+
+// 2. URL state for shareable/bookmarkable state
+const searchParams = useSearchParams();
+const page = searchParams.get('page') ?? '1';
+
+// 3. TanStack Query for server state
+const { data, isLoading } = useQuery({
+  queryKey: ['appointments', filters],
+  queryFn: () => fetchAppointments(filters),
+});
+
+// 4. Zustand for global client state
+const { sidebarOpen, toggleSidebar } = useUIStore();
+
+// ❌ BAD - Using Zustand for server data
+const useAppointmentStore = create((set) => ({
+  appointments: [], // Should be in TanStack Query
+  fetchAppointments: async () => {
+    const data = await api.get('/appointments');
+    set({ appointments: data });
+  },
+}));
+```
+
+---
+
+## 7. Backend Best Practices
+
+### Service Layer Pattern
+
+```typescript
+// ✅ GOOD - Thin controllers, fat services
+// controllers/appointment.controller.ts
+export class AppointmentController {
+  constructor(private appointmentService: AppointmentService) {}
+
+  async create(request: FastifyRequest, reply: FastifyReply) {
+    const data = request.body as CreateAppointmentInput;
+    const appointment = await this.appointmentService.create(data, request.user);
+    return reply.code(201).send({ success: true, data: appointment });
+  }
+}
+
+// services/appointment.service.ts
+export class AppointmentService {
+  constructor(
+    private appointmentRepo: AppointmentRepository,
+    private customerRepo: CustomerRepository,
+    private notificationService: NotificationService
+  ) {}
+
+  async create(input: CreateAppointmentInput, user: User): Promise<Appointment> {
+    // 1. Validate business rules
+    await this.validateAvailability(input);
+    await this.validateCustomer(input.customerId);
+
+    // 2. Create appointment
+    const appointment = await this.appointmentRepo.create({
+      ...input,
+      tenantId: user.tenantId,
+      createdBy: user.id,
+    });
+
+    // 3. Side effects
+    await this.notificationService.sendAppointmentConfirmation(appointment);
+
+    return appointment;
+  }
+}
+```
+
+### Repository Pattern
+
+```typescript
+// ✅ GOOD - Repository abstracts data access
+// repositories/appointment.repository.ts
+export class AppointmentRepository {
+  constructor(private prisma: PrismaClient) {}
+
+  async findById(id: string): Promise<Appointment | null> {
+    return this.prisma.appointment.findUnique({
+      where: { id },
+      include: { customer: true, services: true },
+    });
+  }
+
+  async findByDateRange(branchId: string, startDate: Date, endDate: Date): Promise<Appointment[]> {
+    return this.prisma.appointment.findMany({
+      where: {
+        branchId,
+        appointmentDate: { gte: startDate, lte: endDate },
+        deletedAt: null,
+      },
+      orderBy: { startTime: 'asc' },
+    });
+  }
+
+  async create(data: CreateAppointmentData): Promise<Appointment> {
+    return this.prisma.appointment.create({ data });
+  }
+}
+```
+
+### Error Handling
+
+```typescript
+// ✅ GOOD - Custom error classes
+// errors/business-errors.ts
+export class BusinessError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public statusCode: number = 400,
+    public details?: Record<string, any>
+  ) {
+    super(message);
+    this.name = 'BusinessError';
+  }
+}
+
+export class NotFoundError extends BusinessError {
+  constructor(resource: string, id: string) {
+    super('NOT_FOUND', `${resource} with id ${id} not found`, 404);
+  }
+}
+
+export class ConflictError extends BusinessError {
+  constructor(message: string, details?: Record<string, any>) {
+    super('CONFLICT', message, 409, details);
+  }
+}
+
+// ✅ GOOD - Centralized error handler
+// middleware/error-handler.ts
+export function errorHandler(error: Error, request: FastifyRequest, reply: FastifyReply) {
+  if (error instanceof BusinessError) {
+    return reply.code(error.statusCode).send({
+      success: false,
+      error: {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      },
+    });
+  }
+
+  // Log unexpected errors
+  request.log.error(error);
+
+  return reply.code(500).send({
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: 'An unexpected error occurred',
+    },
+  });
+}
+```
+
+---
+
+## 8. Naming Conventions
+
+### Variables and Functions
+
+```typescript
+// ✅ GOOD - camelCase for variables and functions
+const appointmentCount = 10;
+const isLoading = true;
+function calculateTotalPrice() {}
+function handleSubmit() {}
+
+// ✅ GOOD - Descriptive boolean names
+const isVisible = true;
+const hasPermission = false;
+const canEdit = true;
+const shouldRefresh = false;
+
+// ✅ GOOD - Event handlers with 'handle' or 'on' prefix
+const handleClick = () => {};
+const onSubmit = () => {};
+const handleAppointmentCreate = () => {};
+
+// ✅ GOOD - Async functions with action verbs
+async function fetchAppointments() {}
+async function createCustomer() {}
+async function updateService() {}
+async function deleteInvoice() {}
+```
+
+### Components and Types
+
+```typescript
+// ✅ GOOD - PascalCase for components and types
+function AppointmentCard() {}
+function CustomerList() {}
+interface AppointmentProps {}
+type PaymentStatus = 'pending' | 'completed';
+
+// ✅ GOOD - Suffix conventions
+interface AppointmentCardProps {} // Props suffix
+type AppointmentState = {}; // State suffix
+interface CreateAppointmentInput {} // Input suffix
+interface AppointmentResponse {} // Response suffix
+```
+
+### Constants and Enums
+
+```typescript
+// ✅ GOOD - SCREAMING_SNAKE_CASE for constants
+const MAX_APPOINTMENTS_PER_DAY = 50;
+const DEFAULT_PAGE_SIZE = 20;
+const API_BASE_URL = '/api/v1';
+
+// ✅ GOOD - PascalCase for enums
+enum AppointmentStatus {
+  Scheduled = 'scheduled',
+  Confirmed = 'confirmed',
+  Completed = 'completed',
+  Cancelled = 'cancelled',
+}
+
+// ✅ GOOD - Object constants for config
+const APPOINTMENT_CONFIG = {
+  maxPerDay: 50,
+  minDuration: 15,
+  maxDuration: 480,
+  bufferMinutes: 5,
+} as const;
+```
+
+---
+
+## 9. Code Formatting
+
+### ESLint Configuration
+
+```javascript
+// .eslintrc.js
+module.exports = {
+  extends: [
+    'next/core-web-vitals',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:react-hooks/recommended',
+    'prettier',
+  ],
+  rules: {
+    // TypeScript
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/explicit-function-return-type': 'off',
+    '@typescript-eslint/no-non-null-assertion': 'warn',
+
+    // React
+    'react/prop-types': 'off',
+    'react/react-in-jsx-scope': 'off',
+    'react-hooks/rules-of-hooks': 'error',
+    'react-hooks/exhaustive-deps': 'warn',
+
+    // General
+    'no-console': ['warn', { allow: ['warn', 'error'] }],
+    'prefer-const': 'error',
+    'no-var': 'error',
+
+    // Import order
+    'import/order': [
+      'error',
+      {
+        groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
+        'newlines-between': 'always',
+        alphabetize: { order: 'asc' },
+      },
+    ],
+  },
+};
+```
+
+### Prettier Configuration
+
+```json
+// .prettierrc
+{
+  "semi": true,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "printWidth": 100,
+  "bracketSpacing": true,
+  "arrowParens": "always",
+  "endOfLine": "lf"
+}
+```
+
+### Import Order
+
+```typescript
+// ✅ GOOD - Organized imports
+// 1. React/Next.js
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+// 2. External libraries
+import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
+
+// 3. Internal - absolute imports
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/use-auth';
+import { formatCurrency } from '@/lib/format';
+
+// 4. Internal - relative imports
+import { AppointmentCard } from './appointment-card';
+import { useAppointmentStore } from './appointment-store';
+
+// 5. Types (last)
+import type { Appointment } from '@/types';
+```
+
+---
+
+## 10. Documentation Standards
+
+### Code Comments
+
+```typescript
+// ✅ GOOD - Explain WHY, not WHAT
+// Calculate end time accounting for processing time where stylist is free
+const effectiveEndTime = startTime + activeTime; // Not processing time
+
+// ✅ GOOD - Document complex business logic
+/**
+ * Applies membership discount to invoice.
+ *
+ * Discount rules:
+ * 1. Check if membership is active and not frozen
+ * 2. Verify service is covered by membership benefits
+ * 3. Apply discount percentage, capped at benefit limit
+ * 4. Record usage against membership cooldown
+ */
+function applyMembershipDiscount(invoice: Invoice, membership: Membership) {}
+
+// ✅ GOOD - TODO with context
+// TODO(john): Implement retry logic for payment gateway timeout
+// Issue: https://github.com/org/repo/issues/123
+
+// ❌ BAD - Obvious comments
+// Increment counter
+counter++;
+
+// ❌ BAD - Outdated comments
+// Returns user name (actually returns full user object now)
+function getUser() {}
+```
+
+### JSDoc for Public APIs
+
+````typescript
+/**
+ * Creates a new appointment with conflict detection.
+ *
+ * @param input - Appointment creation data
+ * @param user - The authenticated user creating the appointment
+ * @returns The created appointment with relations
+ * @throws {ConflictError} When time slot is already booked
+ * @throws {ValidationError} When input validation fails
+ *
+ * @example
+ * ```typescript
+ * const appointment = await appointmentService.create({
+ *   customerId: 'cust-123',
+ *   branchId: 'branch-456',
+ *   appointmentDate: '2024-01-15',
+ *   startTime: '10:00',
+ *   services: [{ serviceId: 'svc-789' }],
+ * }, currentUser);
+ * ```
+ */
+async function create(
+  input: CreateAppointmentInput,
+  user: User
+): Promise<AppointmentWithRelations> {}
+````
+
+### README for Features
+
+Each feature directory should have a README:
+
+```markdown
+# Appointments Feature
+
+## Overview
+
+Handles appointment scheduling, management, and calendar views.
+
+## Components
+
+- `AppointmentCalendar` - Full calendar view with drag-drop
+- `AppointmentForm` - Create/edit appointment form
+- `AppointmentCard` - Individual appointment display
+
+## Hooks
+
+- `useAppointments` - Fetch appointments with filters
+- `useCreateAppointment` - Create appointment mutation
+- `useAppointmentActions` - Cancel, reschedule actions
+
+## Business Rules
+
+- No double-booking for same stylist
+- Maximum 3 reschedules per appointment
+- 5-minute buffer between appointments
+```
+
+---
+
+## 11. Performance Best Practices
+
+### React Performance
+
+```typescript
+// ✅ GOOD - Memoize callbacks passed to children
+const handleDelete = useCallback((id: string) => {
+  deleteMutation.mutate(id);
+}, [deleteMutation]);
+
+// ✅ GOOD - Memoize expensive computations
+const sortedAppointments = useMemo(() => {
+  return appointments.sort((a, b) =>
+    new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+  );
+}, [appointments]);
+
+// ✅ GOOD - Use React.memo for pure components
+export const AppointmentCard = memo(function AppointmentCard({
+  appointment,
+}: AppointmentCardProps) {
+  return <div>...</div>;
+});
+
+// ✅ GOOD - Lazy load heavy components
+const AppointmentCalendar = lazy(() => import('./appointment-calendar'));
+
+// ✅ GOOD - Virtualize long lists
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+function AppointmentList({ appointments }: { appointments: Appointment[] }) {
+  const virtualizer = useVirtualizer({
+    count: appointments.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 80,
+  });
+  // ...
+}
+```
+
+### Data Fetching Performance
+
+```typescript
+// ✅ GOOD - Prefetch on hover
+function AppointmentLink({ id }: { id: string }) {
+  const queryClient = useQueryClient();
+
+  const prefetch = () => {
+    queryClient.prefetchQuery({
+      queryKey: ['appointment', id],
+      queryFn: () => fetchAppointment(id),
+    });
+  };
+
+  return (
+    <Link href={`/appointments/${id}`} onMouseEnter={prefetch}>
+      View
+    </Link>
+  );
+}
+
+// ✅ GOOD - Parallel queries
+function DashboardPage() {
+  const results = useQueries({
+    queries: [
+      { queryKey: ['revenue'], queryFn: fetchRevenue },
+      { queryKey: ['appointments'], queryFn: fetchTodayAppointments },
+      { queryKey: ['alerts'], queryFn: fetchAlerts },
+    ],
+  });
+}
+
+// ✅ GOOD - Optimistic updates
+const updateMutation = useMutation({
+  mutationFn: updateAppointment,
+  onMutate: async (newData) => {
+    await queryClient.cancelQueries({ queryKey: ['appointments'] });
+    const previous = queryClient.getQueryData(['appointments']);
+    queryClient.setQueryData(['appointments'], (old) =>
+      old.map(apt => apt.id === newData.id ? { ...apt, ...newData } : apt)
+    );
+    return { previous };
+  },
+  onError: (err, newData, context) => {
+    queryClient.setQueryData(['appointments'], context?.previous);
+  },
+});
+```
+
+---
+
+## 12. Security Best Practices
+
+### Frontend Security
+
+```typescript
+// ✅ GOOD - Sanitize user input for display
+import DOMPurify from 'dompurify';
+
+function SafeHTML({ html }: { html: string }) {
+  return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />;
+}
+
+// ✅ GOOD - Validate on both client and server
+const schema = z.object({
+  email: z.string().email(),
+  phone: z.string().regex(/^[6-9]\d{9}$/),
+});
+
+// Client validation
+const { register, handleSubmit } = useForm({
+  resolver: zodResolver(schema),
+});
+
+// ❌ BAD - Trust client-side validation only
+// Server must always validate!
+
+// ✅ GOOD - Don't expose sensitive data in client
+// Use server components or API routes for sensitive operations
+export default async function SettingsPage() {
+  const settings = await getSettings(); // Server-side only
+  return <SettingsForm settings={maskSensitiveFields(settings)} />;
+}
+```
+
+### Backend Security
+
+```typescript
+// ✅ GOOD - Always validate input
+import { z } from 'zod';
+
+const createAppointmentSchema = z.object({
+  customerId: z.string().uuid(),
+  branchId: z.string().uuid(),
+  appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+});
+
+// ✅ GOOD - Use parameterized queries (Prisma does this automatically)
+const customer = await prisma.customer.findFirst({
+  where: { phone: userInput }, // Safe - parameterized
+});
+
+// ❌ BAD - String concatenation in queries
+const result = await prisma.$queryRawUnsafe(
+  `SELECT * FROM customers WHERE phone = '${userInput}'` // SQL injection!
+);
+
+// ✅ GOOD - Rate limit sensitive endpoints
+fastify.register(rateLimit, {
+  max: 5,
+  timeWindow: '1 minute',
+  keyGenerator: (req) => req.ip,
+});
+
+// ✅ GOOD - Audit sensitive actions
+async function updatePrice(serviceId: string, newPrice: number, user: User) {
+  const oldService = await serviceRepo.findById(serviceId);
+  const updated = await serviceRepo.update(serviceId, { price: newPrice });
+
+  await auditLog.create({
+    action: 'PRICE_UPDATE',
+    entityType: 'service',
+    entityId: serviceId,
+    userId: user.id,
+    oldValues: { price: oldService.price },
+    newValues: { price: newPrice },
+  });
+
+  return updated;
+}
+```
+
+---
+
+## 13. Accessibility Standards
+
+### Required Accessibility Practices
+
+```typescript
+// ✅ GOOD - Semantic HTML
+<nav aria-label="Main navigation">
+  <ul role="list">
+    <li><a href="/dashboard">Dashboard</a></li>
+  </ul>
+</nav>
+
+// ✅ GOOD - Accessible form labels
+<FormField>
+  <FormLabel htmlFor="customer-name">Customer Name</FormLabel>
+  <FormControl>
+    <Input id="customer-name" aria-describedby="name-hint" />
+  </FormControl>
+  <FormDescription id="name-hint">Enter the customer's full name</FormDescription>
+  <FormMessage /> {/* Error message */}
+</FormField>
+
+// ✅ GOOD - Keyboard navigation
+<Button
+  onClick={handleAction}
+  onKeyDown={(e) => e.key === 'Enter' && handleAction()}
+  tabIndex={0}
+>
+  Submit
+</Button>
+
+// ✅ GOOD - Screen reader only text
+<button>
+  <TrashIcon aria-hidden="true" />
+  <span className="sr-only">Delete appointment</span>
+</button>
+
+// ✅ GOOD - Focus management
+function Modal({ isOpen, onClose, children }) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      closeButtonRef.current?.focus();
+    }
+  }, [isOpen]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogClose ref={closeButtonRef}>Close</DialogClose>
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ✅ GOOD - Color contrast
+// Use Tailwind's default colors which meet WCAG AA standards
+// For custom colors, verify contrast ratio >= 4.5:1 for text
+
+// ✅ GOOD - Loading states announced
+<div aria-live="polite" aria-busy={isLoading}>
+  {isLoading ? 'Loading appointments...' : <AppointmentList />}
+</div>
+```
+
+---
+
+## 14. Git Workflow Standards
+
+### Branch Naming
+
+```bash
+# Feature branches
+feature/add-appointment-reminders
+feature/customer-loyalty-points
+
+# Bug fixes
+bugfix/fix-calendar-timezone
+bugfix/payment-calculation-error
+
+# Hotfixes (production)
+hotfix/critical-booking-issue
+
+# Refactoring
+refactor/appointment-service-cleanup
+```
+
+### Commit Messages
+
+```bash
+# Format: <type>(<scope>): <description>
+
+# Types
+feat:     # New feature
+fix:      # Bug fix
+docs:     # Documentation
+style:    # Code style (no logic change)
+refactor: # Code refactoring
+test:     # Adding tests
+chore:    # Build, dependencies
+perf:     # Performance improvement
+
+# Examples
+feat(appointments): add reminder notifications
+fix(billing): correct GST calculation for inter-state
+docs(readme): update setup instructions
+refactor(customers): extract search logic to hook
+test(appointments): add conflict detection tests
+chore(deps): upgrade TanStack Query to v5
+perf(calendar): virtualize appointment list
+```
+
+### Pull Request Template
+
+```markdown
+## Summary
+
+Brief description of changes
+
+## Changes
+
+- Added appointment reminder feature
+- Created notification service
+- Added reminder preferences to settings
+
+## Testing
+
+- [ ] Unit tests added/updated
+- [ ] Integration tests pass
+- [ ] Manual testing completed
+
+## Screenshots (if UI changes)
+
+[Attach screenshots]
+
+## Checklist
+
+- [ ] Code follows project standards
+- [ ] Self-reviewed the code
+- [ ] No console.log or debug code
+- [ ] Types are properly defined
+- [ ] Error handling is complete
+```
+
+---
+
+## 15. Code Review Checklist
+
+### Before Submitting PR
+
+- [ ] Code compiles without errors
+- [ ] All tests pass
+- [ ] No linting errors
+- [ ] No console.log statements
+- [ ] No hardcoded values (use constants/env)
+- [ ] No sensitive data in code
+- [ ] Components are in separate files
+- [ ] Reusable components are extracted
+- [ ] Types are properly defined
+- [ ] Error handling is complete
+- [ ] Loading states are handled
+- [ ] Empty states are handled
+
+### Reviewing Others' Code
+
+- [ ] Business logic is correct
+- [ ] Edge cases are handled
+- [ ] Code is readable and maintainable
+- [ ] No unnecessary complexity
+- [ ] Performance considerations addressed
+- [ ] Security concerns addressed
+- [ ] Accessibility requirements met
+- [ ] Tests cover main scenarios
+- [ ] Documentation is adequate

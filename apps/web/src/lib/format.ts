@@ -1,8 +1,13 @@
 /**
  * Formatting Utilities
- * 
+ *
  * Provides consistent formatting for currency, dates, times, phone numbers,
  * and other values across the application.
+ *
+ * All formatting follows Indian conventions:
+ * - Currency: ₹X,XX,XXX (Indian numbering system)
+ * - Date: DD/MM/YYYY
+ * - Time: 12-hour with AM/PM
  */
 
 import { format, formatDistance, isToday, isTomorrow, isYesterday, parseISO } from 'date-fns';
@@ -92,7 +97,7 @@ export function formatPhone(phone: string | null | undefined): string {
   if (!phone) return '-';
   // Remove any non-digit characters
   const digits = phone.replace(/\D/g, '');
-  
+
   if (digits.length === 10) {
     return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
   }
@@ -108,7 +113,7 @@ export function formatPhone(phone: string | null | undefined): string {
 export function maskPhone(phone: string | null | undefined): string {
   if (!phone) return '-';
   const digits = phone.replace(/\D/g, '');
-  
+
   if (digits.length === 10) {
     return `${digits.slice(0, 2)}XXXX${digits.slice(6)}`;
   }
@@ -172,4 +177,66 @@ export function getInitials(name: string | null | undefined): string {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   }
   return name.slice(0, 2).toUpperCase();
+}
+
+/**
+ * Format number in Indian numbering system (X,XX,XXX)
+ * Uses the lakh/crore system
+ */
+export function formatIndianNumber(num: number): string {
+  return new Intl.NumberFormat('en-IN').format(num);
+}
+
+/**
+ * Format currency in Indian format (₹X,XX,XXX)
+ * No decimal places by default
+ */
+export function formatIndianCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+/**
+ * Format date in Indian format (DD/MM/YYYY)
+ */
+export function formatIndianDate(date: Date | string | null | undefined): string {
+  if (!date) return '-';
+  const d = typeof date === 'string' ? parseISO(date) : date;
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(d);
+}
+
+/**
+ * Format time in Indian format (12-hour with AM/PM)
+ */
+export function formatIndianTime(date: Date | string | null | undefined): string {
+  if (!date) return '-';
+  const d = typeof date === 'string' ? parseISO(date) : date;
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(d);
+}
+
+/**
+ * Format date and time in Indian format
+ */
+export function formatIndianDateTime(date: Date | string | null | undefined): string {
+  if (!date) return '-';
+  const d = typeof date === 'string' ? parseISO(date) : date;
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(d);
 }

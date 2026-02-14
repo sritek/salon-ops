@@ -1,0 +1,2205 @@
+---
+# Online Booking module patterns - public booking page, availability, prepayment, and lead capture
+inclusion: fileMatch
+fileMatchPattern: '**/booking/**/*.ts, **/public/**/*.ts, apps/booking/**/*.ts'
+---
+
+# Online Booking Module
+
+## Overview
+
+This module handles the public-facing online booking experience including booking page configuration, service selection, real-time availability, stylist selection, customer identification, prepayment/deposits, booking confirmation, modification/cancellation, lead capture, fraud protection, and analytics. It reuses core appointment logic from Module 2 and integrates with customer, billing, and marketing modules.
+
+**Related Requirements:** 12.1 - 12.21
+
+---
+
+## Database Schema
+
+```sql
+-- =====================================================
+-- ONLINE BOOKING CONFIGURATION (Tenant-level)
+-- =====================================================
+CREATE TABLE online_booking_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) UNIQUE,
+
+  -- Feature toggle
+  is_enabled BOOLEAN DEFAULT true,
+
+  -- Booking page
+  booking_url_slug VARCHAR(100) NOT NULL,
+
+  -- Branding
+  logo_url VARCHAR(500),
+  primary_color VARCHAR(7) DEFAULT '#6366f1',
+  welcome_message TEXT,
+
+  -- Booking rules
+  advance_booking_days INTEGER DEFAULT 30,
+  min_advance_hours INTEGER DEFAULT 2,
+  same_day_cutoff_time TIME DEFAULT '18:00',
+
+  -- Stylist selection
+  allow_stylist_selection BOOLEAN DEFAULT true,
+  stylist_selection_mandatory BOOLEAN DEFAULT false,
+
+  -- Prepayment
+  prepayment_mode VARCHAR(20) DEFAULT 'optional',
+  -- none, optional, required
+  deposit_type VARCHAR(20) DEFAULT 'full',
+  -- full, percentage, fixed
+  deposit_value DECIMAL(10, 2),
+
+  -- Payment gateway
+  payment_gateway VARCHAR(50), -- razorpay, payu, cashfree
+  payment_gateway_key_id VARCHAR(100),
+  payment_gateway_secret_encrypted TEXT,
+
+  -- Cancellation policy
+  cancellation_window_hours INTEGER DEFAULT 2,
+  refund_policy VARCHAR(20) DEFAULT 'full',
+  -- full, partial, none
+  refund_percentage DECIMAL(5, 2) DEFAULT 100,
+
+  -- Limits
+  max_active_bookings_per_customer INTEGER DEFAULT 3,
+  max_services_per_booking INTEGER DEFAULT 5,
+  max_reschedules INTEGER DEFAULT 3,
+
+  -- Manual confirmation
+  require_manual_confirmation BOOLEAN DEFAULT false,
+
+  -- Notifications
+  send_confirmation_whatsapp BOOLEAN DEFAULT true,
+  send_reminder_24h BOOLEAN DEFAULT true,
+  send_reminder_2h BOOLEAN DEFAULT true,
+
+  -- Lead capture
+  enable_abandonment_tracking BOOLEAN DEFAULT true,
+  abandonment_followup_hours INTEGER DEFAULT 2,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_booking_url_slug ON online_booking_config(booking_url_slug);
+
+-- =====================================================
+-- BRANCH ONLINE BOOKING CONFIG
+-- =====================================================
+CREATE TABLE branch_booking_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id) UNIQUE,
+
+  is_enabled BOOLEAN DEFAULT true,
+
+  -- Override tenant settings
+  advance_booking_days INTEGER,
+  min_advance_hours INTEGER,
+  same_day_cutoff_time TIME,
+
+  -- Branch-specific
+  display_order INTEGER DEFAULT 0,
+  show_on_booking_page BOOLEAN DEFAULT true,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- SERVICE ONLINE BOOKING CONFIG
+-- =====================================================
+CREATE TABLE service_booking_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  service_id UUID NOT NULL REFERENCES services(id) UNIQUE,
+
+  available_online BOOLEAN DEFAULT true,
+
+  -- Display
+  is_popular BOOLEAN DEFAULT false,
+  is_recommended BOOLEAN DEFAULT false,
+  display_order INTEGER DEFAULT 0,
+
+  -- Add-on suggestions
+  suggested_addon_ids UUID[],
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- STAFF ONLINE BOOKING CONFIG
+-- =====================================================
+CREATE TABLE staff_booking_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  staff_id UUID NOT NULL REFERENCES users(id) UNIQUE,
+
+  show_online BOOLEAN DEFAULT true,
+
+  -- Display
+  display_name VARCHAR(100),
+  bio TEXT,
+  photo_url VARCHAR(500),
+  specializations VARCHAR(100)[],
+
+  display_order INTEGER DEFAULT 0,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- ONLINE BOOKINGS
+-- =====================================================
+CREATE TABLE online_bookings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+
+  -- Booking reference
+  booking_reference VARCHAR(20) NOT NULL,
+
+  -- Customer
+  customer_id UUID REFERENCES customers(id),
+  customer_phone VARCHAR(20) NOT NULL,
+  customer_name VARCHAR(255),
+  customer_email VARCHAR(255),
+  customer_gender VARCHAR(10),
+
+  -- Appointment link
+  appointment_id UUID REFERENCES appointments(id),
+
+  -- Stylist
+  stylist_id UUID REFERENCES users(id),
+  stylist_preference VARCHAR(20) DEFAULT 'any',
+  -- any, specific
+
+  -- Schedule
+  booking_date DATE NOT NULL,
+  booking_time TIME NOT NULL,
+  total_duration INTEGER NOT NULL, -- minutes
+
+  -- Pricing
+  subtotal DECIMAL(10, 2) NOT NULL,
+  discount_amount DECIMAL(10, 2) DEFAULT 0,
+  tax_amount DECIMAL(10, 2) DEFAULT 0,
+  total_amount DECIMAL(10, 2) NOT NULL,
+
+  -- Promo/Discount
+  promo_code VARCHAR(50),
+  coupon_id UUID REFERENCES coupons(id),
+  membership_discount_applied BOOLEAN DEFAULT false,
+  package_credits_used BOOLEAN DEFAULT false,
+
+  -- Payment
+  prepayment_required BOOLEAN DEFAULT false,
+  prepayment_amount DECIMAL(10, 2) DEFAULT 0,
+  prepayment_status VARCHAR(20) DEFAULT 'pending',
+  -- pending, completed, failed, refunded
+
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  -- pending, confirmed, cancelled, completed, no_show
+
+  -- Manual confirmation
+  requires_confirmation BOOLEAN DEFAULT false,
+  confirmed_by UUID REFERENCES users(id),
+  confirmed_at TIMESTAMP,
+
+  -- Cancellation
+  cancelled_at TIMESTAMP,
+  cancelled_by VARCHAR(20), -- customer, staff, system
+  cancellation_reason TEXT,
+
+  -- Reschedule tracking
+  reschedule_count INTEGER DEFAULT 0,
+  original_booking_id UUID REFERENCES online_bookings(id),
+
+  -- Notes
+  customer_notes TEXT,
+  internal_notes TEXT,
+
+  -- Tracking
+  booking_source VARCHAR(50) DEFAULT 'booking_page',
+  -- booking_page, whatsapp, widget
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+
+  -- Timestamps
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+  UNIQUE(tenant_id, booking_reference)
+);
+
+CREATE INDEX idx_online_bookings_tenant ON online_bookings(tenant_id, status);
+CREATE INDEX idx_online_bookings_customer ON online_bookings(customer_id);
+CREATE INDEX idx_online_bookings_date ON online_bookings(branch_id, booking_date);
+CREATE INDEX idx_online_bookings_reference ON online_bookings(booking_reference);
+
+ALTER TABLE online_bookings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON online_bookings
+  FOR ALL USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =====================================================
+-- ONLINE BOOKING SERVICES
+-- =====================================================
+CREATE TABLE online_booking_services (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  online_booking_id UUID NOT NULL REFERENCES online_bookings(id) ON DELETE CASCADE,
+
+  service_id UUID NOT NULL REFERENCES services(id),
+  variant_id UUID REFERENCES service_variants(id),
+
+  service_name VARCHAR(255) NOT NULL,
+  variant_name VARCHAR(100),
+
+  duration INTEGER NOT NULL, -- minutes
+  price DECIMAL(10, 2) NOT NULL,
+
+  -- Package redemption
+  is_package_redemption BOOLEAN DEFAULT false,
+  package_id UUID REFERENCES customer_packages(id),
+
+  display_order INTEGER DEFAULT 0,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_online_booking_services ON online_booking_services(online_booking_id);
+
+-- =====================================================
+-- BOOKING PAYMENTS
+-- =====================================================
+CREATE TABLE booking_payments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  online_booking_id UUID NOT NULL REFERENCES online_bookings(id),
+
+  -- Payment details
+  payment_type VARCHAR(20) NOT NULL,
+  -- prepayment, full_payment, refund
+
+  amount DECIMAL(10, 2) NOT NULL,
+
+  -- Payment method
+  payment_method VARCHAR(20) NOT NULL,
+  -- upi, card, netbanking, wallet, package_credit
+
+  -- Gateway details
+  gateway VARCHAR(50),
+  gateway_order_id VARCHAR(100),
+  gateway_payment_id VARCHAR(100),
+  gateway_signature VARCHAR(255),
+
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  -- pending, processing, completed, failed, refunded
+
+  -- Failure details
+  failure_reason TEXT,
+
+  -- Refund details
+  refund_id VARCHAR(100),
+  refund_amount DECIMAL(10, 2),
+  refunded_at TIMESTAMP,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_booking_payments ON booking_payments(online_booking_id);
+CREATE INDEX idx_booking_payments_gateway ON booking_payments(gateway_order_id);
+
+-- =====================================================
+-- SLOT LOCKS (Temporary reservation)
+-- =====================================================
+CREATE TABLE slot_locks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+
+  -- Slot details
+  slot_date DATE NOT NULL,
+  slot_time TIME NOT NULL,
+  duration INTEGER NOT NULL, -- minutes
+
+  -- Staff (if specific)
+  staff_id UUID REFERENCES users(id),
+
+  -- Lock details
+  session_id VARCHAR(100) NOT NULL,
+  locked_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMP NOT NULL,
+
+  -- Conversion
+  converted_to_booking_id UUID REFERENCES online_bookings(id),
+
+  UNIQUE(branch_id, slot_date, slot_time, staff_id)
+);
+
+CREATE INDEX idx_slot_locks ON slot_locks(branch_id, slot_date, expires_at);
+
+-- =====================================================
+-- ABANDONED BOOKINGS (Lead capture)
+-- =====================================================
+CREATE TABLE abandoned_bookings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID REFERENCES branches(id),
+
+  -- Customer info (if captured)
+  customer_phone VARCHAR(20),
+  customer_name VARCHAR(255),
+  customer_id UUID REFERENCES customers(id),
+
+  -- Abandonment point
+  abandonment_step VARCHAR(50) NOT NULL,
+  -- branch_selection, service_selection, date_selection,
+  -- time_selection, customer_details, payment, confirmation
+
+  -- Partial data
+  selected_services JSONB,
+  selected_date DATE,
+  selected_time TIME,
+  selected_stylist_id UUID,
+
+  -- Tracking
+  session_id VARCHAR(100),
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+
+  -- Follow-up
+  followup_sent BOOLEAN DEFAULT false,
+  followup_sent_at TIMESTAMP,
+  converted BOOLEAN DEFAULT false,
+  converted_booking_id UUID REFERENCES online_bookings(id),
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_abandoned_bookings ON abandoned_bookings(tenant_id, created_at);
+CREATE INDEX idx_abandoned_bookings_phone ON abandoned_bookings(customer_phone);
+
+-- =====================================================
+-- BLACKLISTED CUSTOMERS
+-- =====================================================
+CREATE TABLE blacklisted_customers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+
+  customer_id UUID REFERENCES customers(id),
+  customer_phone VARCHAR(20),
+
+  reason VARCHAR(50) NOT NULL,
+  -- no_show_history, fraud, abuse, manual
+
+  notes TEXT,
+
+  -- Restrictions
+  block_online_booking BOOLEAN DEFAULT true,
+  require_prepayment BOOLEAN DEFAULT true,
+
+  blocked_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  blocked_by UUID REFERENCES users(id),
+
+  -- Unblock
+  unblocked_at TIMESTAMP,
+  unblocked_by UUID REFERENCES users(id),
+
+  is_active BOOLEAN DEFAULT true
+);
+
+CREATE INDEX idx_blacklisted_customers ON blacklisted_customers(tenant_id, is_active);
+CREATE INDEX idx_blacklisted_phone ON blacklisted_customers(customer_phone);
+
+-- =====================================================
+-- BOOKING PAGE ANALYTICS
+-- =====================================================
+CREATE TABLE booking_page_analytics (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+
+  -- Date
+  analytics_date DATE NOT NULL,
+  branch_id UUID REFERENCES branches(id), -- NULL for overall
+
+  -- Metrics
+  page_views INTEGER DEFAULT 0,
+  unique_visitors INTEGER DEFAULT 0,
+  bookings_started INTEGER DEFAULT 0,
+  bookings_completed INTEGER DEFAULT 0,
+  bookings_abandoned INTEGER DEFAULT 0,
+
+  -- Conversion
+  conversion_rate DECIMAL(5, 2),
+
+  -- Revenue
+  total_booking_value DECIMAL(12, 2) DEFAULT 0,
+  prepayment_collected DECIMAL(12, 2) DEFAULT 0,
+
+  -- Abandonment breakdown
+  abandoned_at_service JSONB, -- {step: count}
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+  UNIQUE(tenant_id, analytics_date, branch_id)
+);
+
+CREATE INDEX idx_booking_analytics ON booking_page_analytics(tenant_id, analytics_date);
+
+-- =====================================================
+-- BOOKING AUDIT LOG
+-- =====================================================
+CREATE TABLE booking_audit_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  online_booking_id UUID REFERENCES online_bookings(id),
+
+  action VARCHAR(50) NOT NULL,
+  -- created, confirmed, cancelled, rescheduled, payment_received,
+  -- payment_failed, refund_processed, manual_override
+
+  actor_type VARCHAR(20) NOT NULL,
+  -- customer, staff, system
+  actor_id UUID,
+
+  old_values JSONB,
+  new_values JSONB,
+
+  ip_address VARCHAR(45),
+  notes TEXT,
+
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_booking_audit ON booking_audit_log(online_booking_id, created_at);
+```
+
+---
+
+## TypeScript Types
+
+```typescript
+// =====================================================
+// ENUMS
+// =====================================================
+export enum PrepaymentMode {
+  NONE = 'none',
+  OPTIONAL = 'optional',
+  REQUIRED = 'required',
+}
+
+export enum DepositType {
+  FULL = 'full',
+  PERCENTAGE = 'percentage',
+  FIXED = 'fixed',
+}
+
+export enum RefundPolicy {
+  FULL = 'full',
+  PARTIAL = 'partial',
+  NONE = 'none',
+}
+
+export enum OnlineBookingStatus {
+  PENDING = 'pending',
+  CONFIRMED = 'confirmed',
+  CANCELLED = 'cancelled',
+  COMPLETED = 'completed',
+  NO_SHOW = 'no_show',
+}
+
+export enum PrepaymentStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  REFUNDED = 'refunded',
+}
+
+export enum PaymentStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  REFUNDED = 'refunded',
+}
+
+export enum StylistPreference {
+  ANY = 'any',
+  SPECIFIC = 'specific',
+}
+
+export enum AbandonmentStep {
+  BRANCH_SELECTION = 'branch_selection',
+  SERVICE_SELECTION = 'service_selection',
+  DATE_SELECTION = 'date_selection',
+  TIME_SELECTION = 'time_selection',
+  CUSTOMER_DETAILS = 'customer_details',
+  PAYMENT = 'payment',
+  CONFIRMATION = 'confirmation',
+}
+
+export enum BookingSource {
+  BOOKING_PAGE = 'booking_page',
+  WHATSAPP = 'whatsapp',
+  WIDGET = 'widget',
+}
+
+export enum BlacklistReason {
+  NO_SHOW_HISTORY = 'no_show_history',
+  FRAUD = 'fraud',
+  ABUSE = 'abuse',
+  MANUAL = 'manual',
+}
+
+// =====================================================
+// CORE TYPES
+// =====================================================
+export interface OnlineBookingConfig {
+  id: string;
+  tenantId: string;
+  isEnabled: boolean;
+  bookingUrlSlug: string;
+  logoUrl?: string;
+  primaryColor: string;
+  welcomeMessage?: string;
+  advanceBookingDays: number;
+  minAdvanceHours: number;
+  sameDayCutoffTime: string;
+  allowStylistSelection: boolean;
+  stylistSelectionMandatory: boolean;
+  prepaymentMode: PrepaymentMode;
+  depositType: DepositType;
+  depositValue?: number;
+  paymentGateway?: string;
+  cancellationWindowHours: number;
+  refundPolicy: RefundPolicy;
+  refundPercentage: number;
+  maxActiveBookingsPerCustomer: number;
+  maxServicesPerBooking: number;
+  maxReschedules: number;
+  requireManualConfirmation: boolean;
+  sendConfirmationWhatsapp: boolean;
+  sendReminder24h: boolean;
+  sendReminder2h: boolean;
+  enableAbandonmentTracking: boolean;
+  abandonmentFollowupHours: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BranchBookingConfig {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  isEnabled: boolean;
+  advanceBookingDays?: number;
+  minAdvanceHours?: number;
+  sameDayCutoffTime?: string;
+  displayOrder: number;
+  showOnBookingPage: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ServiceBookingConfig {
+  id: string;
+  tenantId: string;
+  serviceId: string;
+  availableOnline: boolean;
+  isPopular: boolean;
+  isRecommended: boolean;
+  displayOrder: number;
+  suggestedAddonIds: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface StaffBookingConfig {
+  id: string;
+  tenantId: string;
+  staffId: string;
+  showOnline: boolean;
+  displayName?: string;
+  bio?: string;
+  photoUrl?: string;
+  specializations: string[];
+  displayOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OnlineBooking {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  bookingReference: string;
+  customerId?: string;
+  customerPhone: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerGender?: string;
+  appointmentId?: string;
+  stylistId?: string;
+  stylistPreference: StylistPreference;
+  bookingDate: string;
+  bookingTime: string;
+  totalDuration: number;
+  subtotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  promoCode?: string;
+  couponId?: string;
+  membershipDiscountApplied: boolean;
+  packageCreditsUsed: boolean;
+  prepaymentRequired: boolean;
+  prepaymentAmount: number;
+  prepaymentStatus: PrepaymentStatus;
+  status: OnlineBookingStatus;
+  requiresConfirmation: boolean;
+  confirmedBy?: string;
+  confirmedAt?: Date;
+  cancelledAt?: Date;
+  cancelledBy?: string;
+  cancellationReason?: string;
+  rescheduleCount: number;
+  originalBookingId?: string;
+  customerNotes?: string;
+  internalNotes?: string;
+  bookingSource: BookingSource;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  services?: OnlineBookingService[];
+  payments?: BookingPayment[];
+  branch?: Branch;
+  customer?: Customer;
+  stylist?: User;
+  appointment?: Appointment;
+}
+
+export interface OnlineBookingService {
+  id: string;
+  tenantId: string;
+  onlineBookingId: string;
+  serviceId: string;
+  variantId?: string;
+  serviceName: string;
+  variantName?: string;
+  duration: number;
+  price: number;
+  isPackageRedemption: boolean;
+  packageId?: string;
+  displayOrder: number;
+  createdAt: Date;
+}
+
+export interface BookingPayment {
+  id: string;
+  tenantId: string;
+  onlineBookingId: string;
+  paymentType: string;
+  amount: number;
+  paymentMethod: string;
+  gateway?: string;
+  gatewayOrderId?: string;
+  gatewayPaymentId?: string;
+  gatewaySignature?: string;
+  status: PaymentStatus;
+  failureReason?: string;
+  refundId?: string;
+  refundAmount?: number;
+  refundedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SlotLock {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  slotDate: string;
+  slotTime: string;
+  duration: number;
+  staffId?: string;
+  sessionId: string;
+  lockedAt: Date;
+  expiresAt: Date;
+  convertedToBookingId?: string;
+}
+
+export interface AbandonedBooking {
+  id: string;
+  tenantId: string;
+  branchId?: string;
+  customerPhone?: string;
+  customerName?: string;
+  customerId?: string;
+  abandonmentStep: AbandonmentStep;
+  selectedServices?: any;
+  selectedDate?: string;
+  selectedTime?: string;
+  selectedStylistId?: string;
+  sessionId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  followupSent: boolean;
+  followupSentAt?: Date;
+  converted: boolean;
+  convertedBookingId?: string;
+  createdAt: Date;
+}
+
+export interface BlacklistedCustomer {
+  id: string;
+  tenantId: string;
+  customerId?: string;
+  customerPhone?: string;
+  reason: BlacklistReason;
+  notes?: string;
+  blockOnlineBooking: boolean;
+  requirePrepayment: boolean;
+  blockedAt: Date;
+  blockedBy?: string;
+  unblockedAt?: Date;
+  unblockedBy?: string;
+  isActive: boolean;
+}
+
+// =====================================================
+// PUBLIC API TYPES
+// =====================================================
+export interface BookingPageData {
+  business: {
+    name: string;
+    logoUrl?: string;
+    primaryColor: string;
+    welcomeMessage?: string;
+  };
+  branches: {
+    id: string;
+    name: string;
+    address: string;
+    phone: string;
+    workingHours: { day: number; open: string; close: string }[];
+    isOpen: boolean;
+  }[];
+  config: {
+    allowStylistSelection: boolean;
+    stylistSelectionMandatory: boolean;
+    prepaymentMode: PrepaymentMode;
+    maxServicesPerBooking: number;
+  };
+}
+
+export interface AvailableServicesResponse {
+  categories: {
+    id: string;
+    name: string;
+    services: {
+      id: string;
+      name: string;
+      description?: string;
+      duration: number;
+      price: number;
+      imageUrl?: string;
+      isPopular: boolean;
+      isRecommended: boolean;
+      genderFilter?: string;
+      variants?: {
+        id: string;
+        name: string;
+        price: number;
+        duration: number;
+      }[];
+      suggestedAddons?: string[];
+    }[];
+  }[];
+}
+
+export interface AvailableSlotsResponse {
+  date: string;
+  slots: {
+    time: string;
+    available: boolean;
+    stylists?: {
+      id: string;
+      name: string;
+      photoUrl?: string;
+      available: boolean;
+    }[];
+  }[];
+}
+
+export interface AvailableStylistsResponse {
+  stylists: {
+    id: string;
+    name: string;
+    photoUrl?: string;
+    bio?: string;
+    specializations: string[];
+    available: boolean;
+  }[];
+}
+
+export interface BookingSummary {
+  branch: {
+    id: string;
+    name: string;
+    address: string;
+  };
+  services: {
+    name: string;
+    duration: number;
+    price: number;
+    isPackageRedemption: boolean;
+  }[];
+  stylist?: {
+    id: string;
+    name: string;
+  };
+  schedule: {
+    date: string;
+    time: string;
+    totalDuration: number;
+  };
+  pricing: {
+    subtotal: number;
+    discount: number;
+    discountDescription?: string;
+    tax: number;
+    total: number;
+    prepaymentRequired: boolean;
+    prepaymentAmount: number;
+  };
+  customer: {
+    name: string;
+    phone: string;
+  };
+}
+```
+
+---
+
+## API Endpoints
+
+### Public Booking Page (No Auth Required)
+
+```
+GET    /api/v1/public/booking/:slug               Get booking page data
+GET    /api/v1/public/booking/:slug/branches      Get available branches
+GET    /api/v1/public/booking/:slug/services      Get available services
+GET    /api/v1/public/booking/:slug/slots         Get available time slots
+GET    /api/v1/public/booking/:slug/stylists      Get available stylists
+POST   /api/v1/public/booking/:slug/customer      Identify/create customer
+POST   /api/v1/public/booking/:slug/validate-promo  Validate promo code
+POST   /api/v1/public/booking/:slug/calculate     Calculate pricing
+POST   /api/v1/public/booking/:slug/lock-slot     Lock slot temporarily
+POST   /api/v1/public/booking/:slug/book          Create booking
+POST   /api/v1/public/booking/:slug/payment       Process payment
+GET    /api/v1/public/booking/details/:ref        Get booking details
+POST   /api/v1/public/booking/reschedule/:ref     Reschedule booking
+POST   /api/v1/public/booking/cancel/:ref         Cancel booking
+```
+
+### Admin Configuration (Auth Required)
+
+```
+GET    /api/v1/online-booking/config              Get booking config
+PATCH  /api/v1/online-booking/config              Update booking config
+GET    /api/v1/online-booking/config/branch/:id   Get branch config
+PATCH  /api/v1/online-booking/config/branch/:id   Update branch config
+GET    /api/v1/online-booking/config/services     Get service configs
+PATCH  /api/v1/online-booking/config/service/:id  Update service config
+GET    /api/v1/online-booking/config/staff        Get staff configs
+PATCH  /api/v1/online-booking/config/staff/:id    Update staff config
+```
+
+### Booking Management (Auth Required)
+
+```
+GET    /api/v1/online-booking/bookings            List online bookings
+GET    /api/v1/online-booking/bookings/:id        Get booking details
+POST   /api/v1/online-booking/bookings/:id/confirm  Confirm pending booking
+POST   /api/v1/online-booking/bookings/:id/cancel Cancel booking
+POST   /api/v1/online-booking/bookings/:id/refund Process refund
+GET    /api/v1/online-booking/pending             Get pending confirmations
+```
+
+### Blacklist Management (Auth Required)
+
+```
+GET    /api/v1/online-booking/blacklist           List blacklisted customers
+POST   /api/v1/online-booking/blacklist           Add to blacklist
+DELETE /api/v1/online-booking/blacklist/:id       Remove from blacklist
+```
+
+### Analytics (Auth Required)
+
+```
+GET    /api/v1/online-booking/analytics           Get booking analytics
+GET    /api/v1/online-booking/analytics/funnel    Get conversion funnel
+GET    /api/v1/online-booking/abandoned           List abandoned bookings
+```
+
+### Emergency Controls (Auth Required)
+
+```
+POST   /api/v1/online-booking/emergency/disable   Disable all online booking
+POST   /api/v1/online-booking/emergency/enable    Re-enable online booking
+```
+
+---
+
+## Business Logic
+
+### 1. Availability Service
+
+```typescript
+class AvailabilityService {
+  /**
+   * Get available time slots for a date
+   */
+  async getAvailableSlots(
+    branchId: string,
+    date: string,
+    serviceIds: string[],
+    variantIds: string[],
+    stylistId?: string
+  ): Promise<AvailableSlotsResponse> {
+    // 1. Calculate total duration
+    const totalDuration = await this.calculateTotalDuration(serviceIds, variantIds);
+
+    // 2. Get branch working hours
+    const workingHours = await this.branchService.getWorkingHours(branchId, date);
+    if (!workingHours) {
+      return { date, slots: [] }; // Branch closed
+    }
+
+    // 3. Check booking config limits
+    const config = await this.getBookingConfig(branchId);
+    const isValidDate = await this.validateBookingDate(date, config);
+    if (!isValidDate) {
+      return { date, slots: [] };
+    }
+
+    // 4. Generate time slots (30-min intervals)
+    const slots = this.generateTimeSlots(workingHours.open, workingHours.close, 30);
+
+    // 5. Get existing appointments
+    const existingAppointments = await this.appointmentService.getByDate(branchId, date);
+
+    // 6. Get slot locks
+    const slotLocks = await this.slotLockRepo.findByDate(branchId, date);
+
+    // 7. Get available staff
+    const availableStaff = stylistId
+      ? [await this.staffService.getById(stylistId)]
+      : await this.staffService.getAvailableForServices(branchId, date, serviceIds);
+
+    // 8. Check each slot
+    const availableSlots = [];
+    for (const slot of slots) {
+      const slotAvailability = await this.checkSlotAvailability(
+        branchId,
+        date,
+        slot,
+        totalDuration,
+        existingAppointments,
+        slotLocks,
+        availableStaff,
+        config
+      );
+
+      availableSlots.push({
+        time: slot,
+        available: slotAvailability.available,
+        stylists: config.allowStylistSelection ? slotAvailability.stylists : undefined,
+      });
+    }
+
+    return { date, slots: availableSlots };
+  }
+
+  /**
+   * Check if a specific slot is available
+   */
+  private async checkSlotAvailability(
+    branchId: string,
+    date: string,
+    time: string,
+    duration: number,
+    existingAppointments: Appointment[],
+    slotLocks: SlotLock[],
+    availableStaff: User[],
+    config: OnlineBookingConfig
+  ): Promise<{ available: boolean; stylists?: { id: string; name: string; available: boolean }[] }> {
+    const slotStart = this.parseTime(time);
+    const slotEnd = this.addMinutes(slotStart, duration);
+
+    // Check same-day cutoff
+    if (date === this.today() && time < config.sameDayCutoffTime) {
+      const now = new Date();
+      const slotTime = this.parseDateTime(date, time);
+      const hoursUntilSlot = (slotTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+      if (hoursUntilSlot < config.minAdvanceHours) {
+        return { available: false };
+      }
+    }
+
+    // Check each staff member
+    const stylistAvailability = [];
+    let anyAvailable = false;
+
+    for (const staff of availableStaff) {
+      // Check staff schedule
+      const isWorking = await this.staffService.isWorkingAt(staff.id, date, time);
+      if (!isWorking) {
+        stylistAvailability.push({ id: staff.id, name: staff.name, available: false });
+        continue;
+      }
+
+      // Check existing appointments
+      const hasConflict = existingAppointments.some(apt =>
+        apt.stylistId === staff.id && this.hasTimeConflict(apt, slotStart, slotEnd)
+      );
+
+      // Check slot locks
+      const isLocked = slotLocks.some(lock =>
+        lock.staffId === staff.id &&
+        lock.slotTime === time &&
+        new Date(lock.expiresAt) > new Date()
+      );
+
+      const available = !hasConflict && !isLocked;
+      stylistAvailability.push({ id: staff.id, name: staff.name, available });
+
+      if (available) anyAvailable = true;
+    }
+
+    return {
+      available: anyAvailable,
+      stylists: stylistAvailability,
+    };
+  }
+
+  /**
+   * Lock a slot temporarily (5 minutes)
+   */
+  async lockSlot(
+    branchId: string,
+    date: string,
+    time: string,
+    duration: number,
+    staffId: string | undefined,
+    sessionId: string
+  ): Promise<SlotLock> {
+    const isAvailable = await this.isSlotAvailable(branchId, date, time, duration, staffId);
+    if (!isAvailable) {
+      throw new BookingError('SLOT_NOT_AVAILABLE', 'This slot is no longer available');
+    }
+
+    await this.slotLockRepo.deleteBySession(sessionId);
+
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+
+    const lock = await this.slotLockRepo.create({
+      branchId,
+      slotDate: date,
+      slotTime: time,
+      duration,
+      staffId,
+      sessionId,
+      expiresAt,
+    });
+
+    return lock;
+  }
+}
+```
+
+### 2. Online Booking Service
+
+```typescript
+class OnlineBookingService {
+  /**
+   * Create a new online booking
+   */
+  async createBooking(
+    tenantId: string,
+    request: CreateOnlineBookingRequest
+  ): Promise<OnlineBooking> {
+    // 1. Validate customer
+    const customer = await this.customerService.findOrCreate(
+      tenantId,
+      request.customerPhone,
+      request.customerName,
+      request.customerEmail,
+      request.customerGender
+    );
+
+    // 2. Check blacklist
+    const isBlacklisted = await this.fraudService.isBlacklisted(tenantId, customer.id, request.customerPhone);
+    if (isBlacklisted.blocked) {
+      throw new BookingError('CUSTOMER_BLACKLISTED', 'Online booking is not available for this customer');
+    }
+
+    // 3. Check active booking limit
+    const activeBookings = await this.bookingRepo.countActiveByCustomer(tenantId, customer.id);
+    const config = await this.configService.getConfig(tenantId);
+    if (activeBookings >= config.maxActiveBookingsPerCustomer) {
+      throw new BookingError('MAX_BOOKINGS_EXCEEDED', `Maximum ${config.maxActiveBookingsPerCustomer} active bookings allowed`);
+    }
+
+    // 4. Validate slot lock
+    if (request.lockId) {
+      const lock = await this.availabilityService.validateLock(request.lockId, request.sessionId);
+      if (!lock) {
+        throw new BookingError('LOCK_EXPIRED', 'Your slot reservation has expired. Please select a new time.');
+      }
+    }
+
+    // 5. Calculate pricing
+    const pricing = await this.pricingService.calculate(tenantId, request);
+
+    // 6. Determine prepayment requirement
+    const prepaymentRequired = this.determinePrepaymentRequired(config, isBlacklisted);
+    const prepaymentAmount = this.calculatePrepaymentAmount(config, pricing.total);
+
+    // 7. Generate booking reference
+    const bookingReference = this.generateBookingReference();
+
+    // 8. Create booking
+    const booking = await this.bookingRepo.create({
+      tenantId,
+      branchId: request.branchId,
+      bookingReference,
+      customerId: customer.id,
+      customerPhone: request.customerPhone,
+      customerName: request.customerName,
+      customerEmail: request.customerEmail,
+      customerGender: request.customerGender,
+      stylistId: request.stylistId,
+      stylistPreference: request.stylistId ? StylistPreference.SPECIFIC : StylistPreference.ANY,
+      bookingDate: request.date,
+      bookingTime: request.time,
+      totalDuration: pricing.totalDuration,
+      subtotal: pricing.subtotal,
+      discountAmount: pricing.totalDiscount,
+      taxAmount: pricing.taxAmount,
+      totalAmount: pricing.total,
+      promoCode: request.promoCode,
+      couponId: pricing.couponId,
+      membershipDiscountApplied: pricing.membershipDiscountApplied,
+      packageCreditsUsed: pricing.packageCreditsUsed,
+      prepaymentRequired,
+      prepaymentAmount,
+      prepaymentStatus: prepaymentRequired ? PrepaymentStatus.PENDING : PrepaymentStatus.COMPLETED,
+      status: config.requireManualConfirmation ? OnlineBookingStatus.PENDING : OnlineBookingStatus.CONFIRMED,
+      requiresConfirmation: config.requireManualConfirmation,
+      customerNotes: request.customerNotes,
+      bookingSource: BookingSource.BOOKING_PAGE,
+      ipAddress: request.ipAddress,
+      userAgent: request.userAgent,
+    });
+
+    // 9. Create booking services
+    for (const service of request.services) {
+      await this.bookingServiceRepo.create({
+        tenantId,
+        onlineBookingId: booking.id,
+        serviceId: service.serviceId,
+        variantId: service.variantId,
+        serviceName: service.serviceName,
+        variantName: service.variantName,
+        duration: service.duration,
+        price: service.price,
+        isPackageRedemption: service.isPackageRedemption || false,
+        packageId: service.packageId,
+      });
+    }
+
+    // 10. Convert slot lock to booking
+    if (request.lockId) {
+      await this.slotLockRepo.convertToBooking(request.lockId, booking.id);
+    }
+
+    // 11. Create appointment if no prepayment required or auto-confirm
+    if (!prepaymentRequired && !config.requireManualConfirmation) {
+      const appointment = await this.createAppointment(booking);
+      await this.bookingRepo.update(booking.id, { appointmentId: appointment.id });
+    }
+
+    // 12. Emit event
+    await this.eventBus.emit('online_booking.created', { booking, customer });
+
+    // 13. Track analytics
+    await this.analyticsService.trackBookingCompleted(tenantId, request.branchId);
+
+    return booking;
+  }
+
+  /**
+   * Confirm a pending booking (manual confirmation flow)
+   */
+  async confirmBooking(
+    bookingId: string,
+    confirmedBy: string
+  ): Promise<OnlineBooking> {
+    const booking = await this.bookingRepo.findById(bookingId);
+    if (!booking) {
+      throw new BookingError('BOOKING_NOT_FOUND', 'Booking not found');
+    }
+
+    if (booking.status !== OnlineBookingStatus.PENDING) {
+      throw new BookingError('INVALID_STATUS', 'Booking is not pending confirmation');
+    }
+
+    const appointment = await this.createAppointment(booking);
+
+    const updated = await this.bookingRepo.update(bookingId, {
+      status: OnlineBookingStatus.CONFIRMED,
+      appointmentId: appointment.id,
+      confirmedBy,
+      confirmedAt: new Date(),
+    });
+
+    await this.notificationService.sendBookingConfirmation(booking);
+    await this.eventBus.emit('online_booking.confirmed', { booking: updated });
+
+    return updated;
+  }
+
+  /**
+   * Cancel a booking
+   */
+  async cancelBooking(
+    bookingReference: string,
+    cancelledBy: 'customer' | 'staff' | 'system',
+    reason?: string
+  ): Promise<{ booking: OnlineBooking; refundAmount?: number }> {
+    const booking = await this.bookingRepo.findByReference(bookingReference);
+    if (!booking) {
+      throw new BookingError('BOOKING_NOT_FOUND', 'Booking not found');
+    }
+
+    if (booking.status === OnlineBookingStatus.CANCELLED) {
+      throw new BookingError('ALREADY_CANCELLED', 'Booking is already cancelled');
+    }
+
+    if (booking.status === OnlineBookingStatus.COMPLETED) {
+      throw new BookingError('ALREADY_COMPLETED', 'Cannot cancel a completed booking');
+    }
+
+    const config = await this.configService.getConfig(booking.tenantId);
+
+    // Check cancellation window
+    const bookingDateTime = this.parseDateTime(booking.bookingDate, booking.bookingTime);
+    const hoursUntilBooking = (bookingDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
+
+    if (cancelledBy === 'customer' && hoursUntilBooking < config.cancellationWindowHours) {
+      throw new BookingError(
+        'CANCELLATION_WINDOW_PASSED',
+        `Cancellation must be done at least ${config.cancellationWindowHours} hours before appointment`
+      );
+    }
+
+    // Process refund if prepaid
+    let refundAmount: number | undefined;
+    if (booking.prepaymentStatus === PrepaymentStatus.COMPLETED && booking.prepaymentAmount > 0) {
+      refundAmount = await this.paymentService.processRefund(booking, config);
+    }
+
+    // Cancel appointment
+    if (booking.appointmentId) {
+      await this.appointmentService.cancel(booking.appointmentId, reason);
+    }
+
+    // Update booking
+    const updated = await this.bookingRepo.update(booking.id, {
+      status: OnlineBookingStatus.CANCELLED,
+      cancelledAt: new Date(),
+      cancelledBy,
+      cancellationReason: reason,
+    });
+
+    await this.notificationService.sendBookingCancellation(updated, refundAmount);
+    await this.eventBus.emit('online_booking.cancelled', { booking: updated, refundAmount });
+
+    return { booking: updated, refundAmount };
+  }
+
+  /**
+   * Reschedule a booking
+   */
+  async rescheduleBooking(
+    bookingReference: string,
+    newDate: string,
+    newTime: string,
+    newStylistId?: string
+  ): Promise<OnlineBooking> {
+    const booking = await this.bookingRepo.findByReference(bookingReference);
+    if (!booking) {
+      throw new BookingError('BOOKING_NOT_FOUND', 'Booking not found');
+    }
+
+    if (booking.status !== OnlineBookingStatus.CONFIRMED) {
+      throw new BookingError('INVALID_STATUS', 'Only confirmed bookings can be rescheduled');
+    }
+
+    const config = await this.configService.getConfig(booking.tenantId);
+
+    // Check reschedule limit
+    if (booking.rescheduleCount >= config.maxReschedules) {
+      throw new BookingError(
+        'MAX_RESCHEDULES_EXCEEDED',
+        `Maximum ${config.maxReschedules} reschedules allowed. Please cancel and create a new booking.`
+      );
+    }
+
+    // Validate new slot availability
+    const isAvailable = await this.availabilityService.isSlotAvailable(
+      booking.branchId,
+      newDate,
+      newTime,
+      booking.totalDuration,
+      newStylistId || booking.stylistId
+    );
+
+    if (!isAvailable) {
+      throw new BookingError('SLOT_NOT_AVAILABLE', 'Selected time slot is not available');
+    }
+
+    // Update appointment
+    if (booking.appointmentId) {
+      await this.appointmentService.reschedule(
+        booking.appointmentId,
+        newDate,
+        newTime,
+        newStylistId
+      );
+    }
+
+    // Update booking
+    const updated = await this.bookingRepo.update(booking.id, {
+      bookingDate: newDate,
+      bookingTime: newTime,
+      stylistId: newStylistId || booking.stylistId,
+      rescheduleCount: booking.rescheduleCount + 1,
+    });
+
+    await this.notificationService.sendBookingRescheduled(updated);
+    await this.eventBus.emit('online_booking.rescheduled', { booking: updated });
+
+    return updated;
+  }
+
+  /**
+   * Generate unique booking reference
+   */
+  private generateBookingReference(): string {
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `BK${timestamp}${random}`;
+  }
+}
+```
+
+### 3. Payment Service
+
+```typescript
+class BookingPaymentService {
+  /**
+   * Create payment order for prepayment
+   */
+  async createPaymentOrder(
+    booking: OnlineBooking,
+    amount: number
+  ): Promise<{ orderId: string; gatewayOrderId: string }> {
+    const config = await this.configService.getConfig(booking.tenantId);
+
+    const gatewayOrder = await this.paymentGateway.createOrder({
+      amount: amount * 100, // Convert to paise
+      currency: 'INR',
+      receipt: booking.bookingReference,
+      notes: {
+        bookingId: booking.id,
+        customerPhone: booking.customerPhone,
+      },
+    });
+
+    const payment = await this.paymentRepo.create({
+      tenantId: booking.tenantId,
+      onlineBookingId: booking.id,
+      paymentType: 'prepayment',
+      amount,
+      paymentMethod: 'pending',
+      gateway: config.paymentGateway,
+      gatewayOrderId: gatewayOrder.id,
+      status: PaymentStatus.PENDING,
+    });
+
+    return { orderId: payment.id, gatewayOrderId: gatewayOrder.id };
+  }
+
+  /**
+   * Verify and complete payment
+   */
+  async verifyPayment(
+    bookingReference: string,
+    gatewayPaymentId: string,
+    gatewaySignature: string
+  ): Promise<OnlineBooking> {
+    const booking = await this.bookingRepo.findByReference(bookingReference);
+    if (!booking) {
+      throw new BookingError('BOOKING_NOT_FOUND', 'Booking not found');
+    }
+
+    const payment = await this.paymentRepo.findPendingByBooking(booking.id);
+    if (!payment) {
+      throw new BookingError('PAYMENT_NOT_FOUND', 'Payment record not found');
+    }
+
+    const isValid = await this.paymentGateway.verifySignature(
+      payment.gatewayOrderId!,
+      gatewayPaymentId,
+      gatewaySignature
+    );
+
+    if (!isValid) {
+      await this.paymentRepo.update(payment.id, {
+        status: PaymentStatus.FAILED,
+        failureReason: 'Signature verification failed',
+      });
+      throw new BookingError('PAYMENT_VERIFICATION_FAILED', 'Payment verification failed');
+    }
+
+    await this.paymentRepo.update(payment.id, {
+      gatewayPaymentId,
+      gatewaySignature,
+      status: PaymentStatus.COMPLETED,
+      paymentMethod: 'gateway',
+    });
+
+    const config = await this.configService.getConfig(booking.tenantId);
+    const updatedBooking = await this.bookingRepo.update(booking.id, {
+      prepaymentStatus: PrepaymentStatus.COMPLETED,
+      status: config.requireManualConfirmation
+        ? OnlineBookingStatus.PENDING
+        : OnlineBookingStatus.CONFIRMED,
+    });
+
+    if (!config.requireManualConfirmation) {
+      const appointment = await this.bookingService.createAppointment(updatedBooking);
+      await this.bookingRepo.update(booking.id, { appointmentId: appointment.id });
+      await this.notificationService.sendBookingConfirmation(updatedBooking);
+    }
+
+    await this.eventBus.emit('online_booking.payment_completed', { booking: updatedBooking });
+
+    return updatedBooking;
+  }
+
+  /**
+   * Process refund for cancelled booking
+   */
+  async processRefund(
+    booking: OnlineBooking,
+    config: OnlineBookingConfig
+  ): Promise<number> {
+    const payment = await this.paymentRepo.findCompletedByBooking(booking.id);
+    if (!payment) {
+      return 0;
+    }
+
+    let refundAmount = 0;
+    switch (config.refundPolicy) {
+      case RefundPolicy.FULL:
+        refundAmount = payment.amount;
+        break;
+      case RefundPolicy.PARTIAL:
+        refundAmount = (payment.amount * config.refundPercentage) / 100;
+        break;
+      case RefundPolicy.NONE:
+        return 0;
+    }
+
+    const refund = await this.paymentGateway.createRefund({
+      paymentId: payment.gatewayPaymentId!,
+      amount: refundAmount * 100, // Convert to paise
+    });
+
+    await this.paymentRepo.update(payment.id, {
+      status: PaymentStatus.REFUNDED,
+      refundId: refund.id,
+      refundAmount,
+      refundedAt: new Date(),
+    });
+
+    await this.bookingRepo.update(booking.id, {
+      prepaymentStatus: PrepaymentStatus.REFUNDED,
+    });
+
+    await this.eventBus.emit('online_booking.refund_processed', {
+      booking,
+      refundAmount,
+    });
+
+    return refundAmount;
+  }
+}
+```
+
+### 4. Lead Capture Service
+
+```typescript
+class LeadCaptureService {
+  /**
+   * Track abandoned booking
+   */
+  async trackAbandonment(
+    tenantId: string,
+    sessionId: string,
+    step: AbandonmentStep,
+    partialData: Partial<AbandonedBooking>
+  ): Promise<void> {
+    const existing = await this.abandonedRepo.findBySession(sessionId);
+
+    if (existing) {
+      const stepOrder = Object.values(AbandonmentStep);
+      if (stepOrder.indexOf(step) > stepOrder.indexOf(existing.abandonmentStep as AbandonmentStep)) {
+        await this.abandonedRepo.update(existing.id, {
+          abandonmentStep: step,
+          ...partialData,
+        });
+      }
+    } else {
+      await this.abandonedRepo.create({
+        tenantId,
+        sessionId,
+        abandonmentStep: step,
+        ...partialData,
+      });
+    }
+
+    await this.analyticsService.trackAbandonment(tenantId, partialData.branchId, step);
+  }
+
+  /**
+   * Mark abandoned booking as converted
+   */
+  async markConverted(sessionId: string, bookingId: string): Promise<void> {
+    const abandoned = await this.abandonedRepo.findBySession(sessionId);
+    if (abandoned) {
+      await this.abandonedRepo.update(abandoned.id, {
+        converted: true,
+        convertedBookingId: bookingId,
+      });
+    }
+  }
+
+  /**
+   * Send follow-up for abandoned booking
+   */
+  async sendFollowup(abandonedBooking: AbandonedBooking): Promise<void> {
+    if (!abandonedBooking.customerPhone) {
+      return;
+    }
+
+    const hasBooked = await this.bookingRepo.hasRecentBooking(
+      abandonedBooking.tenantId,
+      abandonedBooking.customerPhone,
+      24
+    );
+
+    if (hasBooked) {
+      await this.abandonedRepo.update(abandonedBooking.id, {
+        followupSent: true,
+        converted: true,
+      });
+      return;
+    }
+
+    await this.marketingService.sendAbandonmentFollowup(abandonedBooking);
+
+    await this.abandonedRepo.update(abandonedBooking.id, {
+      followupSent: true,
+      followupSentAt: new Date(),
+    });
+  }
+}
+```
+
+### 5. Fraud Protection Service
+
+```typescript
+class FraudProtectionService {
+  /**
+   * Check if customer is blacklisted
+   */
+  async isBlacklisted(
+    tenantId: string,
+    customerId?: string,
+    phone?: string
+  ): Promise<{
+    blocked: boolean;
+    requirePrepayment: boolean;
+    reason?: string;
+  }> {
+    if (customerId) {
+      const byCustomer = await this.blacklistRepo.findByCustomer(tenantId, customerId);
+      if (byCustomer?.isActive) {
+        return {
+          blocked: byCustomer.blockOnlineBooking,
+          requirePrepayment: byCustomer.requirePrepayment,
+          reason: byCustomer.reason,
+        };
+      }
+    }
+
+    if (phone) {
+      const byPhone = await this.blacklistRepo.findByPhone(tenantId, phone);
+      if (byPhone?.isActive) {
+        return {
+          blocked: byPhone.blockOnlineBooking,
+          requirePrepayment: byPhone.requirePrepayment,
+          reason: byPhone.reason,
+        };
+      }
+    }
+
+    // Check no-show history
+    if (customerId) {
+      const noShowCount = await this.appointmentService.getNoShowCount(customerId, 90);
+      if (noShowCount >= 3) {
+        return {
+          blocked: false,
+          requirePrepayment: true,
+          reason: 'no_show_history',
+        };
+      }
+    }
+
+    return { blocked: false, requirePrepayment: false };
+  }
+
+  /**
+   * Add customer to blacklist
+   */
+  async addToBlacklist(
+    tenantId: string,
+    data: {
+      customerId?: string;
+      customerPhone?: string;
+      reason: BlacklistReason;
+      notes?: string;
+      blockOnlineBooking: boolean;
+      requirePrepayment: boolean;
+    },
+    blockedBy: string
+  ): Promise<BlacklistedCustomer> {
+    return this.blacklistRepo.create({
+      tenantId,
+      ...data,
+      blockedBy,
+      blockedAt: new Date(),
+      isActive: true,
+    });
+  }
+
+  /**
+   * Check rate limiting
+   */
+  async checkRateLimit(
+    ipAddress: string,
+    sessionId: string
+  ): Promise<{ allowed: boolean; retryAfter?: number }> {
+    const key = `booking_rate:${ipAddress}`;
+    const attempts = await this.cache.incr(key);
+
+    if (attempts === 1) {
+      await this.cache.expire(key, 3600);
+    }
+
+    if (attempts > 10) {
+      const ttl = await this.cache.ttl(key);
+      return { allowed: false, retryAfter: ttl };
+    }
+
+    return { allowed: true };
+  }
+
+  /**
+   * Detect suspicious patterns
+   */
+  async detectSuspiciousActivity(
+    tenantId: string,
+    phone: string,
+    ipAddress: string
+  ): Promise<{ suspicious: boolean; reasons: string[] }> {
+    const reasons: string[] = [];
+
+    const ipBookings = await this.bookingRepo.countByIpToday(tenantId, ipAddress);
+    if (ipBookings > 5) {
+      reasons.push('Multiple bookings from same IP');
+    }
+
+    const recentAttempts = await this.bookingRepo.countRecentByPhone(phone, 10);
+    if (recentAttempts > 3) {
+      reasons.push('Rapid booking attempts');
+    }
+
+    const fraudPatterns = await this.checkFraudPatterns(phone, ipAddress);
+    reasons.push(...fraudPatterns);
+
+    return {
+      suspicious: reasons.length > 0,
+      reasons,
+    };
+  }
+}
+```
+
+---
+
+## Validation Schemas
+
+```typescript
+import { z } from 'zod';
+
+// =====================================================
+// PUBLIC API SCHEMAS
+// =====================================================
+export const GetAvailableSlotsSchema = z.object({
+  branchId: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  serviceIds: z.array(z.string().uuid()).min(1).max(10),
+  variantIds: z.array(z.string().uuid()).optional(),
+  stylistId: z.string().uuid().optional(),
+});
+
+export const LockSlotSchema = z.object({
+  branchId: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  time: z.string().regex(/^\d{2}:\d{2}$/),
+  duration: z.number().int().min(15).max(480),
+  stylistId: z.string().uuid().optional(),
+  sessionId: z.string().min(10).max(100),
+});
+
+export const CreateBookingSchema = z.object({
+  branchId: z.string().uuid(),
+  services: z.array(z.object({
+    serviceId: z.string().uuid(),
+    variantId: z.string().uuid().optional(),
+    isPackageRedemption: z.boolean().optional(),
+    packageId: z.string().uuid().optional(),
+  })).min(1).max(10),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  time: z.string().regex(/^\d{2}:\d{2}$/),
+  stylistId: z.string().uuid().optional(),
+  customerPhone: z.string().regex(/^[6-9]\d{9}$/),
+  customerName: z.string().min(2).max(100),
+  customerEmail: z.string().email().optional(),
+  customerGender: z.enum(['male', 'female', 'other']).optional(),
+  promoCode: z.string().max(50).optional(),
+  customerNotes: z.string().max(500).optional(),
+  sessionId: z.string().min(10).max(100),
+  lockId: z.string().uuid().optional(),
+});
+
+export const ProcessPaymentSchema = z.object({
+  bookingReference: z.string().min(5).max(20),
+  paymentMethod: z.enum(['upi', 'card', 'netbanking', 'wallet', 'package_credit']),
+  gatewayPaymentId: z.string().optional(),
+  gatewaySignature: z.string().optional(),
+  useWallet: z.boolean().optional(),
+  walletAmount: z.number().positive().optional(),
+  usePackageCredits: z.boolean().optional(),
+});
+
+export const RescheduleBookingSchema = z.object({
+  newDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  newTime: z.string().regex(/^\d{2}:\d{2}$/),
+  newStylistId: z.string().uuid().optional(),
+});
+
+export const CancelBookingSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+export const CalculatePricingSchema = z.object({
+  branchId: z.string().uuid(),
+  services: z.array(z.object({
+    serviceId: z.string().uuid(),
+    variantId: z.string().uuid().optional(),
+    isPackageRedemption: z.boolean().optional(),
+    packageId: z.string().uuid().optional(),
+  })).min(1),
+  customerPhone: z.string().regex(/^[6-9]\d{9}$/).optional(),
+  promoCode: z.string().max(50).optional(),
+  stylistId: z.string().uuid().optional(),
+});
+
+// =====================================================
+// ADMIN API SCHEMAS
+// =====================================================
+export const UpdateBookingConfigSchema = z.object({
+  isEnabled: z.boolean().optional(),
+  bookingUrlSlug: z.string().min(3).max(100).regex(/^[a-z0-9-]+$/).optional(),
+  logoUrl: z.string().url().optional(),
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  welcomeMessage: z.string().max(500).optional(),
+  advanceBookingDays: z.number().int().min(1).max(90).optional(),
+  minAdvanceHours: z.number().int().min(0).max(72).optional(),
+  sameDayCutoffTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  allowStylistSelection: z.boolean().optional(),
+  stylistSelectionMandatory: z.boolean().optional(),
+  prepaymentMode: z.enum(['none', 'optional', 'required']).optional(),
+  depositType: z.enum(['full', 'percentage', 'fixed']).optional(),
+  depositValue: z.number().positive().optional(),
+  cancellationWindowHours: z.number().int().min(0).max(72).optional(),
+  refundPolicy: z.enum(['full', 'partial', 'none']).optional(),
+  refundPercentage: z.number().min(0).max(100).optional(),
+  maxActiveBookingsPerCustomer: z.number().int().min(1).max(10).optional(),
+  maxServicesPerBooking: z.number().int().min(1).max(20).optional(),
+  maxReschedules: z.number().int().min(0).max(10).optional(),
+  requireManualConfirmation: z.boolean().optional(),
+  sendConfirmationWhatsapp: z.boolean().optional(),
+  sendReminder24h: z.boolean().optional(),
+  sendReminder2h: z.boolean().optional(),
+  enableAbandonmentTracking: z.boolean().optional(),
+  abandonmentFollowupHours: z.number().int().min(1).max(48).optional(),
+});
+
+export const UpdateServiceBookingConfigSchema = z.object({
+  availableOnline: z.boolean().optional(),
+  isPopular: z.boolean().optional(),
+  isRecommended: z.boolean().optional(),
+  displayOrder: z.number().int().min(0).optional(),
+  suggestedAddonIds: z.array(z.string().uuid()).optional(),
+});
+
+export const UpdateStaffBookingConfigSchema = z.object({
+  showOnline: z.boolean().optional(),
+  displayName: z.string().max(100).optional(),
+  bio: z.string().max(500).optional(),
+  photoUrl: z.string().url().optional(),
+  specializations: z.array(z.string().max(50)).optional(),
+  displayOrder: z.number().int().min(0).optional(),
+});
+
+export const AddToBlacklistSchema = z.object({
+  customerId: z.string().uuid().optional(),
+  customerPhone: z.string().regex(/^[6-9]\d{9}$/).optional(),
+  reason: z.enum(['no_show_history', 'fraud', 'abuse', 'manual']),
+  notes: z.string().max(500).optional(),
+  blockOnlineBooking: z.boolean().default(true),
+  requirePrepayment: z.boolean().default(true),
+}).refine(data => data.customerId || data.customerPhone, {
+  message: 'Either customerId or customerPhone is required',
+});
+
+export const ListBookingsQuerySchema = z.object({
+  branchId: z.string().uuid().optional(),
+  status: z.enum(['pending', 'confirmed', 'cancelled', 'completed', 'no_show']).optional(),
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+```
+
+---
+
+## Integration Points
+
+### Module 2: Appointments
+
+- **Reuse**: Core availability calculation logic
+- **Create**: Appointment when booking is confirmed
+- **Sync**: Reschedule/cancel syncs to appointment
+- **Read**: Staff schedules, breaks, leave for availability
+
+### Module 3: Customers
+
+- **Find/Create**: Customer by phone number
+- **Read**: Customer profile, preferences, membership status
+- **Update**: Customer details from booking form
+
+### Module 4: Services & Pricing
+
+- **Read**: Service catalog, variants, pricing
+- **Read**: Staff-level pricing adjustments
+- **Read**: Branch-specific pricing
+
+### Module 5: Billing
+
+- **Read**: Tax configuration for pricing display
+- **Integration**: Prepayment links to billing when appointment completes
+
+### Module 8: Memberships & Packages
+
+- **Read**: Customer membership for discount preview
+- **Read**: Package credits for redemption
+- **Redeem**: Package credits during booking
+
+### Module 11: Marketing
+
+- **Trigger**: Abandonment follow-up campaigns
+- **Validate**: Promo codes and coupons
+- **Apply**: Campaign discounts
+
+### External: Payment Gateway
+
+- **Razorpay/PayU/Cashfree**: Order creation, payment verification, refunds
+- **Webhook**: Payment status updates
+
+### External: WhatsApp/SMS
+
+- **Send**: Booking confirmation, reminders, cancellation notifications
+- **Via**: Marketing module's messaging infrastructure
+
+---
+
+## Event Emissions
+
+```typescript
+// Online Booking Events
+'online_booking.created'          -> { booking: OnlineBooking, customer: Customer }
+'online_booking.confirmed'        -> { booking: OnlineBooking }
+'online_booking.cancelled'        -> { booking: OnlineBooking, refundAmount?: number }
+'online_booking.rescheduled'      -> { booking: OnlineBooking }
+'online_booking.completed'        -> { booking: OnlineBooking }
+'online_booking.no_show'          -> { booking: OnlineBooking }
+'online_booking.payment_completed' -> { booking: OnlineBooking }
+'online_booking.payment_failed'   -> { booking: OnlineBooking, error: string }
+'online_booking.refund_processed' -> { booking: OnlineBooking, refundAmount: number }
+
+// Slot Events
+'slot.locked'                     -> { lock: SlotLock }
+'slot.released'                   -> { lockId: string }
+
+// Lead Events
+'lead.abandoned'                  -> { abandonedBooking: AbandonedBooking }
+'lead.followup_sent'              -> { abandonedBooking: AbandonedBooking }
+'lead.converted'                  -> { abandonedBooking: AbandonedBooking, booking: OnlineBooking }
+
+// Fraud Events
+'fraud.customer_blacklisted'      -> { blacklist: BlacklistedCustomer }
+'fraud.suspicious_activity'       -> { tenantId: string, phone: string, reasons: string[] }
+```
+
+---
+
+## Error Handling
+
+```typescript
+export const BOOKING_ERRORS = {
+  // Availability Errors
+  SLOT_NOT_AVAILABLE: 'Selected time slot is no longer available',
+  BRANCH_CLOSED: 'Branch is closed on selected date',
+  SERVICE_UNAVAILABLE: 'One or more services are not available online',
+  STYLIST_UNAVAILABLE: 'Selected stylist is not available',
+  BOOKING_DATE_INVALID: 'Selected date is outside booking window',
+  SAME_DAY_CUTOFF: 'Same-day booking cutoff time has passed',
+
+  // Customer Errors
+  CUSTOMER_BLACKLISTED: 'Online booking is not available for this customer',
+  MAX_BOOKINGS_EXCEEDED: 'Maximum active bookings limit reached',
+  INVALID_PHONE: 'Invalid phone number format',
+
+  // Lock Errors
+  LOCK_EXPIRED: 'Slot reservation has expired',
+  LOCK_NOT_FOUND: 'Slot reservation not found',
+
+  // Payment Errors
+  PAYMENT_REQUIRED: 'Prepayment is required for this booking',
+  PAYMENT_FAILED: 'Payment processing failed',
+  PAYMENT_VERIFICATION_FAILED: 'Payment verification failed',
+  INSUFFICIENT_WALLET: 'Insufficient wallet balance',
+  PACKAGE_CREDITS_INVALID: 'Invalid package credits',
+
+  // Booking Errors
+  BOOKING_NOT_FOUND: 'Booking not found',
+  INVALID_STATUS: 'Invalid booking status for this operation',
+  ALREADY_CANCELLED: 'Booking is already cancelled',
+  ALREADY_COMPLETED: 'Cannot modify a completed booking',
+
+  // Reschedule Errors
+  MAX_RESCHEDULES_EXCEEDED: 'Maximum reschedule limit reached',
+  CANCELLATION_WINDOW_PASSED: 'Cancellation window has passed',
+
+  // Rate Limiting
+  RATE_LIMIT_EXCEEDED: 'Too many booking attempts. Please try again later',
+
+  // System Errors
+  BOOKING_DISABLED: 'Online booking is currently disabled',
+  SYSTEM_ERROR: 'An unexpected error occurred. Please try again',
+};
+
+export class BookingError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public details?: Record<string, any>
+  ) {
+    super(message);
+    this.name = 'BookingError';
+  }
+}
+```
+
+---
+
+## Testing Considerations
+
+### Unit Tests
+
+- Availability calculation with various scenarios
+- Slot lock creation and expiration
+- Pricing calculation with discounts, memberships, packages
+- Prepayment amount calculation
+- Refund amount calculation based on policy
+- Booking reference generation uniqueness
+- Blacklist checking logic
+- Rate limiting logic
+
+### Integration Tests
+
+- Full booking flow: select → lock → book → pay → confirm
+- Reschedule flow with appointment sync
+- Cancellation flow with refund processing
+- Payment gateway integration (mock)
+- WhatsApp notification sending (mock)
+- Customer creation/lookup flow
+- Package credit redemption flow
+
+### E2E Tests
+
+- Complete booking journey on public page
+- Booking with prepayment via Razorpay
+- Booking modification via unique link
+- Booking cancellation with refund
+- Admin confirmation workflow
+- Emergency disable/enable
+
+### Edge Cases
+
+- Concurrent slot booking (race condition)
+- Payment received but booking creation failed
+- Slot lock expiry during payment
+- Network failure during booking
+- Multiple browser tabs booking same slot
+- Timezone handling for slot display
+- Holiday/special hours handling
+
+---
+
+## Performance Considerations
+
+### Caching Strategy
+
+```typescript
+'booking_config:{tenantId}'         // TTL: 5 minutes
+'branch_config:{branchId}'          // TTL: 5 minutes
+'service_config:{serviceId}'        // TTL: 5 minutes
+'staff_config:{staffId}'            // TTL: 5 minutes
+'working_hours:{branchId}:{date}'   // TTL: 1 hour
+'blacklist:{tenantId}:{phone}'      // TTL: 10 minutes
+```
+
+### Database Indexes
+
+- `online_bookings(tenant_id, status)` - List bookings
+- `online_bookings(branch_id, booking_date)` - Date-based queries
+- `online_bookings(booking_reference)` - Reference lookup
+- `slot_locks(branch_id, slot_date, expires_at)` - Lock queries
+- `abandoned_bookings(tenant_id, created_at)` - Lead queries
+- `blacklisted_customers(tenant_id, customer_phone)` - Blacklist check
+
+### Slot Lock Cleanup
+
+- Background job to clean expired locks every minute
+- Use Redis for slot locks in high-traffic scenarios
+
+---
+
+## Security Considerations
+
+### Public API Security
+
+- No authentication required for public booking page
+- Rate limiting per IP address (10 requests/hour for booking creation)
+- CAPTCHA for suspicious activity (optional)
+- Input sanitization for all user inputs
+- SQL injection prevention via parameterized queries
+
+### Data Protection
+
+- Customer phone numbers masked in logs
+- Payment gateway credentials encrypted at rest
+- PCI DSS compliance for payment handling (via gateway)
+- No card data stored locally
+
+### Fraud Prevention
+
+- Blacklist checking before booking
+- IP-based rate limiting
+- Session-based slot locking
+- Suspicious pattern detection
+- No-show history tracking
+
+### Payment Security
+
+- Server-side signature verification
+- Webhook signature validation
+- Idempotency keys for payment operations
+- Secure redirect URLs
+
+### Access Control
+
+- Admin APIs require authentication
+- Role-based access for booking management
+- Branch-level access restrictions
+- Audit logging for all admin actions
+
+### CORS Configuration
+
+```typescript
+const publicCorsOptions = {
+  origin: ['https://book.salonname.com', 'https://www.salonname.com'],
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'X-Session-ID'],
+  credentials: false,
+};
+```
+
+---
+
+## Scheduled Jobs
+
+```typescript
+// Slot lock cleanup - Every minute
+'* * * * *'   -> cleanupExpiredLocks()
+
+// Abandonment follow-up - Every 15 minutes
+'*/15 * * * *' -> processAbandonmentFollowups()
+
+// Analytics aggregation - Daily at 2 AM
+'0 2 * * *'   -> aggregateDailyAnalytics()
+
+// Pending booking reminder - Every hour
+'0 * * * *'   -> remindPendingConfirmations()
+```

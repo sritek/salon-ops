@@ -10,6 +10,8 @@ import { ArrowDown, ArrowUp, type LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
+type StatCardVariant = 'default' | 'success' | 'warning' | 'destructive' | 'info';
+
 interface StatCardProps {
   title: string;
   value: number | string;
@@ -21,11 +23,12 @@ interface StatCardProps {
   };
   href?: string;
   className?: string;
+  variant?: StatCardVariant;
 }
 
 function formatValue(value: number | string, format?: string): string {
   if (typeof value === 'string') return value;
-  
+
   switch (format) {
     case 'currency':
       return new Intl.NumberFormat('en-IN', {
@@ -42,6 +45,17 @@ function formatValue(value: number | string, format?: string): string {
   }
 }
 
+const variantStyles: Record<StatCardVariant, { bg: string; text: string }> = {
+  default: { bg: 'bg-primary/10', text: 'text-primary' },
+  success: { bg: 'bg-green-100 dark:bg-green-900/20', text: 'text-green-600 dark:text-green-400' },
+  warning: {
+    bg: 'bg-yellow-100 dark:bg-yellow-900/20',
+    text: 'text-yellow-600 dark:text-yellow-400',
+  },
+  destructive: { bg: 'bg-red-100 dark:bg-red-900/20', text: 'text-red-600 dark:text-red-400' },
+  info: { bg: 'bg-blue-100 dark:bg-blue-900/20', text: 'text-blue-600 dark:text-blue-400' },
+};
+
 export function StatCard({
   title,
   value,
@@ -50,23 +64,30 @@ export function StatCard({
   trend,
   href,
   className,
+  variant = 'default',
 }: StatCardProps) {
+  const styles = variantStyles[variant];
+
   const content = (
-    <Card className={cn('transition-colors', href && 'hover:bg-accent/50 cursor-pointer', className)}>
+    <Card
+      className={cn('transition-colors', href && 'hover:bg-accent/50 cursor-pointer', className)}
+    >
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <p className="text-2xl font-bold">{formatValue(value, format)}</p>
-            
+
             {/* Trend indicator */}
             {trend && (
-              <div className={cn(
-                'flex items-center text-sm',
-                trend.direction === 'up' && 'text-green-600',
-                trend.direction === 'down' && 'text-red-600',
-                trend.direction === 'neutral' && 'text-muted-foreground'
-              )}>
+              <div
+                className={cn(
+                  'flex items-center text-sm',
+                  trend.direction === 'up' && 'text-green-600',
+                  trend.direction === 'down' && 'text-red-600',
+                  trend.direction === 'neutral' && 'text-muted-foreground'
+                )}
+              >
                 {trend.direction === 'up' && <ArrowUp className="h-4 w-4 mr-1" />}
                 {trend.direction === 'down' && <ArrowDown className="h-4 w-4 mr-1" />}
                 <span>{trend.value}%</span>
@@ -74,11 +95,11 @@ export function StatCard({
               </div>
             )}
           </div>
-          
+
           {/* Icon */}
           {Icon && (
-            <div className="rounded-full bg-primary/10 p-3">
-              <Icon className="h-6 w-6 text-primary" />
+            <div className={cn('rounded-full p-3', styles.bg)}>
+              <Icon className={cn('h-6 w-6', styles.text)} />
             </div>
           )}
         </div>

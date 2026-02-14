@@ -1,6 +1,6 @@
 /**
  * Next.js Middleware
- * Based on: .cursor/rules/14-frontend-implementation.mdc lines 476-514
+ * Handles authentication and i18n locale detection
  */
 
 import { NextResponse } from 'next/server';
@@ -12,8 +12,7 @@ const authRoutes = ['/login', '/register', '/forgot-password'];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Get auth state from cookie/localStorage is not available in middleware
-  // We'll check for the presence of the auth-storage in cookies
+  // Get auth state from cookie
   const authStorage = request.cookies.get('auth-storage')?.value;
   let isAuthenticated = false;
 

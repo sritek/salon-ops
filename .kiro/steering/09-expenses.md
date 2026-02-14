@@ -1,0 +1,2220 @@
+---
+# Expenses & Finance module patterns - expense tracking, petty cash, budgets, period close, and P&L
+inclusion: fileMatch
+fileMatchPattern: '**/expense/**/*.ts, **/finance/**/*.ts, **/budget/**/*.ts'
+---
+
+# Expenses & Finance Module
+
+## Overview
+
+This module handles expense tracking, financial year management, petty cash, recurring expenses, budget management, period close/lock, P&L calculations, and cash flow tracking. It integrates with billing (revenue), staff management (salary expenses), and inventory (consumables) to provide operational financial insights.
+
+**Related Requirements:** 9.1 - 9.19
+
+---
+
+## Database Schema
+
+```sql
+-- =====================================================
+-- FINANCIAL YEAR CONFIGURATION
+-- =====================================================
+CREATE TABLE financial_years (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  
+  -- Year identification
+  year_code VARCHAR(20) NOT NULL, -- e.g., "FY2025-26"
+  year_name VARCHAR(50) NOT NULL, -- e.g., "Financial Year 2025-26"
+  
+  -- Period
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
+  -- active, closed
+  
+  -- Closure
+  closed_at TIMESTAMP,
+  closed_by UUID REFERENCES users(id),
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(tenant_id, year_code),
+  CONSTRAINT valid_date_range CHECK (end_date > start_date)
+);
+
+CREATE INDEX idx_financial_years ON financial_years(tenant_id, status);
+
+-- =====================================================
+-- FINANCE CONFIGURATION (Tenant-level settings)
+-- =====================================================
+CREATE TABLE finance_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) UNIQUE,
+  
+  -- Financial year settings
+  fy_start_month INTEGER NOT NULL DEFAULT 4, -- April (1-12)
+  
+  -- Back-date controls
+  max_backdate_days INTEGER DEFAULT 7,
+  
+  -- Approval thresholds
+  expense_approval_enabled BOOLEAN DEFAULT true,
+  expense_approval_threshold DECIMAL(10, 2) DEFAULT 5000,
+  
+  -- Budget feature
+  budget_enabled BOOLEAN DEFAULT false,
+  budget_alert_threshold_percent INTEGER DEFAULT 80,
+  
+  -- Petty cash
+  petty_cash_enabled BOOLEAN DEFAULT true,
+  default_petty_cash_float DECIMAL(10, 2) DEFAULT 5000,
+  petty_cash_low_threshold DECIMAL(10, 2) DEFAULT 1000,
+  
+  -- Period close
+  require_petty_cash_reconciliation BOOLEAN DEFAULT true,
+  require_pending_approvals_resolved BOOLEAN DEFAULT true,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- EXPENSE CATEGORIES
+-- =====================================================
+CREATE TABLE expense_categories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  
+  -- Hierarchy
+  parent_id UUID REFERENCES expense_categories(id),
+  
+  -- Category info
+  name VARCHAR(100) NOT NULL,
+  code VARCHAR(20),
+  description TEXT,
+  
+  -- Classification
+  expense_type VARCHAR(20) NOT NULL DEFAULT 'operational',
+  -- direct (service-related), indirect (overhead)
+  
+  capital_type VARCHAR(20) NOT NULL DEFAULT 'operational',
+  -- capital (assets), operational (recurring)
+  
+  -- GST
+  default_gst_rate DECIMAL(5, 2),
+  hsn_sac_code VARCHAR(20),
+  
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+  is_system BOOLEAN DEFAULT false, -- Pre-defined categories
+  
+  display_order INTEGER DEFAULT 0,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  
+  UNIQUE(tenant_id, code)
+);
+
+CREATE INDEX idx_expense_categories ON expense_categories(tenant_id, is_active);
+CREATE INDEX idx_expense_categories_parent ON expense_categories(parent_id);
+
+-- =====================================================
+-- EXPENSES
+-- =====================================================
+CREATE TABLE expenses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  -- Expense number
+  expense_number VARCHAR(50) NOT NULL,
+  
+  -- Financial year
+  financial_year_id UUID NOT NULL REFERENCES financial_years(id),
+  
+  -- Dates
+  expense_date DATE NOT NULL,
+  entry_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  
+  -- Category
+  category_id UUID NOT NULL REFERENCES expense_categories(id),
+  
+  -- Vendor
+  vendor_id UUID REFERENCES vendors(id),
+  vendor_name VARCHAR(255),
+  vendor_invoice_number VARCHAR(100),
+  vendor_invoice_date DATE,
+  
+  -- Amount
+  base_amount DECIMAL(12, 2) NOT NULL,
+  gst_amount DECIMAL(12, 2) DEFAULT 0,
+  total_amount DECIMAL(12, 2) NOT NULL,
+  
+  -- GST details
+  gst_rate DECIMAL(5, 2),
+  cgst_amount DECIMAL(10, 2) DEFAULT 0,
+  sgst_amount DECIMAL(10, 2) DEFAULT 0,
+  igst_amount DECIMAL(10, 2) DEFAULT 0,
+  is_igst BOOLEAN DEFAULT false,
+  vendor_gstin VARCHAR(20),
+  
+  -- Description
+  description TEXT NOT NULL,
+  internal_notes TEXT,
+  
+  -- Payment
+  payment_method VARCHAR(20) NOT NULL,
+  -- cash, bank_transfer, upi, card, cheque, petty_cash
+  payment_status VARCHAR(20) NOT NULL DEFAULT 'unpaid',
+  -- unpaid, paid
+  payment_date DATE,
+  payment_reference VARCHAR(100),
+  
+  -- Multi-branch allocation
+  is_shared_expense BOOLEAN DEFAULT false,
+  
+  -- Recurring
+  is_recurring BOOLEAN DEFAULT false,
+  recurring_expense_id UUID REFERENCES recurring_expenses(id),
+  
+  -- Approval
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',
+  -- draft, pending_approval, approved, rejected, paid
+  requires_approval BOOLEAN DEFAULT false,
+  approved_by UUID REFERENCES users(id),
+  approved_at TIMESTAMP,
+  approval_notes TEXT,
+  rejected_by UUID REFERENCES users(id),
+  rejected_at TIMESTAMP,
+  rejection_reason TEXT,
+  
+  -- Back-date tracking
+  is_backdated BOOLEAN DEFAULT false,
+  backdate_approved_by UUID REFERENCES users(id),
+  backdate_approved_at TIMESTAMP,
+  
+  -- Source
+  source_type VARCHAR(20) DEFAULT 'manual',
+  -- manual, payroll, recurring, inventory
+  source_id UUID, -- payroll_id, recurring_expense_id, etc.
+  
+  -- Metadata
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  
+  UNIQUE(branch_id, expense_number)
+);
+
+CREATE INDEX idx_expenses_tenant_branch ON expenses(tenant_id, branch_id);
+CREATE INDEX idx_expenses_date ON expenses(branch_id, expense_date);
+CREATE INDEX idx_expenses_category ON expenses(category_id, expense_date);
+CREATE INDEX idx_expenses_status ON expenses(branch_id, status);
+CREATE INDEX idx_expenses_fy ON expenses(financial_year_id);
+CREATE INDEX idx_expenses_vendor ON expenses(vendor_id);
+
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON expenses
+  FOR ALL USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =====================================================
+-- EXPENSE ALLOCATIONS (For shared expenses)
+-- =====================================================
+CREATE TABLE expense_allocations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  expense_id UUID NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  allocation_percentage DECIMAL(5, 2) NOT NULL,
+  allocated_amount DECIMAL(12, 2) NOT NULL,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(expense_id, branch_id),
+  CONSTRAINT valid_percentage CHECK (allocation_percentage > 0 AND allocation_percentage <= 100)
+);
+
+CREATE INDEX idx_expense_allocations ON expense_allocations(expense_id);
+CREATE INDEX idx_expense_allocations_branch ON expense_allocations(branch_id);
+
+-- =====================================================
+-- EXPENSE ATTACHMENTS
+-- =====================================================
+CREATE TABLE expense_attachments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  expense_id UUID NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+  
+  file_name VARCHAR(255) NOT NULL,
+  file_type VARCHAR(50) NOT NULL, -- image/jpeg, application/pdf
+  file_size INTEGER NOT NULL,
+  file_url VARCHAR(500) NOT NULL,
+  
+  attachment_type VARCHAR(20) DEFAULT 'receipt',
+  -- receipt, invoice, other
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_expense_attachments ON expense_attachments(expense_id);
+
+-- =====================================================
+-- RECURRING EXPENSES
+-- =====================================================
+CREATE TABLE recurring_expenses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  -- Template info
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  
+  -- Category & Vendor
+  category_id UUID NOT NULL REFERENCES expense_categories(id),
+  vendor_id UUID REFERENCES vendors(id),
+  
+  -- Amount
+  base_amount DECIMAL(12, 2) NOT NULL,
+  gst_amount DECIMAL(12, 2) DEFAULT 0,
+  total_amount DECIMAL(12, 2) NOT NULL,
+  
+  -- Recurrence
+  recurrence_pattern VARCHAR(20) NOT NULL,
+  -- daily, weekly, monthly, quarterly, yearly
+  recurrence_day INTEGER, -- Day of month (1-31) or day of week (0-6)
+  
+  -- Schedule
+  start_date DATE NOT NULL,
+  end_date DATE, -- NULL = no end
+  next_due_date DATE NOT NULL,
+  
+  -- Reminder
+  reminder_days_before INTEGER DEFAULT 3,
+  
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'active',
+  -- active, paused, completed, cancelled
+  
+  -- Multi-branch
+  is_shared_expense BOOLEAN DEFAULT false,
+  
+  -- Tracking
+  total_occurrences INTEGER DEFAULT 0,
+  last_generated_date DATE,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_recurring_expenses ON recurring_expenses(tenant_id, status);
+CREATE INDEX idx_recurring_expenses_due ON recurring_expenses(next_due_date, status);
+
+-- =====================================================
+-- RECURRING EXPENSE ALLOCATIONS (For shared recurring)
+-- =====================================================
+CREATE TABLE recurring_expense_allocations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  recurring_expense_id UUID NOT NULL REFERENCES recurring_expenses(id) ON DELETE CASCADE,
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  allocation_percentage DECIMAL(5, 2) NOT NULL,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(recurring_expense_id, branch_id)
+);
+
+-- =====================================================
+-- PETTY CASH
+-- =====================================================
+CREATE TABLE petty_cash (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  -- Transaction
+  transaction_date DATE NOT NULL,
+  transaction_time TIME NOT NULL DEFAULT CURRENT_TIME,
+  
+  transaction_type VARCHAR(20) NOT NULL,
+  -- opening, expense, replenishment, adjustment, closing
+  
+  amount DECIMAL(12, 2) NOT NULL, -- Positive for in, negative for out
+  balance_after DECIMAL(12, 2) NOT NULL,
+  
+  -- Reference
+  expense_id UUID REFERENCES expenses(id),
+  
+  description VARCHAR(255),
+  
+  -- Reconciliation
+  is_reconciled BOOLEAN DEFAULT false,
+  reconciled_at TIMESTAMP,
+  reconciled_by UUID REFERENCES users(id),
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_petty_cash ON petty_cash(branch_id, transaction_date);
+
+-- =====================================================
+-- PETTY CASH BALANCE (Current state per branch)
+-- =====================================================
+CREATE TABLE petty_cash_balance (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id) UNIQUE,
+  
+  float_amount DECIMAL(12, 2) NOT NULL DEFAULT 5000,
+  current_balance DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  
+  last_reconciliation_date DATE,
+  last_replenishment_date DATE,
+  
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================
+-- PERIOD CLOSURES
+-- =====================================================
+CREATE TABLE period_closures (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  -- Period
+  period_year INTEGER NOT NULL,
+  period_month INTEGER NOT NULL, -- 1-12
+  financial_year_id UUID NOT NULL REFERENCES financial_years(id),
+  
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'open',
+  -- open, closed, reopened
+  
+  -- Summary at close
+  total_revenue DECIMAL(14, 2),
+  total_expenses DECIMAL(14, 2),
+  total_tax_collected DECIMAL(12, 2),
+  total_tax_paid DECIMAL(12, 2),
+  
+  -- Petty cash reconciliation
+  petty_cash_expected DECIMAL(12, 2),
+  petty_cash_actual DECIMAL(12, 2),
+  petty_cash_variance DECIMAL(12, 2),
+  petty_cash_reconciled BOOLEAN DEFAULT false,
+  
+  -- Close details
+  closed_at TIMESTAMP,
+  closed_by UUID REFERENCES users(id),
+  close_notes TEXT,
+  
+  -- Reopen details
+  reopened_at TIMESTAMP,
+  reopened_by UUID REFERENCES users(id),
+  reopen_reason TEXT,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(branch_id, period_year, period_month)
+);
+
+CREATE INDEX idx_period_closures ON period_closures(branch_id, period_year, period_month);
+
+-- =====================================================
+-- OPENING BALANCES
+-- =====================================================
+CREATE TABLE opening_balances (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  financial_year_id UUID NOT NULL REFERENCES financial_years(id),
+  
+  balance_type VARCHAR(30) NOT NULL,
+  -- cash, petty_cash, accounts_payable
+  
+  amount DECIMAL(14, 2) NOT NULL,
+  
+  -- For accounts payable
+  vendor_id UUID REFERENCES vendors(id),
+  description TEXT,
+  
+  -- Lock
+  is_locked BOOLEAN DEFAULT false,
+  locked_at TIMESTAMP,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  approved_by UUID REFERENCES users(id),
+  approved_at TIMESTAMP,
+  
+  UNIQUE(branch_id, financial_year_id, balance_type, vendor_id)
+);
+
+CREATE INDEX idx_opening_balances ON opening_balances(branch_id, financial_year_id);
+
+-- =====================================================
+-- BUDGETS
+-- =====================================================
+CREATE TABLE budgets (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  -- Period
+  budget_year INTEGER NOT NULL,
+  budget_month INTEGER NOT NULL, -- 1-12
+  financial_year_id UUID NOT NULL REFERENCES financial_years(id),
+  
+  -- Category
+  category_id UUID NOT NULL REFERENCES expense_categories(id),
+  
+  -- Budget amount
+  budgeted_amount DECIMAL(12, 2) NOT NULL,
+  
+  -- Tracking (updated on expense creation)
+  actual_amount DECIMAL(12, 2) DEFAULT 0,
+  variance_amount DECIMAL(12, 2) DEFAULT 0,
+  utilization_percent DECIMAL(5, 2) DEFAULT 0,
+  
+  -- Alerts
+  alert_sent_80 BOOLEAN DEFAULT false,
+  alert_sent_100 BOOLEAN DEFAULT false,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  
+  UNIQUE(branch_id, budget_year, budget_month, category_id)
+);
+
+CREATE INDEX idx_budgets ON budgets(branch_id, budget_year, budget_month);
+CREATE INDEX idx_budgets_category ON budgets(category_id);
+```
+
+---
+
+## TypeScript Types
+
+```typescript
+// =====================================================
+// ENUMS
+// =====================================================
+export enum ExpenseType {
+  DIRECT = 'direct',
+  INDIRECT = 'indirect',
+}
+
+export enum CapitalType {
+  CAPITAL = 'capital',
+  OPERATIONAL = 'operational',
+}
+
+export enum ExpenseStatus {
+  DRAFT = 'draft',
+  PENDING_APPROVAL = 'pending_approval',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  PAID = 'paid',
+}
+
+export enum PaymentStatus {
+  UNPAID = 'unpaid',
+  PAID = 'paid',
+}
+
+export enum ExpensePaymentMethod {
+  CASH = 'cash',
+  BANK_TRANSFER = 'bank_transfer',
+  UPI = 'upi',
+  CARD = 'card',
+  CHEQUE = 'cheque',
+  PETTY_CASH = 'petty_cash',
+}
+
+export enum RecurrencePattern {
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly',
+  QUARTERLY = 'quarterly',
+  YEARLY = 'yearly',
+}
+
+export enum RecurringExpenseStatus {
+  ACTIVE = 'active',
+  PAUSED = 'paused',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
+export enum PettyCashTransactionType {
+  OPENING = 'opening',
+  EXPENSE = 'expense',
+  REPLENISHMENT = 'replenishment',
+  ADJUSTMENT = 'adjustment',
+  CLOSING = 'closing',
+}
+
+export enum PeriodStatus {
+  OPEN = 'open',
+  CLOSED = 'closed',
+  REOPENED = 'reopened',
+}
+
+export enum FinancialYearStatus {
+  ACTIVE = 'active',
+  CLOSED = 'closed',
+}
+
+export enum OpeningBalanceType {
+  CASH = 'cash',
+  PETTY_CASH = 'petty_cash',
+  ACCOUNTS_PAYABLE = 'accounts_payable',
+}
+
+export enum ExpenseSourceType {
+  MANUAL = 'manual',
+  PAYROLL = 'payroll',
+  RECURRING = 'recurring',
+  INVENTORY = 'inventory',
+}
+
+// =====================================================
+// CORE TYPES
+// =====================================================
+export interface FinanceConfig {
+  id: string;
+  tenantId: string;
+  fyStartMonth: number;
+  maxBackdateDays: number;
+  expenseApprovalEnabled: boolean;
+  expenseApprovalThreshold: number;
+  budgetEnabled: boolean;
+  budgetAlertThresholdPercent: number;
+  pettyCashEnabled: boolean;
+  defaultPettyCashFloat: number;
+  pettyCashLowThreshold: number;
+  requirePettyCashReconciliation: boolean;
+  requirePendingApprovalsResolved: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface FinancialYear {
+  id: string;
+  tenantId: string;
+  yearCode: string;
+  yearName: string;
+  startDate: string;
+  endDate: string;
+  status: FinancialYearStatus;
+  closedAt?: Date;
+  closedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ExpenseCategory {
+  id: string;
+  tenantId: string;
+  parentId?: string;
+  name: string;
+  code?: string;
+  description?: string;
+  expenseType: ExpenseType;
+  capitalType: CapitalType;
+  defaultGstRate?: number;
+  hsnSacCode?: string;
+  isActive: boolean;
+  isSystem: boolean;
+  displayOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  
+  parent?: ExpenseCategory;
+  children?: ExpenseCategory[];
+}
+
+export interface Expense {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  expenseNumber: string;
+  financialYearId: string;
+  expenseDate: string;
+  entryDate: string;
+  categoryId: string;
+  vendorId?: string;
+  vendorName?: string;
+  vendorInvoiceNumber?: string;
+  vendorInvoiceDate?: string;
+  baseAmount: number;
+  gstAmount: number;
+  totalAmount: number;
+  gstRate?: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  isIgst: boolean;
+  vendorGstin?: string;
+  description: string;
+  internalNotes?: string;
+  paymentMethod: ExpensePaymentMethod;
+  paymentStatus: PaymentStatus;
+  paymentDate?: string;
+  paymentReference?: string;
+  isSharedExpense: boolean;
+  isRecurring: boolean;
+  recurringExpenseId?: string;
+  status: ExpenseStatus;
+  requiresApproval: boolean;
+  approvedBy?: string;
+  approvedAt?: Date;
+  approvalNotes?: string;
+  rejectedBy?: string;
+  rejectedAt?: Date;
+  rejectionReason?: string;
+  isBackdated: boolean;
+  backdateApprovedBy?: string;
+  backdateApprovedAt?: Date;
+  sourceType: ExpenseSourceType;
+  sourceId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  
+  category?: ExpenseCategory;
+  vendor?: Vendor;
+  allocations?: ExpenseAllocation[];
+  attachments?: ExpenseAttachment[];
+  branch?: Branch;
+}
+
+export interface ExpenseAllocation {
+  id: string;
+  tenantId: string;
+  expenseId: string;
+  branchId: string;
+  allocationPercentage: number;
+  allocatedAmount: number;
+  createdAt: Date;
+  
+  branch?: Branch;
+}
+
+export interface ExpenseAttachment {
+  id: string;
+  tenantId: string;
+  expenseId: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  fileUrl: string;
+  attachmentType: string;
+  createdAt: Date;
+  createdBy?: string;
+}
+
+export interface RecurringExpense {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  name: string;
+  description?: string;
+  categoryId: string;
+  vendorId?: string;
+  baseAmount: number;
+  gstAmount: number;
+  totalAmount: number;
+  recurrencePattern: RecurrencePattern;
+  recurrenceDay?: number;
+  startDate: string;
+  endDate?: string;
+  nextDueDate: string;
+  reminderDaysBefore: number;
+  status: RecurringExpenseStatus;
+  isSharedExpense: boolean;
+  totalOccurrences: number;
+  lastGeneratedDate?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  
+  category?: ExpenseCategory;
+  vendor?: Vendor;
+  allocations?: RecurringExpenseAllocation[];
+}
+
+export interface RecurringExpenseAllocation {
+  id: string;
+  tenantId: string;
+  recurringExpenseId: string;
+  branchId: string;
+  allocationPercentage: number;
+  createdAt: Date;
+  
+  branch?: Branch;
+}
+
+export interface PettyCash {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  transactionDate: string;
+  transactionTime: string;
+  transactionType: PettyCashTransactionType;
+  amount: number;
+  balanceAfter: number;
+  expenseId?: string;
+  description?: string;
+  isReconciled: boolean;
+  reconciledAt?: Date;
+  reconciledBy?: string;
+  createdAt: Date;
+  createdBy?: string;
+}
+
+export interface PettyCashBalance {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  floatAmount: number;
+  currentBalance: number;
+  lastReconciliationDate?: string;
+  lastReplenishmentDate?: string;
+  updatedAt: Date;
+}
+
+export interface PeriodClosure {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  periodYear: number;
+  periodMonth: number;
+  financialYearId: string;
+  status: PeriodStatus;
+  totalRevenue?: number;
+  totalExpenses?: number;
+  totalTaxCollected?: number;
+  totalTaxPaid?: number;
+  pettyCashExpected?: number;
+  pettyCashActual?: number;
+  pettyCashVariance?: number;
+  pettyCashReconciled: boolean;
+  closedAt?: Date;
+  closedBy?: string;
+  closeNotes?: string;
+  reopenedAt?: Date;
+  reopenedBy?: string;
+  reopenReason?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OpeningBalance {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  financialYearId: string;
+  balanceType: OpeningBalanceType;
+  amount: number;
+  vendorId?: string;
+  description?: string;
+  isLocked: boolean;
+  lockedAt?: Date;
+  createdAt: Date;
+  createdBy?: string;
+  approvedBy?: string;
+  approvedAt?: Date;
+  
+  vendor?: Vendor;
+}
+
+export interface Budget {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  budgetYear: number;
+  budgetMonth: number;
+  financialYearId: string;
+  categoryId: string;
+  budgetedAmount: number;
+  actualAmount: number;
+  varianceAmount: number;
+  utilizationPercent: number;
+  alertSent80: boolean;
+  alertSent100: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  
+  category?: ExpenseCategory;
+}
+
+// =====================================================
+// P&L TYPES
+// =====================================================
+export interface PLReport {
+  period: {
+    startDate: string;
+    endDate: string;
+    financialYearId: string;
+  };
+  branchId?: string; // null for consolidated
+
+  revenue: {
+    serviceRevenue: number;
+    productRevenue: number;
+    membershipRevenue: number;
+    packageRevenue: number;
+    otherRevenue: number;
+    totalRevenue: number;
+  };
+
+  directCosts: {
+    consumables: number;
+    staffCommissions: number;
+    totalDirectCosts: number;
+  };
+
+  grossProfit: number;
+  grossMarginPercent: number;
+
+  operatingExpenses: {
+    byCategory: {
+      categoryId: string;
+      categoryName: string;
+      amount: number;
+    }[];
+    totalOperatingExpenses: number;
+  };
+
+  netOperatingProfit: number;
+  netMarginPercent: number;
+}
+
+export interface CashFlowReport {
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  branchId?: string;
+
+  inflows: {
+    salesRevenue: number;
+    walletTopUps: number;
+    membershipSales: number;
+    packageSales: number;
+    otherInflows: number;
+    totalInflows: number;
+  };
+
+  outflows: {
+    expenses: number;
+    refunds: number;
+    vendorPayments: number;
+    otherOutflows: number;
+    totalOutflows: number;
+  };
+
+  netCashFlow: number;
+  openingBalance: number;
+  closingBalance: number;
+
+  dailyBreakdown?: {
+    date: string;
+    inflow: number;
+    outflow: number;
+    netFlow: number;
+    balance: number;
+  }[];
+}
+
+export interface GSTInputSummary {
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+
+  totalGstPaid: number;
+  cgstPaid: number;
+  sgstPaid: number;
+  igstPaid: number;
+
+  byVendor: {
+    vendorId: string;
+    vendorName: string;
+    vendorGstin?: string;
+    totalAmount: number;
+    gstAmount: number;
+  }[];
+
+  byCategory: {
+    categoryId: string;
+    categoryName: string;
+    totalAmount: number;
+    gstAmount: number;
+  }[];
+}
+```
+
+---
+
+## API Endpoints
+
+### Finance Configuration
+
+```
+GET    /api/v1/finance/config               Get tenant finance config
+PATCH  /api/v1/finance/config               Update finance config
+```
+
+### Financial Years
+
+```
+GET    /api/v1/financial-years              List financial years
+GET    /api/v1/financial-years/current      Get current financial year
+POST   /api/v1/financial-years              Create financial year (manual)
+POST   /api/v1/financial-years/:id/close    Close financial year
+```
+
+### Expense Categories
+
+```
+GET    /api/v1/expense-categories           List categories
+POST   /api/v1/expense-categories           Create category
+GET    /api/v1/expense-categories/:id       Get category details
+PATCH  /api/v1/expense-categories/:id       Update category
+DELETE /api/v1/expense-categories/:id       Deactivate category
+```
+
+### Expenses
+
+```
+GET    /api/v1/expenses                     List expenses (with filters)
+POST   /api/v1/expenses                     Create expense
+GET    /api/v1/expenses/:id                 Get expense details
+PATCH  /api/v1/expenses/:id                 Update expense
+DELETE /api/v1/expenses/:id                 Delete draft expense
+POST   /api/v1/expenses/:id/submit          Submit for approval
+POST   /api/v1/expenses/:id/approve         Approve expense
+POST   /api/v1/expenses/:id/reject          Reject expense
+POST   /api/v1/expenses/:id/mark-paid       Mark as paid
+POST   /api/v1/expenses/:id/attachments     Upload attachment
+DELETE /api/v1/expenses/:id/attachments/:aid  Delete attachment
+```
+
+### Recurring Expenses
+
+```
+GET    /api/v1/recurring-expenses           List recurring expenses
+POST   /api/v1/recurring-expenses           Create recurring expense
+GET    /api/v1/recurring-expenses/:id       Get recurring expense details
+PATCH  /api/v1/recurring-expenses/:id       Update recurring expense
+POST   /api/v1/recurring-expenses/:id/pause   Pause recurring
+POST   /api/v1/recurring-expenses/:id/resume  Resume recurring
+POST   /api/v1/recurring-expenses/:id/cancel  Cancel recurring
+GET    /api/v1/recurring-expenses/:id/history Get generated expenses
+```
+
+### Petty Cash
+
+```
+GET    /api/v1/petty-cash/balance           Get current balance
+GET    /api/v1/petty-cash/transactions      Get transactions
+POST   /api/v1/petty-cash/replenish         Record replenishment
+POST   /api/v1/petty-cash/adjustment        Record adjustment
+POST   /api/v1/petty-cash/reconcile         Reconcile petty cash
+GET    /api/v1/petty-cash/register          Get petty cash register report
+```
+
+### Period Close
+
+```
+GET    /api/v1/period-closures              List period closures
+GET    /api/v1/period-closures/current      Get current period status
+POST   /api/v1/period-closures/close        Close current period
+POST   /api/v1/period-closures/:id/reopen   Reopen closed period
+GET    /api/v1/period-closures/:id/summary  Get period summary
+```
+
+### Opening Balances
+
+```
+GET    /api/v1/opening-balances             List opening balances
+POST   /api/v1/opening-balances             Create opening balance
+PATCH  /api/v1/opening-balances/:id         Update opening balance
+POST   /api/v1/opening-balances/:id/lock    Lock opening balance
+```
+
+### Budgets
+
+```
+GET    /api/v1/budgets                      List budgets
+POST   /api/v1/budgets                      Create/update budget
+GET    /api/v1/budgets/summary              Get budget summary
+POST   /api/v1/budgets/copy-previous        Copy from previous period
+```
+
+### Reports
+
+```
+GET    /api/v1/finance/pl                   Get P&L report
+GET    /api/v1/finance/cash-flow            Get cash flow report
+GET    /api/v1/finance/gst-input            Get GST input summary
+GET    /api/v1/finance/expense-summary      Get expense summary by category
+GET    /api/v1/finance/vendor-summary       Get expense summary by vendor
+GET    /api/v1/finance/budget-variance      Get budget variance report
+GET    /api/v1/finance/pending-payments     Get pending vendor payments
+```
+
+---
+
+## Business Logic
+
+### 1. Expense Service
+
+```typescript
+class ExpenseService {
+  /**
+   * Create expense with validations
+   */
+  async createExpense(
+    data: CreateExpenseRequest,
+    userId: string
+  ): Promise<CreateExpenseResponse> {
+    // 1. Validate financial year
+    const fy = await this.getFinancialYearForDate(data.expenseDate);
+    if (!fy || fy.status === 'closed') {
+      throw new ExpenseError('INVALID_FINANCIAL_YEAR',
+        'Cannot create expense in closed financial year');
+    }
+
+    // 2. Validate period is not closed
+    const period = await this.getPeriodForDate(data.branchId, data.expenseDate);
+    if (period?.status === 'closed') {
+      throw new ExpenseError('PERIOD_CLOSED',
+        'Cannot create expense in closed period');
+    }
+
+    // 3. Check back-date
+    const config = await this.getFinanceConfig();
+    const daysDiff = this.getDaysDifference(data.expenseDate, new Date());
+    const isBackdated = daysDiff > config.maxBackdateDays;
+    const requiresBackdateApproval = isBackdated;
+
+    // 4. Check approval threshold
+    const requiresApproval = config.expenseApprovalEnabled &&
+      data.baseAmount >= config.expenseApprovalThreshold;
+
+    // 5. Calculate GST
+    const gstCalculation = this.calculateGST(data);
+
+    // 6. Validate allocations for shared expense
+    if (data.isSharedExpense && data.allocations) {
+      this.validateAllocations(data.allocations);
+    }
+
+    // 7. Generate expense number
+    const expenseNumber = await this.generateExpenseNumber(data.branchId);
+
+    // 8. Determine initial status
+    let status = ExpenseStatus.DRAFT;
+    if (requiresApproval || requiresBackdateApproval) {
+      status = ExpenseStatus.PENDING_APPROVAL;
+    } else {
+      status = ExpenseStatus.APPROVED;
+    }
+
+    // 9. Create expense
+    const expense = await this.expenseRepo.create({
+      ...data,
+      ...gstCalculation,
+      expenseNumber,
+      financialYearId: fy.id,
+      status,
+      requiresApproval,
+      isBackdated,
+      sourceType: ExpenseSourceType.MANUAL,
+      createdBy: userId,
+    });
+
+    // 10. Create allocations if shared
+    if (data.isSharedExpense && data.allocations) {
+      await this.createAllocations(expense.id, data.allocations, expense.totalAmount);
+    }
+
+    // 11. Update budget tracking
+    const budgetWarning = await this.updateBudgetTracking(
+      data.branchId,
+      data.categoryId,
+      expense.totalAmount,
+      data.expenseDate
+    );
+
+    // 12. If petty cash payment, update petty cash balance
+    if (data.paymentMethod === ExpensePaymentMethod.PETTY_CASH) {
+      await this.deductFromPettyCash(data.branchId, expense.totalAmount, expense.id);
+    }
+
+    // 13. Emit event
+    await this.eventEmitter.emit('expense.created', { expense, userId });
+
+    return {
+      success: true,
+      data: {
+        expense,
+        requiresApproval,
+        requiresBackdateApproval,
+        budgetWarning,
+      },
+    };
+  }
+
+  /**
+   * Approve expense
+   */
+  async approveExpense(
+    expenseId: string,
+    data: ApproveExpenseRequest,
+    userId: string
+  ): Promise<ApproveExpenseResponse> {
+    const expense = await this.expenseRepo.findById(expenseId);
+
+    if (expense.status !== ExpenseStatus.PENDING_APPROVAL) {
+      throw new ExpenseError('INVALID_STATUS', 'Expense is not pending approval');
+    }
+
+    // Check user has approval permission
+    await this.checkApprovalPermission(userId, expense);
+
+    // Update expense
+    const updatedExpense = await this.expenseRepo.update(expenseId, {
+      status: ExpenseStatus.APPROVED,
+      approvedBy: userId,
+      approvedAt: new Date(),
+      approvalNotes: data.approvalNotes,
+      backdateApprovedBy: expense.isBackdated ? userId : undefined,
+      backdateApprovedAt: expense.isBackdated ? new Date() : undefined,
+    });
+
+    // Emit event
+    await this.eventEmitter.emit('expense.approved', { expense: updatedExpense, userId });
+
+    return {
+      success: true,
+      data: { expense: updatedExpense },
+    };
+  }
+
+  /**
+   * Calculate GST breakdown
+   */
+  private calculateGST(data: CreateExpenseRequest): GSTCalculation {
+    const baseAmount = data.baseAmount;
+    let gstAmount = data.gstAmount || 0;
+
+    if (data.gstRate && !data.gstAmount) {
+      gstAmount = baseAmount * (data.gstRate / 100);
+    }
+
+    let cgstAmount = 0, sgstAmount = 0, igstAmount = 0;
+
+    if (gstAmount > 0) {
+      if (data.isIgst) {
+        igstAmount = gstAmount;
+      } else {
+        cgstAmount = gstAmount / 2;
+        sgstAmount = gstAmount / 2;
+      }
+    }
+
+    return {
+      gstAmount: Math.round(gstAmount * 100) / 100,
+      cgstAmount: Math.round(cgstAmount * 100) / 100,
+      sgstAmount: Math.round(sgstAmount * 100) / 100,
+      igstAmount: Math.round(igstAmount * 100) / 100,
+      totalAmount: Math.round((baseAmount + gstAmount) * 100) / 100,
+    };
+  }
+
+  /**
+   * Validate allocation percentages
+   */
+  private validateAllocations(allocations: { branchId: string; allocationPercentage: number }[]): void {
+    const totalPercentage = allocations.reduce((sum, a) => sum + a.allocationPercentage, 0);
+
+    if (Math.abs(totalPercentage - 100) > 0.01) {
+      throw new ExpenseError('INVALID_ALLOCATION',
+        'Allocation percentages must sum to 100%');
+    }
+  }
+}
+```
+
+### 2. Recurring Expense Service
+
+```typescript
+class RecurringExpenseService {
+  /**
+   * Process due recurring expenses (called by scheduler)
+   */
+  async processDueRecurringExpenses(): Promise<void> {
+    const today = new Date();
+
+    // Get all active recurring expenses due today or earlier
+    const dueExpenses = await this.recurringExpenseRepo.findDue(today);
+
+    for (const recurring of dueExpenses) {
+      try {
+        await this.generateExpenseFromRecurring(recurring);
+      } catch (error) {
+        this.logger.error('Failed to generate recurring expense', {
+          recurringExpenseId: recurring.id,
+          error,
+        });
+      }
+    }
+  }
+
+  /**
+   * Generate expense from recurring template
+   */
+  private async generateExpenseFromRecurring(
+    recurring: RecurringExpense
+  ): Promise<Expense> {
+    // Create expense
+    const expense = await this.expenseService.createExpense({
+      branchId: recurring.branchId,
+      expenseDate: recurring.nextDueDate,
+      categoryId: recurring.categoryId,
+      vendorId: recurring.vendorId,
+      baseAmount: recurring.baseAmount,
+      gstAmount: recurring.gstAmount,
+      description: `${recurring.name} - Auto-generated`,
+      paymentMethod: ExpensePaymentMethod.BANK_TRANSFER,
+      isSharedExpense: recurring.isSharedExpense,
+      allocations: recurring.isSharedExpense
+        ? await this.getAllocations(recurring.id)
+        : undefined,
+    }, 'system');
+
+    // Link expense to recurring
+    await this.expenseRepo.update(expense.id, {
+      isRecurring: true,
+      recurringExpenseId: recurring.id,
+      sourceType: ExpenseSourceType.RECURRING,
+      sourceId: recurring.id,
+    });
+
+    // Update recurring expense
+    const nextDueDate = this.calculateNextDueDate(
+      recurring.nextDueDate,
+      recurring.recurrencePattern,
+      recurring.recurrenceDay
+    );
+
+    await this.recurringExpenseRepo.update(recurring.id, {
+      nextDueDate,
+      lastGeneratedDate: recurring.nextDueDate,
+      totalOccurrences: recurring.totalOccurrences + 1,
+    });
+
+    // Check if completed
+    if (recurring.endDate && nextDueDate > recurring.endDate) {
+      await this.recurringExpenseRepo.update(recurring.id, {
+        status: RecurringExpenseStatus.COMPLETED,
+      });
+    }
+
+    return expense;
+  }
+
+  /**
+   * Calculate next due date based on pattern
+   */
+  private calculateNextDueDate(
+    currentDate: string,
+    pattern: RecurrencePattern,
+    recurrenceDay?: number
+  ): string {
+    const date = new Date(currentDate);
+
+    switch (pattern) {
+      case RecurrencePattern.DAILY:
+        date.setDate(date.getDate() + 1);
+        break;
+      case RecurrencePattern.WEEKLY:
+        date.setDate(date.getDate() + 7);
+        break;
+      case RecurrencePattern.MONTHLY:
+        date.setMonth(date.getMonth() + 1);
+        if (recurrenceDay) {
+          date.setDate(Math.min(recurrenceDay, this.getDaysInMonth(date)));
+        }
+        break;
+      case RecurrencePattern.QUARTERLY:
+        date.setMonth(date.getMonth() + 3);
+        break;
+      case RecurrencePattern.YEARLY:
+        date.setFullYear(date.getFullYear() + 1);
+        break;
+    }
+
+    return date.toISOString().split('T')[0];
+  }
+}
+```
+
+### 3. Petty Cash Service
+
+```typescript
+class PettyCashService {
+  /**
+   * Record petty cash expense
+   */
+  async recordExpense(
+    branchId: string,
+    amount: number,
+    expenseId: string,
+    userId: string
+  ): Promise<PettyCash> {
+    const balance = await this.getBalance(branchId);
+
+    if (balance.currentBalance < amount) {
+      throw new PettyCashError('INSUFFICIENT_BALANCE',
+        'Insufficient petty cash balance');
+    }
+
+    const newBalance = balance.currentBalance - amount;
+
+    // Create transaction
+    const transaction = await this.pettyCashRepo.create({
+      branchId,
+      transactionDate: new Date().toISOString().split('T')[0],
+      transactionType: PettyCashTransactionType.EXPENSE,
+      amount: -amount,
+      balanceAfter: newBalance,
+      expenseId,
+      createdBy: userId,
+    });
+
+    // Update balance
+    await this.updateBalance(branchId, newBalance);
+
+    // Check low balance alert
+    const config = await this.financeConfigService.getConfig();
+    if (newBalance < config.pettyCashLowThreshold) {
+      await this.sendLowBalanceAlert(branchId, newBalance);
+    }
+
+    return transaction;
+  }
+
+  /**
+   * Replenish petty cash
+   */
+  async replenish(
+    branchId: string,
+    amount: number,
+    description: string,
+    userId: string
+  ): Promise<PettyCash> {
+    const balance = await this.getBalance(branchId);
+    const newBalance = balance.currentBalance + amount;
+
+    const transaction = await this.pettyCashRepo.create({
+      branchId,
+      transactionDate: new Date().toISOString().split('T')[0],
+      transactionType: PettyCashTransactionType.REPLENISHMENT,
+      amount: amount,
+      balanceAfter: newBalance,
+      description,
+      createdBy: userId,
+    });
+
+    await this.updateBalance(branchId, newBalance, { lastReplenishmentDate: new Date() });
+
+    return transaction;
+  }
+
+  /**
+   * Reconcile petty cash
+   */
+  async reconcile(
+    branchId: string,
+    actualBalance: number,
+    notes: string,
+    userId: string
+  ): Promise<ReconcilePettyCashResponse> {
+    const balance = await this.getBalance(branchId);
+    const expectedBalance = balance.currentBalance;
+    const variance = actualBalance - expectedBalance;
+
+    // Record adjustment if variance exists
+    if (Math.abs(variance) > 0.01) {
+      await this.pettyCashRepo.create({
+        branchId,
+        transactionDate: new Date().toISOString().split('T')[0],
+        transactionType: PettyCashTransactionType.ADJUSTMENT,
+        amount: variance,
+        balanceAfter: actualBalance,
+        description: `Reconciliation adjustment: ${notes}`,
+        createdBy: userId,
+      });
+
+      await this.updateBalance(branchId, actualBalance);
+    }
+
+    // Mark transactions as reconciled
+    await this.pettyCashRepo.markReconciled(branchId, userId);
+
+    // Update last reconciliation date
+    await this.balanceRepo.update(branchId, {
+      lastReconciliationDate: new Date(),
+    });
+
+    // Check if variance requires approval
+    const config = await this.financeConfigService.getConfig();
+    const varianceApprovalRequired = Math.abs(variance) > config.pettyCashLowThreshold;
+
+    return {
+      success: true,
+      data: {
+        expectedBalance,
+        actualBalance,
+        variance,
+        varianceApprovalRequired,
+      },
+    };
+  }
+}
+```
+
+### 4. Period Close Service
+
+```typescript
+class PeriodCloseService {
+  /**
+   * Close period
+   */
+  async closePeriod(
+    data: ClosePeriodRequest,
+    userId: string
+  ): Promise<ClosePeriodResponse> {
+    const { branchId, periodYear, periodMonth } = data;
+
+    // 1. Check if period exists and is open
+    let period = await this.periodClosureRepo.findByPeriod(branchId, periodYear, periodMonth);
+
+    if (period?.status === PeriodStatus.CLOSED) {
+      throw new PeriodCloseError('ALREADY_CLOSED', 'Period is already closed');
+    }
+
+    // 2. Check prerequisites
+    const config = await this.financeConfigService.getConfig();
+    const warnings: string[] = [];
+
+    // Check pending approvals
+    if (config.requirePendingApprovalsResolved) {
+      const pendingCount = await this.expenseRepo.countPendingApprovals(branchId, periodYear, periodMonth);
+      if (pendingCount > 0) {
+        throw new PeriodCloseError('PENDING_APPROVALS',
+          `${pendingCount} expense(s) pending approval`);
+      }
+    }
+
+    // Check petty cash reconciliation
+    if (config.requirePettyCashReconciliation) {
+      const pettyCashBalance = await this.pettyCashService.getBalance(branchId);
+      const lastReconciliation = pettyCashBalance.lastReconciliationDate;
+
+      const periodEndDate = new Date(periodYear, periodMonth, 0);
+      if (!lastReconciliation || new Date(lastReconciliation) < periodEndDate) {
+        if (!data.pettyCashActual) {
+          throw new PeriodCloseError('PETTY_CASH_NOT_RECONCILED',
+            'Petty cash must be reconciled before period close');
+        }
+      }
+    }
+
+    // 3. Calculate period summary
+    const summary = await this.calculatePeriodSummary(branchId, periodYear, periodMonth);
+
+    // 4. Handle petty cash
+    let pettyCashExpected = 0, pettyCashActual = 0, pettyCashVariance = 0;
+    if (data.pettyCashActual !== undefined) {
+      const balance = await this.pettyCashService.getBalance(branchId);
+      pettyCashExpected = balance.currentBalance;
+      pettyCashActual = data.pettyCashActual;
+      pettyCashVariance = pettyCashActual - pettyCashExpected;
+
+      if (Math.abs(pettyCashVariance) > 0.01) {
+        warnings.push(`Petty cash variance: ₹${pettyCashVariance.toFixed(2)}`);
+      }
+    }
+
+    // 5. Create or update period closure
+    const fy = await this.financialYearService.getForDate(
+      new Date(periodYear, periodMonth - 1, 1)
+    );
+
+    if (period) {
+      period = await this.periodClosureRepo.update(period.id, {
+        status: PeriodStatus.CLOSED,
+        ...summary,
+        pettyCashExpected,
+        pettyCashActual,
+        pettyCashVariance,
+        pettyCashReconciled: data.pettyCashActual !== undefined,
+        closedAt: new Date(),
+        closedBy: userId,
+        closeNotes: data.notes,
+      });
+    } else {
+      period = await this.periodClosureRepo.create({
+        branchId,
+        periodYear,
+        periodMonth,
+        financialYearId: fy.id,
+        status: PeriodStatus.CLOSED,
+        ...summary,
+        pettyCashExpected,
+        pettyCashActual,
+        pettyCashVariance,
+        pettyCashReconciled: data.pettyCashActual !== undefined,
+        closedAt: new Date(),
+        closedBy: userId,
+        closeNotes: data.notes,
+      });
+    }
+
+    // 6. Emit event
+    await this.eventEmitter.emit('period.closed', { period, userId });
+
+    return {
+      success: true,
+      data: {
+        closure: period,
+        summary: {
+          totalRevenue: summary.totalRevenue,
+          totalExpenses: summary.totalExpenses,
+          netProfit: summary.totalRevenue - summary.totalExpenses,
+          pettyCashVariance,
+        },
+        warnings,
+      },
+    };
+  }
+
+  /**
+   * Reopen closed period (Super_Owner only)
+   */
+  async reopenPeriod(
+    periodId: string,
+    reason: string,
+    userId: string
+  ): Promise<PeriodClosure> {
+    const period = await this.periodClosureRepo.findById(periodId);
+
+    if (period.status !== PeriodStatus.CLOSED) {
+      throw new PeriodCloseError('NOT_CLOSED', 'Period is not closed');
+    }
+
+    const updatedPeriod = await this.periodClosureRepo.update(periodId, {
+      status: PeriodStatus.REOPENED,
+      reopenedAt: new Date(),
+      reopenedBy: userId,
+      reopenReason: reason,
+    });
+
+    await this.eventEmitter.emit('period.reopened', { period: updatedPeriod, userId });
+
+    return updatedPeriod;
+  }
+}
+```
+
+### 5. P&L Calculator
+
+```typescript
+class PLCalculator {
+  /**
+   * Calculate P&L for period
+   */
+  async calculatePL(
+    branchId: string | null,
+    startDate: string,
+    endDate: string
+  ): Promise<PLReport> {
+    // 1. Get revenue from billing module
+    const revenue = await this.getRevenue(branchId, startDate, endDate);
+
+    // 2. Get direct costs
+    const directCosts = await this.getDirectCosts(branchId, startDate, endDate);
+
+    // 3. Calculate gross profit
+    const grossProfit = revenue.totalRevenue - directCosts.totalDirectCosts;
+    const grossMarginPercent = revenue.totalRevenue > 0
+      ? (grossProfit / revenue.totalRevenue) * 100
+      : 0;
+
+    // 4. Get operating expenses (indirect expenses)
+    const operatingExpenses = await this.getOperatingExpenses(branchId, startDate, endDate);
+
+    // 5. Calculate net operating profit
+    const netOperatingProfit = grossProfit - operatingExpenses.totalOperatingExpenses;
+    const netMarginPercent = revenue.totalRevenue > 0
+      ? (netOperatingProfit / revenue.totalRevenue) * 100
+      : 0;
+
+    return {
+      period: {
+        startDate,
+        endDate,
+        financialYearId: await this.getFinancialYearId(startDate),
+      },
+      branchId,
+      revenue,
+      directCosts,
+      grossProfit: Math.round(grossProfit * 100) / 100,
+      grossMarginPercent: Math.round(grossMarginPercent * 100) / 100,
+      operatingExpenses,
+      netOperatingProfit: Math.round(netOperatingProfit * 100) / 100,
+      netMarginPercent: Math.round(netMarginPercent * 100) / 100,
+    };
+  }
+
+  /**
+   * Get revenue breakdown
+   */
+  private async getRevenue(
+    branchId: string | null,
+    startDate: string,
+    endDate: string
+  ): Promise<PLReport['revenue']> {
+    const invoices = await this.invoiceRepo.findByDateRange(branchId, startDate, endDate);
+
+    let serviceRevenue = 0;
+    let productRevenue = 0;
+    let membershipRevenue = 0;
+    let packageRevenue = 0;
+    let otherRevenue = 0;
+
+    for (const invoice of invoices) {
+      for (const item of invoice.items) {
+        switch (item.itemType) {
+          case 'service':
+            serviceRevenue += item.netAmount;
+            break;
+          case 'product':
+            productRevenue += item.netAmount;
+            break;
+        }
+      }
+    }
+
+    // Get membership and package sales
+    membershipRevenue = await this.membershipRepo.getSalesTotal(branchId, startDate, endDate);
+    packageRevenue = await this.packageRepo.getSalesTotal(branchId, startDate, endDate);
+
+    return {
+      serviceRevenue,
+      productRevenue,
+      membershipRevenue,
+      packageRevenue,
+      otherRevenue,
+      totalRevenue: serviceRevenue + productRevenue + membershipRevenue + packageRevenue + otherRevenue,
+    };
+  }
+
+  /**
+   * Get direct costs (service-related)
+   */
+  private async getDirectCosts(
+    branchId: string | null,
+    startDate: string,
+    endDate: string
+  ): Promise<PLReport['directCosts']> {
+    // Consumables from inventory
+    const consumables = await this.inventoryRepo.getConsumptionTotal(branchId, startDate, endDate);
+
+    // Staff commissions from billing
+    const staffCommissions = await this.invoiceRepo.getCommissionsTotal(branchId, startDate, endDate);
+
+    return {
+      consumables,
+      staffCommissions,
+      totalDirectCosts: consumables + staffCommissions,
+    };
+  }
+
+  /**
+   * Get operating expenses by category
+   */
+  private async getOperatingExpenses(
+    branchId: string | null,
+    startDate: string,
+    endDate: string
+  ): Promise<PLReport['operatingExpenses']> {
+    // Get indirect expenses
+    const expenses = await this.expenseRepo.findByDateRange(branchId, startDate, endDate, {
+      expenseType: ExpenseType.INDIRECT,
+      status: ExpenseStatus.APPROVED,
+    });
+
+    // Group by category
+    const byCategory = new Map<string, { categoryId: string; categoryName: string; amount: number }>();
+
+    for (const expense of expenses) {
+      const key = expense.categoryId;
+      const existing = byCategory.get(key) || {
+        categoryId: expense.categoryId,
+        categoryName: expense.category?.name || 'Unknown',
+        amount: 0,
+      };
+
+      // For shared expenses, use allocated amount
+      if (expense.isSharedExpense && branchId) {
+        const allocation = expense.allocations?.find(a => a.branchId === branchId);
+        existing.amount += allocation?.allocatedAmount || 0;
+      } else {
+        existing.amount += expense.totalAmount;
+      }
+
+      byCategory.set(key, existing);
+    }
+
+    const byCategoryArray = Array.from(byCategory.values());
+    const totalOperatingExpenses = byCategoryArray.reduce((sum, c) => sum + c.amount, 0);
+
+    return {
+      byCategory: byCategoryArray,
+      totalOperatingExpenses,
+    };
+  }
+}
+```
+
+---
+
+## Validation Schemas
+
+```typescript
+import { z } from 'zod';
+
+// Expense Category
+export const createExpenseCategorySchema = z.object({
+  parentId: z.string().uuid().optional(),
+  name: z.string().min(1).max(100),
+  code: z.string().max(20).optional(),
+  description: z.string().optional(),
+  expenseType: z.nativeEnum(ExpenseType).default(ExpenseType.INDIRECT),
+  capitalType: z.nativeEnum(CapitalType).default(CapitalType.OPERATIONAL),
+  defaultGstRate: z.number().min(0).max(100).optional(),
+  hsnSacCode: z.string().max(20).optional(),
+});
+
+// Expense
+export const createExpenseSchema = z.object({
+  branchId: z.string().uuid(),
+  expenseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  categoryId: z.string().uuid(),
+  vendorId: z.string().uuid().optional(),
+  vendorName: z.string().max(255).optional(),
+  vendorInvoiceNumber: z.string().max(100).optional(),
+  vendorInvoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  baseAmount: z.number().positive(),
+  gstAmount: z.number().min(0).optional(),
+  gstRate: z.number().min(0).max(100).optional(),
+  isIgst: z.boolean().default(false),
+  vendorGstin: z.string().optional(),
+  description: z.string().min(1).max(500),
+  internalNotes: z.string().optional(),
+  paymentMethod: z.nativeEnum(ExpensePaymentMethod),
+  paymentStatus: z.nativeEnum(PaymentStatus).default(PaymentStatus.UNPAID),
+  paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  paymentReference: z.string().max(100).optional(),
+  isSharedExpense: z.boolean().default(false),
+  allocations: z.array(z.object({
+    branchId: z.string().uuid(),
+    allocationPercentage: z.number().min(0.01).max(100),
+  })).optional(),
+}).refine(
+  (data) => {
+    if (data.isSharedExpense && (!data.allocations || data.allocations.length === 0)) {
+      return false;
+    }
+    return true;
+  },
+  { message: 'Allocations required for shared expenses' }
+).refine(
+  (data) => {
+    if (data.allocations) {
+      const total = data.allocations.reduce((sum, a) => sum + a.allocationPercentage, 0);
+      return Math.abs(total - 100) < 0.01;
+    }
+    return true;
+  },
+  { message: 'Allocation percentages must sum to 100%' }
+);
+
+// Recurring Expense
+export const createRecurringExpenseSchema = z.object({
+  branchId: z.string().uuid(),
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  categoryId: z.string().uuid(),
+  vendorId: z.string().uuid().optional(),
+  baseAmount: z.number().positive(),
+  gstAmount: z.number().min(0).optional(),
+  recurrencePattern: z.nativeEnum(RecurrencePattern),
+  recurrenceDay: z.number().int().min(0).max(31).optional(),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  reminderDaysBefore: z.number().int().min(0).max(30).default(3),
+  isSharedExpense: z.boolean().default(false),
+  allocations: z.array(z.object({
+    branchId: z.string().uuid(),
+    allocationPercentage: z.number().min(0.01).max(100),
+  })).optional(),
+});
+
+// Budget
+export const createBudgetSchema = z.object({
+  branchId: z.string().uuid(),
+  budgetYear: z.number().int().min(2020).max(2100),
+  budgetMonth: z.number().int().min(1).max(12),
+  budgets: z.array(z.object({
+    categoryId: z.string().uuid(),
+    budgetedAmount: z.number().min(0),
+  })).min(1),
+});
+
+// Period Close
+export const closePeriodSchema = z.object({
+  branchId: z.string().uuid(),
+  periodYear: z.number().int().min(2020).max(2100),
+  periodMonth: z.number().int().min(1).max(12),
+  pettyCashActual: z.number().min(0).optional(),
+  notes: z.string().optional(),
+});
+
+// Opening Balance
+export const createOpeningBalanceSchema = z.object({
+  branchId: z.string().uuid(),
+  financialYearId: z.string().uuid(),
+  balanceType: z.nativeEnum(OpeningBalanceType),
+  amount: z.number(),
+  vendorId: z.string().uuid().optional(),
+  description: z.string().optional(),
+}).refine(
+  (data) => {
+    if (data.balanceType === OpeningBalanceType.ACCOUNTS_PAYABLE && !data.vendorId) {
+      return false;
+    }
+    return true;
+  },
+  { message: 'Vendor required for accounts payable balance' }
+);
+```
+
+---
+
+## Integration Points
+
+### Inbound Dependencies (This module uses)
+
+| Module             | Integration           | Purpose                        |
+| ------------------ | --------------------- | ------------------------------ |
+| Billing            | Revenue data          | Revenue for P&L                |
+| Staff Management   | Payroll data          | Salary expenses                |
+| Inventory          | Consumables           | Direct costs for P&L           |
+| Memberships        | Sales data            | Membership/package revenue     |
+
+### Outbound Dependencies (Other modules use this)
+
+| Module    | Integration   | Purpose                        |
+| --------- | ------------- | ------------------------------ |
+| Reports   | Financial data| P&L reports, expense reports   |
+| Dashboard | Expense data  | Expense summaries              |
+
+### Event Emissions
+
+```typescript
+// Expense Events
+'expense.created'        -> { expense: Expense, userId: string }
+'expense.updated'        -> { expense: Expense, changes: object, userId: string }
+'expense.approved'       -> { expense: Expense, userId: string }
+'expense.rejected'       -> { expense: Expense, reason: string, userId: string }
+'expense.paid'           -> { expense: Expense, userId: string }
+'expense.deleted'        -> { expenseId: string, userId: string }
+
+// Recurring Expense Events
+'recurring_expense.created'   -> { recurringExpense: RecurringExpense, userId: string }
+'recurring_expense.generated' -> { recurringExpense: RecurringExpense, expense: Expense }
+'recurring_expense.paused'    -> { recurringExpense: RecurringExpense, userId: string }
+'recurring_expense.cancelled' -> { recurringExpense: RecurringExpense, userId: string }
+
+// Petty Cash Events
+'petty_cash.expense'      -> { transaction: PettyCash, expense: Expense }
+'petty_cash.replenished'  -> { transaction: PettyCash, userId: string }
+'petty_cash.reconciled'   -> { branchId: string, variance: number, userId: string }
+'petty_cash.low_balance'  -> { branchId: string, balance: number }
+
+// Period Events
+'period.closed'           -> { period: PeriodClosure, userId: string }
+'period.reopened'         -> { period: PeriodClosure, userId: string }
+
+// Financial Year Events
+'financial_year.created'  -> { financialYear: FinancialYear }
+'financial_year.closed'   -> { financialYear: FinancialYear, userId: string }
+
+// Budget Events
+'budget.threshold_reached' -> { budget: Budget, threshold: number }
+'budget.exceeded'          -> { budget: Budget }
+```
+
+---
+
+## Error Handling
+
+```typescript
+export enum ExpenseErrorCode {
+  // Validation errors
+  INVALID_CATEGORY = 'EXPENSE_001',
+  INVALID_VENDOR = 'EXPENSE_002',
+  INVALID_AMOUNT = 'EXPENSE_003',
+  INVALID_ALLOCATION = 'EXPENSE_004',
+
+  // Period errors
+  PERIOD_CLOSED = 'EXPENSE_010',
+  INVALID_FINANCIAL_YEAR = 'EXPENSE_011',
+  BACKDATE_NOT_ALLOWED = 'EXPENSE_012',
+
+  // Status errors
+  INVALID_STATUS = 'EXPENSE_020',
+  ALREADY_APPROVED = 'EXPENSE_021',
+  ALREADY_PAID = 'EXPENSE_022',
+
+  // Approval errors
+  APPROVAL_REQUIRED = 'EXPENSE_030',
+  INSUFFICIENT_PERMISSION = 'EXPENSE_031',
+
+  // Petty cash errors
+  INSUFFICIENT_PETTY_CASH = 'EXPENSE_040',
+  PETTY_CASH_NOT_RECONCILED = 'EXPENSE_041',
+
+  // Budget errors
+  BUDGET_EXCEEDED = 'EXPENSE_050',
+
+  // Recurring errors
+  RECURRING_NOT_FOUND = 'EXPENSE_060',
+  RECURRING_ALREADY_PAUSED = 'EXPENSE_061',
+
+  // Period close errors
+  PENDING_APPROVALS = 'EXPENSE_070',
+  ALREADY_CLOSED = 'EXPENSE_071',
+  NOT_CLOSED = 'EXPENSE_072',
+
+  // Opening balance errors
+  BALANCE_LOCKED = 'EXPENSE_080',
+  TRANSACTION_EXISTS = 'EXPENSE_081',
+}
+
+export class ExpenseError extends Error {
+  constructor(
+    public code: ExpenseErrorCode,
+    message: string,
+    public details?: Record<string, any>
+  ) {
+    super(message);
+    this.name = 'ExpenseError';
+  }
+}
+```
+
+---
+
+## Testing Considerations
+
+### Unit Tests
+
+```typescript
+describe('ExpenseService', () => {
+  describe('createExpense', () => {
+    it('should create expense with valid data');
+    it('should calculate GST correctly for CGST+SGST');
+    it('should calculate GST correctly for IGST');
+    it('should require approval when amount exceeds threshold');
+    it('should require backdate approval when date is beyond limit');
+    it('should reject expense in closed period');
+    it('should reject expense in closed financial year');
+    it('should validate allocation percentages sum to 100%');
+    it('should deduct from petty cash when payment method is petty_cash');
+    it('should update budget tracking');
+  });
+
+  describe('approveExpense', () => {
+    it('should approve pending expense');
+    it('should reject if not pending approval');
+    it('should check user permission');
+    it('should handle backdate approval');
+  });
+});
+
+describe('RecurringExpenseService', () => {
+  describe('processDueRecurringExpenses', () => {
+    it('should generate expense for due recurring');
+    it('should calculate next due date correctly for monthly');
+    it('should calculate next due date correctly for quarterly');
+    it('should mark as completed when end date reached');
+    it('should skip paused recurring expenses');
+  });
+});
+
+describe('PettyCashService', () => {
+  describe('recordExpense', () => {
+    it('should deduct from balance');
+    it('should reject if insufficient balance');
+    it('should send low balance alert');
+  });
+
+  describe('reconcile', () => {
+    it('should record adjustment for variance');
+    it('should mark transactions as reconciled');
+    it('should flag large variance for approval');
+  });
+});
+
+describe('PLCalculator', () => {
+  describe('calculatePL', () => {
+    it('should calculate revenue correctly');
+    it('should calculate direct costs correctly');
+    it('should calculate gross profit correctly');
+    it('should calculate operating expenses correctly');
+    it('should handle shared expense allocations');
+    it('should calculate margins correctly');
+  });
+});
+```
+
+### Integration Tests
+
+```typescript
+describe('Expense Integration', () => {
+  it('should create expense and update budget');
+  it('should create expense from recurring template');
+  it('should create salary expense from payroll');
+  it('should close period with all validations');
+  it('should carry forward balances to new FY');
+  it('should generate P&L with all revenue sources');
+  it('should generate cash flow report');
+});
+```
+
+---
+
+## Performance Considerations
+
+1. **Database Indexes**: Key indexes on expenses (date, status, category), recurring expenses (due date)
+2. **Caching Strategy**: Cache financial year, expense categories, finance config
+3. **P&L Materialized View**: Use materialized view for P&L calculations, refresh daily
+4. **Budget Summary**: Invalidate cache on expense create
+5. **Query Optimization**: Partition stock_movements by date for large datasets
+
+---
+
+## Security Considerations
+
+### Access Control
+
+```typescript
+const FINANCE_PERMISSIONS = {
+  // Expense entry
+  'expense.create': ['Receptionist', 'Branch_Manager', 'Regional_Manager', 'Accountant', 'Super_Owner'],
+  'expense.update': ['Branch_Manager', 'Regional_Manager', 'Accountant', 'Super_Owner'],
+  'expense.delete': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+  'expense.approve': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+
+  // Recurring expenses
+  'recurring_expense.manage': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+
+  // Petty cash
+  'petty_cash.view': ['Receptionist', 'Branch_Manager', 'Regional_Manager', 'Accountant', 'Super_Owner'],
+  'petty_cash.replenish': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+  'petty_cash.reconcile': ['Branch_Manager', 'Regional_Manager', 'Accountant', 'Super_Owner'],
+
+  // Period close
+  'period.close': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+  'period.reopen': ['Super_Owner'],
+
+  // Reports
+  'report.expense': ['Branch_Manager', 'Regional_Manager', 'Accountant', 'Super_Owner'],
+  'report.pl': ['Branch_Manager', 'Regional_Manager', 'Accountant', 'Super_Owner'],
+  'report.cash_flow': ['Branch_Manager', 'Regional_Manager', 'Accountant', 'Super_Owner'],
+
+  // Budget
+  'budget.manage': ['Branch_Manager', 'Regional_Manager', 'Super_Owner'],
+
+  // Opening balances
+  'opening_balance.manage': ['Super_Owner'],
+
+  // Financial year
+  'financial_year.close': ['Super_Owner'],
+};
+```
+
+---
+
+## Pre-defined Expense Categories
+
+```typescript
+const SYSTEM_EXPENSE_CATEGORIES = [
+  { code: 'RENT', name: 'Rent', expenseType: 'indirect', capitalType: 'operational' },
+  { code: 'ELECTRICITY', name: 'Electricity', expenseType: 'indirect', capitalType: 'operational', parent: 'UTILITIES' },
+  { code: 'WATER', name: 'Water', expenseType: 'indirect', capitalType: 'operational', parent: 'UTILITIES' },
+  { code: 'INTERNET', name: 'Internet', expenseType: 'indirect', capitalType: 'operational', parent: 'UTILITIES' },
+  { code: 'SALARIES_WAGES', name: 'Salaries & Wages', expenseType: 'indirect', capitalType: 'operational' },
+  { code: 'CONSUMABLES', name: 'Consumables', expenseType: 'direct', capitalType: 'operational' },
+  { code: 'EQUIPMENT', name: 'Equipment & Maintenance', expenseType: 'indirect', capitalType: 'capital' },
+  { code: 'MARKETING', name: 'Marketing & Advertising', expenseType: 'indirect', capitalType: 'operational' },
+  { code: 'PROFESSIONAL', name: 'Professional Services', expenseType: 'indirect', capitalType: 'operational' },
+  { code: 'INSURANCE', name: 'Insurance', expenseType: 'indirect', capitalType: 'operational' },
+  { code: 'TAXES_LICENSES', name: 'Taxes & Licenses', expenseType: 'indirect', capitalType: 'operational' },
+  { code: 'MISCELLANEOUS', name: 'Miscellaneous', expenseType: 'indirect', capitalType: 'operational' },
+];
+```
+
+---
+
+## Scheduled Jobs
+
+```typescript
+// Daily jobs
+'0 0 * * *'   -> processRecurringExpenses()      // Generate due recurring expenses
+'0 1 * * *'   -> sendRecurringReminders()        // Send upcoming expense reminders
+'0 2 * * *'   -> checkBudgetAlerts()             // Check and send budget alerts
+'0 3 * * *'   -> refreshPLMaterializedView()     // Refresh P&L materialized view
+
+// Monthly jobs (1st of month)
+'0 0 1 * *'   -> autoCreateFinancialYear()       // Create new FY if needed
+'0 0 1 * *'   -> sendPeriodCloseReminder()       // Remind to close previous period
+
+// Yearly jobs (April 1st for Indian FY)
+'0 0 1 4 *'   -> carryForwardBalances()          // Carry forward to new FY
+```

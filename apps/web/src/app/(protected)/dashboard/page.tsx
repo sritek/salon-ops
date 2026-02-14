@@ -1,6 +1,6 @@
 /**
  * Dashboard Page
- * 
+ *
  * Balanced layout with:
  * - Personalized welcome header
  * - Key statistics
@@ -10,25 +10,13 @@
 
 'use client';
 
-import { 
-  Calendar, 
-  Users, 
-  IndianRupee, 
-  Clock, 
-  Plus,
-  UserPlus,
-  CalendarPlus,
-} from 'lucide-react';
+import { Calendar, Users, IndianRupee, Clock, Plus, UserPlus, CalendarPlus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  PageContainer,
-  PageContent,
-  StatCard,
-  EmptyState,
-} from '@/components/common';
+import { PageContainer, PageContent, StatCard, EmptyState } from '@/components/common';
 import { useAuthStore } from '@/stores/auth-store';
 import { formatTime, formatTimeAgo } from '@/lib/format';
 
@@ -38,12 +26,13 @@ import { formatTime, formatTimeAgo } from '@/lib/format';
 
 function WelcomeHeader() {
   const { user, tenant } = useAuthStore();
+  const t = useTranslations('dashboard');
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return t('greeting.morning');
+    if (hour < 17) return t('greeting.afternoon');
+    return t('greeting.evening');
   };
 
   return (
@@ -52,7 +41,7 @@ function WelcomeHeader() {
         {getGreeting()}, {user?.name?.split(' ')[0] || 'there'}!
       </h1>
       <p className="text-muted-foreground">
-        Here&apos;s what&apos;s happening at {tenant?.name || 'your salon'} today
+        {t('subtitle', { salon: tenant?.name || 'your salon' })}
       </p>
     </div>
   );
@@ -63,19 +52,21 @@ function WelcomeHeader() {
 // ============================================
 
 function QuickActions() {
+  const t = useTranslations('dashboard.quickActions');
+
   return (
     <div className="flex flex-wrap gap-3">
       <Button>
         <CalendarPlus className="mr-2 h-4 w-4" />
-        New Appointment
+        {t('newAppointment')}
       </Button>
       <Button variant="outline">
         <Plus className="mr-2 h-4 w-4" />
-        Walk-in
+        {t('walkIn')}
       </Button>
       <Button variant="outline">
         <UserPlus className="mr-2 h-4 w-4" />
-        Add Customer
+        {t('addCustomer')}
       </Button>
     </div>
   );
@@ -95,30 +86,56 @@ interface Appointment {
 
 // Mock data - replace with API call
 const mockAppointments: Appointment[] = [
-  { id: '1', time: '10:00', customerName: 'Priya Sharma', serviceName: 'Haircut', status: 'confirmed' },
-  { id: '2', time: '10:30', customerName: 'Rahul Kumar', serviceName: 'Facial', status: 'confirmed' },
-  { id: '3', time: '11:00', customerName: 'Anita Patel', serviceName: 'Hair Spa', status: 'pending' },
-  { id: '4', time: '11:30', customerName: 'Vikram Singh', serviceName: 'Beard Trim', status: 'confirmed' },
+  {
+    id: '1',
+    time: '10:00',
+    customerName: 'Priya Sharma',
+    serviceName: 'Haircut',
+    status: 'confirmed',
+  },
+  {
+    id: '2',
+    time: '10:30',
+    customerName: 'Rahul Kumar',
+    serviceName: 'Facial',
+    status: 'confirmed',
+  },
+  {
+    id: '3',
+    time: '11:00',
+    customerName: 'Anita Patel',
+    serviceName: 'Hair Spa',
+    status: 'pending',
+  },
+  {
+    id: '4',
+    time: '11:30',
+    customerName: 'Vikram Singh',
+    serviceName: 'Beard Trim',
+    status: 'confirmed',
+  },
 ];
 
 function TodaySchedule() {
+  const t = useTranslations('dashboard.schedule');
+  const tStatus = useTranslations('common.status');
   const appointments = mockAppointments; // Replace with useQuery
 
   if (appointments.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Today&apos;s Schedule</CardTitle>
+          <CardTitle className="text-lg">{t('title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <EmptyState
             icon={Calendar}
-            title="No appointments today"
-            description="Your schedule is clear. Add a new appointment or wait for online bookings."
+            title={t('noAppointments')}
+            description={t('noAppointmentsDesc')}
             action={
               <Button size="sm">
                 <Plus className="mr-2 h-4 w-4" />
-                New Appointment
+                {useTranslations('dashboard.quickActions')('newAppointment')}
               </Button>
             }
           />
@@ -127,10 +144,23 @@ function TodaySchedule() {
     );
   }
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return tStatus('confirmed');
+      case 'pending':
+        return tStatus('pending');
+      case 'in_progress':
+        return tStatus('inProgress');
+      default:
+        return status;
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Today&apos;s Schedule</CardTitle>
+        <CardTitle className="text-lg">{t('title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
@@ -148,13 +178,15 @@ function TodaySchedule() {
                   <p className="text-sm text-muted-foreground">{apt.serviceName}</p>
                 </div>
               </div>
-              <div className={`
+              <div
+                className={`
                 text-xs px-2 py-1 rounded-full
                 ${apt.status === 'confirmed' ? 'bg-green-100 text-green-700' : ''}
                 ${apt.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : ''}
                 ${apt.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : ''}
-              `}>
-                {apt.status === 'in_progress' ? 'In Progress' : apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
+              `}
+              >
+                {getStatusLabel(apt.status)}
               </div>
             </div>
           ))}
@@ -177,27 +209,44 @@ interface Activity {
 
 // Mock data - replace with API call
 const mockActivities: Activity[] = [
-  { id: '1', type: 'booking', description: 'Priya Sharma booked a haircut', timestamp: new Date(Date.now() - 2 * 60000) },
-  { id: '2', type: 'payment', description: 'Payment received ₹1,500', timestamp: new Date(Date.now() - 15 * 60000) },
-  { id: '3', type: 'checkin', description: 'Rahul Kumar checked in', timestamp: new Date(Date.now() - 30 * 60000) },
-  { id: '4', type: 'customer', description: 'New customer registered', timestamp: new Date(Date.now() - 45 * 60000) },
+  {
+    id: '1',
+    type: 'booking',
+    description: 'Priya Sharma booked a haircut',
+    timestamp: new Date(Date.now() - 2 * 60000),
+  },
+  {
+    id: '2',
+    type: 'payment',
+    description: 'Payment received ₹1,500',
+    timestamp: new Date(Date.now() - 15 * 60000),
+  },
+  {
+    id: '3',
+    type: 'checkin',
+    description: 'Rahul Kumar checked in',
+    timestamp: new Date(Date.now() - 30 * 60000),
+  },
+  {
+    id: '4',
+    type: 'customer',
+    description: 'New customer registered',
+    timestamp: new Date(Date.now() - 45 * 60000),
+  },
 ];
 
 function RecentActivity() {
+  const t = useTranslations('dashboard.activity');
   const activities = mockActivities; // Replace with useQuery
 
   if (activities.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Recent Activity</CardTitle>
+          <CardTitle className="text-lg">{t('title')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <EmptyState
-            icon={Clock}
-            title="No recent activity"
-            description="Activity will appear here as you manage your salon."
-          />
+          <EmptyState icon={Clock} title={t('noActivity')} description={t('noActivityDesc')} />
         </CardContent>
       </Card>
     );
@@ -206,24 +255,24 @@ function RecentActivity() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Recent Activity</CardTitle>
+        <CardTitle className="text-lg">{t('title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {activities.map((activity) => (
             <div key={activity.id} className="flex items-start gap-3">
-              <div className={`
+              <div
+                className={`
                 mt-1 h-2 w-2 rounded-full
                 ${activity.type === 'booking' ? 'bg-blue-500' : ''}
                 ${activity.type === 'payment' ? 'bg-green-500' : ''}
                 ${activity.type === 'checkin' ? 'bg-purple-500' : ''}
                 ${activity.type === 'customer' ? 'bg-orange-500' : ''}
-              `} />
+              `}
+              />
               <div className="flex-1 space-y-1">
                 <p className="text-sm">{activity.description}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatTimeAgo(activity.timestamp)}
-                </p>
+                <p className="text-xs text-muted-foreground">{formatTimeAgo(activity.timestamp)}</p>
               </div>
             </div>
           ))}
@@ -262,6 +311,8 @@ function StatsLoadingSkeleton() {
 // ============================================
 
 export default function DashboardPage() {
+  const t = useTranslations('dashboard.stats');
+
   // Mock stats - replace with API data
   const stats = {
     todayAppointments: 12,
@@ -287,21 +338,21 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
-              title="Today's Appointments"
+              title={t('todayAppointments')}
               value={stats.todayAppointments}
               format="number"
               icon={Calendar}
               href="/appointments"
             />
             <StatCard
-              title="Pending Confirmations"
+              title={t('pendingConfirmations')}
               value={stats.pendingConfirmations}
               format="number"
               icon={Clock}
               href="/appointments?status=pending"
             />
             <StatCard
-              title="Today's Revenue"
+              title={t('todayRevenue')}
               value={stats.todayRevenue}
               format="currency"
               icon={IndianRupee}
@@ -309,7 +360,7 @@ export default function DashboardPage() {
               href="/reports/revenue"
             />
             <StatCard
-              title="Walk-in Slots"
+              title={t('walkInSlots')}
               value={stats.walkinSlots}
               format="number"
               icon={Users}

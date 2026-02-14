@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -8,22 +9,59 @@ import {
   Clock,
   IndianRupee,
   Layers,
+  Package,
   Percent,
+  Plus,
   Settings2,
+  Trash2,
 } from 'lucide-react';
 
 import { useService } from '@/hooks/queries/use-services';
 import { useVariants } from '@/hooks/queries/use-variants';
+import {
+  useServiceConsumables,
+  useCreateServiceConsumable,
+  useUpdateServiceConsumable,
+  useDeleteServiceConsumable,
+  useProducts,
+} from '@/hooks/queries/use-inventory';
 import { formatCurrency } from '@/lib/format';
 
 import { EmptyState, PageContainer, PageContent, PageHeader } from '@/components/common';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { ServiceForm } from '../components/service-form';
+
+import type { ServiceConsumableMapping } from '@/types/inventory';
 
 interface ServiceDetailPageProps {
   params: { id: string };
@@ -34,8 +72,73 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
   const searchParams = useSearchParams();
   const isEditing = searchParams.get('edit') === 'true';
 
+  const [addConsumableOpen, setAddConsumableOpen] = useState(false);
+  const [editingConsumable, setEditingConsumable] = useState<ServiceConsumableMapping | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [quantity, setQuantity] = useState('1');
+
   const { data: service, isLoading, error } = useService(id);
   const { data: variants } = useVariants(id);
+  const { data: consumables } = useServiceConsumables(id);
+  const { data: productsData } = useProducts({
+    productType: 'consumable',
+    isActive: true,
+    limit: 100,
+  });
+
+  const createConsumableMutation = useCreateServiceConsumable();
+  const updateConsumableMutation = useUpdateServiceConsumable();
+  const deleteConsumableMutation = useDeleteServiceConsumable();
+
+  const handleAddConsumable = async () => {
+    if (!selectedProductId || !quantity) return;
+    try {
+      await createConsumableMutation.mutateAsync({
+        serviceId: id,
+        productId: selectedProductId,
+        quantityPerService: parseFloat(quantity),
+      });
+      setAddConsumableOpen(false);
+      setSelectedProductId('');
+      setQuantity('1');
+    } catch (err) {
+      console.error('Failed to add consumable:', err);
+    }
+  };
+
+  const handleUpdateConsumable = async () => {
+    if (!editingConsumable || !quantity) return;
+    try {
+      await updateConsumableMutation.mutateAsync({
+        serviceId: id,
+        productId: editingConsumable.productId,
+        data: { quantityPerService: parseFloat(quantity) },
+      });
+      setEditingConsumable(null);
+      setQuantity('1');
+    } catch (err) {
+      console.error('Failed to update consumable:', err);
+    }
+  };
+
+  const handleDeleteConsumable = async (productId: string) => {
+    try {
+      await deleteConsumableMutation.mutateAsync({ serviceId: id, productId });
+    } catch (err) {
+      console.error('Failed to delete consumable:', err);
+    }
+  };
+
+  const openEditDialog = (consumable: ServiceConsumableMapping) => {
+    setEditingConsumable(consumable);
+    setQuantity(consumable.quantityPerService.toString());
+  };
+
+  // Filter out already mapped products
+  const availableProducts =
+    productsData?.data?.filter(
+      (product) => !consumables?.some((c) => c.productId === product.id)
+    ) || [];
 
   if (isLoading) {
     return (
@@ -138,6 +241,9 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="variants">
               Variants {variants && variants.length > 0 && `(${variants.length})`}
+            </TabsTrigger>
+            <TabsTrigger value="consumables">
+              Consumables {consumables && consumables.length > 0 && `(${consumables.length})`}
             </TabsTrigger>
             <TabsTrigger value="pricing">Pricing</TabsTrigger>
           </TabsList>
@@ -288,6 +394,81 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
             )}
           </TabsContent>
 
+          <TabsContent value="consumables" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Consumable Products</CardTitle>
+                  <CardDescription>
+                    Products that are automatically consumed when this service is completed
+                  </CardDescription>
+                </div>
+                <Button onClick={() => setAddConsumableOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Consumable
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {!consumables || consumables.length === 0 ? (
+                  <EmptyState
+                    icon={Package}
+                    title="No consumables"
+                    description="No products are linked to this service yet."
+                  />
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-center">Quantity per Service</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {consumables.map((consumable) => (
+                          <TableRow key={consumable.id}>
+                            <TableCell className="font-medium">
+                              {consumable.product?.name || 'Unknown Product'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {consumable.quantityPerService}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant={consumable.isActive ? 'default' : 'secondary'}>
+                                {consumable.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEditDialog(consumable)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteConsumable(consumable.productId)}
+                                  disabled={deleteConsumableMutation.isPending}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="pricing" className="space-y-4">
             <Card>
               <CardHeader>
@@ -327,6 +508,94 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
           </TabsContent>
         </Tabs>
       </PageContent>
+
+      {/* Add Consumable Dialog */}
+      <Dialog open={addConsumableOpen} onOpenChange={setAddConsumableOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Consumable Product</DialogTitle>
+            <DialogDescription>
+              Select a product that will be consumed when this service is performed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="product">Product</Label>
+              <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a product..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableProducts.map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name} ({product.unitOfMeasure})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity per Service</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddConsumableOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddConsumable}
+              disabled={!selectedProductId || !quantity || createConsumableMutation.isPending}
+            >
+              {createConsumableMutation.isPending ? 'Adding...' : 'Add Consumable'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Consumable Dialog */}
+      <Dialog
+        open={!!editingConsumable}
+        onOpenChange={(open) => !open && setEditingConsumable(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Consumable</DialogTitle>
+            <DialogDescription>{editingConsumable?.product?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-quantity">Quantity per Service</Label>
+              <Input
+                id="edit-quantity"
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingConsumable(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateConsumable}
+              disabled={!quantity || updateConsumableMutation.isPending}
+            >
+              {updateConsumableMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 }

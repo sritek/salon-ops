@@ -7,14 +7,40 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import {
+  serializerCompiler,
+  validatorCompiler,
+  ZodTypeProvider,
+  jsonSchemaTransform,
+} from 'fastify-type-provider-zod';
 import Fastify from 'fastify';
 
 import { env } from './config/env';
 import { logger } from './lib/logger';
 import authRoutes from './modules/auth/auth.routes';
 import servicesRoutes from './modules/services/services.routes';
+import customersRoutes from './modules/customers/customers.routes';
+import { appointmentsRoutes } from './modules/appointments';
+import { billingRoutes } from './modules/billing';
+import { staffRoutes } from './modules/staff';
+import productRoutes from './modules/inventory/product.routes';
+import vendorRoutes from './modules/inventory/vendor.routes';
+import purchaseOrderRoutes from './modules/inventory/purchase-order.routes';
+import goodsReceiptRoutes from './modules/inventory/goods-receipt.routes';
+import stockRoutes from './modules/inventory/stock.routes';
+import transferRoutes from './modules/inventory/transfer.routes';
+import auditRoutes from './modules/inventory/audit.routes';
+import serviceConsumableRoutes from './modules/inventory/service-consumable.routes';
+import {
+  membershipPlanRoutes,
+  packageRoutes,
+  customerMembershipRoutes,
+  customerPackageRoutes,
+  redemptionRoutes,
+  membershipConfigRoutes,
+} from './modules/memberships';
 
-// Create Fastify instance
+// Create Fastify instance with Zod type provider
 const fastify = Fastify({
   logger: {
     level: env.LOG_LEVEL,
@@ -30,6 +56,83 @@ const fastify = Fastify({
           }
         : undefined,
   },
+}).withTypeProvider<ZodTypeProvider>();
+
+// Set Zod compilers for validation and serialization
+fastify.setValidatorCompiler(validatorCompiler);
+fastify.setSerializerCompiler(serializerCompiler);
+
+// Custom error handler for Zod validation errors
+fastify.setErrorHandler((error, request, reply) => {
+  // Handle Zod validation errors from fastify-type-provider-zod
+  // The error.code is 'FST_ERR_VALIDATION' and error.message contains the Zod error JSON
+  if (error.code === 'FST_ERR_VALIDATION') {
+    let details: Array<{ field: string; message: string }> = [];
+
+    try {
+      // Parse the Zod error from the message
+      const zodErrors = JSON.parse(error.message);
+      details = zodErrors.map((err: any) => ({
+        field: err.path?.join('.') || 'unknown',
+        message: err.message || 'Validation failed',
+      }));
+    } catch {
+      // If parsing fails, use the raw message
+      details = [{ field: 'unknown', message: error.message }];
+    }
+
+    return reply.status(400).send({
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid input data',
+        details,
+      },
+    });
+  }
+
+  // Handle AJV validation errors (from inline JSON schemas)
+  if (error.validation) {
+    return reply.status(400).send({
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid input data',
+        details: error.validation.map((err: any) => ({
+          field: err.instancePath?.replace(/^\//, '') || err.params?.missingProperty || 'unknown',
+          message: err.message || 'Validation failed',
+        })),
+      },
+    });
+  }
+
+  // Handle other Fastify errors
+  if (error.statusCode) {
+    const response: any = {
+      success: false,
+      error: {
+        code: error.code || 'ERROR',
+        message: error.message,
+      },
+    };
+
+    // Include details if present (e.g., conflict data from AppError)
+    if ('details' in error && error.details) {
+      response.error.details = error.details;
+    }
+
+    return reply.status(error.statusCode).send(response);
+  }
+
+  // Handle unexpected errors
+  request.log.error(error);
+  return reply.status(500).send({
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: env.NODE_ENV === 'production' ? 'Internal server error' : error.message,
+    },
+  });
 });
 
 // Register plugins
@@ -45,7 +148,8 @@ async function registerPlugins() {
     secret: env.JWT_SECRET,
   });
 
-  // Swagger documentation
+  // Swagger documentation with Zod schema transform
+  // Note: jsonSchemaTransform will be enabled after all routes are refactored to use Zod schemas
   await fastify.register(swagger, {
     openapi: {
       info: {
@@ -69,10 +173,12 @@ async function registerPlugins() {
         },
       },
     },
+    // transform: jsonSchemaTransform, // Enable after all routes use Zod schemas
+    transform: jsonSchemaTransform,
   });
 
   await fastify.register(swaggerUi, {
-    routePrefix: '/documentation',
+    routePrefix: '/docs',
     uiConfig: {
       docExpansion: 'list',
       deepLinking: false,
@@ -92,11 +198,26 @@ async function registerRoutes() {
   // API v1 routes
   fastify.register(authRoutes, { prefix: '/api/v1/auth' });
   fastify.register(servicesRoutes, { prefix: '/api/v1' });
+  fastify.register(customersRoutes, { prefix: '/api/v1' });
+  fastify.register(appointmentsRoutes, { prefix: '/api/v1/appointments' });
+  fastify.register(billingRoutes, { prefix: '/api/v1/invoices' });
+  fastify.register(staffRoutes, { prefix: '/api/v1/staff' });
+  fastify.register(productRoutes, { prefix: '/api/v1' });
+  fastify.register(vendorRoutes, { prefix: '/api/v1' });
+  fastify.register(purchaseOrderRoutes, { prefix: '/api/v1' });
+  fastify.register(goodsReceiptRoutes, { prefix: '/api/v1' });
+  fastify.register(stockRoutes, { prefix: '/api/v1' });
+  fastify.register(transferRoutes, { prefix: '/api/v1' });
+  fastify.register(auditRoutes, { prefix: '/api/v1' });
+  fastify.register(serviceConsumableRoutes, { prefix: '/api/v1' });
 
-  // Add more route modules here:
-  // fastify.register(tenantRoutes, { prefix: '/api/v1/tenants' });
-  // fastify.register(customerRoutes, { prefix: '/api/v1/customers' });
-  // fastify.register(appointmentRoutes, { prefix: '/api/v1/appointments' });
+  // Memberships & Packages routes
+  fastify.register(membershipPlanRoutes, { prefix: '/api/v1' });
+  fastify.register(packageRoutes, { prefix: '/api/v1' });
+  fastify.register(customerMembershipRoutes, { prefix: '/api/v1' });
+  fastify.register(customerPackageRoutes, { prefix: '/api/v1' });
+  fastify.register(redemptionRoutes, { prefix: '/api/v1' });
+  fastify.register(membershipConfigRoutes, { prefix: '/api/v1' });
 }
 
 // Start server
@@ -111,7 +232,7 @@ async function start() {
     });
 
     logger.info(`Server running on http://localhost:${env.PORT}`);
-    logger.info(`API documentation at http://localhost:${env.PORT}/documentation`);
+    logger.info(`API documentation at http://localhost:${env.PORT}/docs`);
   } catch (err) {
     logger.error(err);
     process.exit(1);

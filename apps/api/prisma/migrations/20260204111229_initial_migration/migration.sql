@@ -118,12 +118,18 @@ CREATE TABLE "customers" (
 CREATE TABLE "service_categories" (
     "id" TEXT NOT NULL,
     "tenant_id" TEXT NOT NULL,
-    "name" VARCHAR(255) NOT NULL,
-    "description" TEXT,
+    "name" VARCHAR(100) NOT NULL,
+    "slug" VARCHAR(100) NOT NULL,
+    "description" VARCHAR(500),
+    "icon" VARCHAR(50),
+    "color" VARCHAR(7) NOT NULL DEFAULT '#6B7280',
+    "parent_id" TEXT,
+    "level" INTEGER NOT NULL DEFAULT 1,
     "display_order" INTEGER NOT NULL DEFAULT 0,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
+    "created_by" TEXT,
     "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "service_categories_pkey" PRIMARY KEY ("id")
@@ -134,17 +140,30 @@ CREATE TABLE "services" (
     "id" TEXT NOT NULL,
     "tenant_id" TEXT NOT NULL,
     "category_id" TEXT NOT NULL,
+    "sku" VARCHAR(50) NOT NULL,
     "name" VARCHAR(255) NOT NULL,
     "description" TEXT,
-    "duration" INTEGER NOT NULL,
-    "price" DECIMAL(10,2) NOT NULL,
-    "gst_rate" DECIMAL(5,2) NOT NULL DEFAULT 18,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "has_variants" BOOLEAN NOT NULL DEFAULT false,
-    "image_url" VARCHAR(500),
+    "base_price" DECIMAL(10,2) NOT NULL,
+    "tax_rate" DECIMAL(5,2) NOT NULL DEFAULT 18,
+    "hsn_sac_code" VARCHAR(20),
+    "is_tax_inclusive" BOOLEAN NOT NULL DEFAULT false,
+    "duration_minutes" INTEGER NOT NULL,
+    "active_time_minutes" INTEGER NOT NULL,
+    "processing_time_minutes" INTEGER NOT NULL DEFAULT 0,
+    "gender_applicable" VARCHAR(20) NOT NULL DEFAULT 'all',
+    "skill_level_required" VARCHAR(20) NOT NULL DEFAULT 'any',
+    "commission_type" VARCHAR(20) NOT NULL DEFAULT 'percentage',
+    "commission_value" DECIMAL(10,2) NOT NULL DEFAULT 0,
+    "assistant_commission_value" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "display_order" INTEGER NOT NULL DEFAULT 0,
+    "is_popular" BOOLEAN NOT NULL DEFAULT false,
+    "is_featured" BOOLEAN NOT NULL DEFAULT false,
+    "image_url" VARCHAR(500),
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "is_online_bookable" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
+    "created_by" TEXT,
     "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "services_pkey" PRIMARY KEY ("id")
@@ -153,14 +172,118 @@ CREATE TABLE "services" (
 -- CreateTable
 CREATE TABLE "service_variants" (
     "id" TEXT NOT NULL,
+    "tenant_id" TEXT NOT NULL,
     "service_id" TEXT NOT NULL,
-    "name" VARCHAR(255) NOT NULL,
-    "duration" INTEGER NOT NULL,
-    "price" DECIMAL(10,2) NOT NULL,
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "name" VARCHAR(100) NOT NULL,
+    "variant_group" VARCHAR(50) NOT NULL,
+    "price_adjustment_type" VARCHAR(20) NOT NULL DEFAULT 'absolute',
+    "price_adjustment" DECIMAL(10,2) NOT NULL,
+    "duration_adjustment" INTEGER NOT NULL DEFAULT 0,
     "display_order" INTEGER NOT NULL DEFAULT 0,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "service_variants_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "branch_service_prices" (
+    "id" TEXT NOT NULL,
+    "tenant_id" TEXT NOT NULL,
+    "branch_id" TEXT NOT NULL,
+    "service_id" TEXT NOT NULL,
+    "price" DECIMAL(10,2),
+    "commission_type" VARCHAR(20),
+    "commission_value" DECIMAL(10,2),
+    "is_available" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "updated_by" TEXT,
+
+    CONSTRAINT "branch_service_prices_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "service_add_ons" (
+    "id" TEXT NOT NULL,
+    "tenant_id" TEXT NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "description" VARCHAR(255),
+    "price" DECIMAL(10,2) NOT NULL,
+    "tax_rate" DECIMAL(5,2) NOT NULL DEFAULT 18,
+    "duration_minutes" INTEGER NOT NULL DEFAULT 0,
+    "applicable_to" VARCHAR(20) NOT NULL DEFAULT 'all',
+    "applicable_category_id" TEXT,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "service_add_ons_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "service_add_on_mappings" (
+    "id" TEXT NOT NULL,
+    "tenant_id" TEXT NOT NULL,
+    "service_id" TEXT NOT NULL,
+    "add_on_id" TEXT NOT NULL,
+    "override_price" DECIMAL(10,2),
+    "is_default" BOOLEAN NOT NULL DEFAULT false,
+
+    CONSTRAINT "service_add_on_mappings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "combo_services" (
+    "id" TEXT NOT NULL,
+    "tenant_id" TEXT NOT NULL,
+    "sku" VARCHAR(50) NOT NULL,
+    "name" VARCHAR(255) NOT NULL,
+    "description" TEXT,
+    "combo_price" DECIMAL(10,2) NOT NULL,
+    "original_price" DECIMAL(10,2) NOT NULL,
+    "tax_rate" DECIMAL(5,2) NOT NULL DEFAULT 18,
+    "total_duration_minutes" INTEGER NOT NULL,
+    "valid_from" DATE,
+    "valid_until" DATE,
+    "image_url" VARCHAR(500),
+    "is_featured" BOOLEAN NOT NULL DEFAULT false,
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "is_online_bookable" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+    "created_by" TEXT,
+
+    CONSTRAINT "combo_services_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "combo_service_items" (
+    "id" TEXT NOT NULL,
+    "tenant_id" TEXT NOT NULL,
+    "combo_id" TEXT NOT NULL,
+    "service_id" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
+    "display_order" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "combo_service_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "service_price_history" (
+    "id" TEXT NOT NULL,
+    "tenant_id" TEXT NOT NULL,
+    "service_id" TEXT NOT NULL,
+    "branch_id" TEXT,
+    "old_price" DECIMAL(10,2),
+    "new_price" DECIMAL(10,2) NOT NULL,
+    "change_reason" VARCHAR(255),
+    "changed_by" TEXT,
+    "changed_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "service_price_history_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -264,16 +387,46 @@ CREATE INDEX "customers_tenant_id_phone_idx" ON "customers"("tenant_id", "phone"
 CREATE UNIQUE INDEX "customers_tenant_id_phone_key" ON "customers"("tenant_id", "phone");
 
 -- CreateIndex
-CREATE INDEX "service_categories_tenant_id_idx" ON "service_categories"("tenant_id");
+CREATE INDEX "service_categories_tenant_id_parent_id_is_active_idx" ON "service_categories"("tenant_id", "parent_id", "is_active");
 
 -- CreateIndex
-CREATE INDEX "services_tenant_id_idx" ON "services"("tenant_id");
+CREATE UNIQUE INDEX "service_categories_tenant_id_slug_key" ON "service_categories"("tenant_id", "slug");
 
 -- CreateIndex
-CREATE INDEX "services_category_id_idx" ON "services"("category_id");
+CREATE INDEX "services_tenant_id_is_active_idx" ON "services"("tenant_id", "is_active");
 
 -- CreateIndex
-CREATE INDEX "service_variants_service_id_idx" ON "service_variants"("service_id");
+CREATE INDEX "services_category_id_is_active_idx" ON "services"("category_id", "is_active");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "services_tenant_id_sku_key" ON "services"("tenant_id", "sku");
+
+-- CreateIndex
+CREATE INDEX "service_variants_service_id_is_active_idx" ON "service_variants"("service_id", "is_active");
+
+-- CreateIndex
+CREATE INDEX "branch_service_prices_branch_id_service_id_idx" ON "branch_service_prices"("branch_id", "service_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "branch_service_prices_branch_id_service_id_key" ON "branch_service_prices"("branch_id", "service_id");
+
+-- CreateIndex
+CREATE INDEX "service_add_ons_tenant_id_is_active_idx" ON "service_add_ons"("tenant_id", "is_active");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "service_add_on_mappings_service_id_add_on_id_key" ON "service_add_on_mappings"("service_id", "add_on_id");
+
+-- CreateIndex
+CREATE INDEX "combo_services_tenant_id_is_active_idx" ON "combo_services"("tenant_id", "is_active");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "combo_services_tenant_id_sku_key" ON "combo_services"("tenant_id", "sku");
+
+-- CreateIndex
+CREATE INDEX "combo_service_items_combo_id_idx" ON "combo_service_items"("combo_id");
+
+-- CreateIndex
+CREATE INDEX "service_price_history_service_id_changed_at_idx" ON "service_price_history"("service_id", "changed_at" DESC);
 
 -- CreateIndex
 CREATE INDEX "appointments_tenant_id_idx" ON "appointments"("tenant_id");
@@ -318,13 +471,40 @@ ALTER TABLE "customers" ADD CONSTRAINT "customers_tenant_id_fkey" FOREIGN KEY ("
 ALTER TABLE "service_categories" ADD CONSTRAINT "service_categories_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "service_categories" ADD CONSTRAINT "service_categories_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "service_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "services" ADD CONSTRAINT "services_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "services" ADD CONSTRAINT "services_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "service_categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "service_variants" ADD CONSTRAINT "service_variants_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "service_variants" ADD CONSTRAINT "service_variants_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "branch_service_prices" ADD CONSTRAINT "branch_service_prices_branch_id_fkey" FOREIGN KEY ("branch_id") REFERENCES "branches"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "branch_service_prices" ADD CONSTRAINT "branch_service_prices_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "service_add_ons" ADD CONSTRAINT "service_add_ons_applicable_category_id_fkey" FOREIGN KEY ("applicable_category_id") REFERENCES "service_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "service_add_on_mappings" ADD CONSTRAINT "service_add_on_mappings_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "service_add_on_mappings" ADD CONSTRAINT "service_add_on_mappings_add_on_id_fkey" FOREIGN KEY ("add_on_id") REFERENCES "service_add_ons"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "combo_service_items" ADD CONSTRAINT "combo_service_items_combo_id_fkey" FOREIGN KEY ("combo_id") REFERENCES "combo_services"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "combo_service_items" ADD CONSTRAINT "combo_service_items_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "service_price_history" ADD CONSTRAINT "service_price_history_service_id_fkey" FOREIGN KEY ("service_id") REFERENCES "services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "appointments" ADD CONSTRAINT "appointments_branch_id_fkey" FOREIGN KEY ("branch_id") REFERENCES "branches"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

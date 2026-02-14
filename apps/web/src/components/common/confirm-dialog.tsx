@@ -4,6 +4,8 @@
 
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,12 +36,17 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   variant = 'default',
   onConfirm,
   isLoading = false,
 }: ConfirmDialogProps) {
+  const t = useTranslations('common.actions');
+
+  const effectiveConfirmText = confirmText || t('confirm');
+  const effectiveCancelText = cancelText || t('cancel');
+
   const handleConfirm = async () => {
     await onConfirm();
     onOpenChange(false);
@@ -53,17 +60,13 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>
-            {cancelText}
-          </AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{effectiveCancelText}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={isLoading}
-            className={cn(
-              variant === 'destructive' && buttonVariants({ variant: 'destructive' })
-            )}
+            className={cn(variant === 'destructive' && buttonVariants({ variant: 'destructive' }))}
           >
-            {isLoading ? 'Please wait...' : confirmText}
+            {isLoading ? t('saving') : effectiveConfirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -9,12 +9,9 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { addOnsService } from './addons.service';
+import { successResponse, deleteResponse, errorResponse } from '@/lib/response';
 
-import type {
-  CreateAddOnBody,
-  MapAddOnsToServiceBody,
-  UpdateAddOnBody,
-} from './services.schema';
+import type { CreateAddOnBody, MapAddOnsToServiceBody, UpdateAddOnBody } from './services.schema';
 
 export class AddOnsController {
   /**
@@ -26,53 +23,29 @@ export class AddOnsController {
   ) {
     const { tenantId } = request.user;
 
-    const addOns = await addOnsService.getAddOns(
-      tenantId,
-      request.query.includeInactive
-    );
+    const addOns = await addOnsService.getAddOns(tenantId, request.query.includeInactive);
 
-    return reply.send({
-      success: true,
-      data: addOns,
-    });
+    return reply.send(successResponse(addOns));
   }
 
   /**
    * Create a new add-on
    */
-  async createAddOn(
-    request: FastifyRequest<{ Body: CreateAddOnBody }>,
-    reply: FastifyReply
-  ) {
+  async createAddOn(request: FastifyRequest<{ Body: CreateAddOnBody }>, reply: FastifyReply) {
     try {
       const { tenantId } = request.user;
 
       const addOn = await addOnsService.createAddOn(tenantId, request.body);
 
-      return reply.code(201).send({
-        success: true,
-        data: addOn,
-      });
+      return reply.code(201).send(successResponse(addOn));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create add-on';
 
       if (message.includes('not found')) {
-        return reply.code(400).send({
-          success: false,
-          error: {
-            code: 'INVALID_REFERENCE',
-            message,
-          },
-        });
+        return reply.code(400).send(errorResponse('INVALID_REFERENCE', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'CREATE_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('CREATE_FAILED', message));
     }
   }
 
@@ -89,75 +62,38 @@ export class AddOnsController {
     try {
       const { tenantId } = request.user;
 
-      const addOn = await addOnsService.updateAddOn(
-        tenantId,
-        request.params.id,
-        request.body
-      );
+      const addOn = await addOnsService.updateAddOn(tenantId, request.params.id, request.body);
 
-      return reply.send({
-        success: true,
-        data: addOn,
-      });
+      return reply.send(successResponse(addOn));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update add-on';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'UPDATE_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('UPDATE_FAILED', message));
     }
   }
 
   /**
    * Delete an add-on
    */
-  async deleteAddOn(
-    request: FastifyRequest<{ Params: { id: string } }>,
-    reply: FastifyReply
-  ) {
+  async deleteAddOn(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     try {
       const { tenantId } = request.user;
 
       await addOnsService.deleteAddOn(tenantId, request.params.id);
 
-      return reply.send({
-        success: true,
-        data: { message: 'Add-on deleted successfully' },
-      });
+      return reply.send(deleteResponse('Add-on deleted successfully'));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete add-on';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'DELETE_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('DELETE_FAILED', message));
     }
   }
 
@@ -180,30 +116,15 @@ export class AddOnsController {
         request.body
       );
 
-      return reply.send({
-        success: true,
-        data: result,
-      });
+      return reply.send(successResponse(result));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to map add-ons';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'MAP_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('MAP_FAILED', message));
     }
   }
 }

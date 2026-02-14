@@ -1,0 +1,225 @@
+---
+# High-level requirements overview for Salon Management SaaS - all 12 modules summarized with key business rules
+inclusion: always
+---
+
+# Salon Management SaaS - Requirements Overview
+
+This document provides a high-level overview of all 12 modules in the Salon Management SaaS Platform.
+
+## System Overview
+
+A multi-tenant SaaS platform enabling salon businesses to manage operations, customers, staff, and finances. Supports multi-branch businesses with shared customer data and transferable staff.
+
+## Module Summaries
+
+### Module 1: Tenant/Salon Management
+Core multi-tenancy foundation with business registration, branch management, and RBAC.
+
+**Key Requirements:**
+- Business registration with 30-day free trial
+- Six roles: super_owner, regional_manager, branch_manager, receptionist, stylist, accountant
+- Each user has exactly one role
+- Staff can be assigned to multiple branches
+- Subscription plans enforce branch/user limits
+- Theme customization with precedence: User > Branch > Tenant > Default
+- All sensitive actions logged to audit trail
+
+### Module 2: Appointment Management
+Scheduling system supporting online, phone, and walk-in bookings.
+
+**Key Requirements:**
+- Three appointment types: Online, Phone, Walk-in
+- No overbooking - strict conflict prevention
+- Prices locked at booking time
+- Auto-assign stylist based on availability and gender preference
+- Walk-in queue with token system
+- Maximum 3 reschedules per appointment
+- No-show policy: 1st warning, 2nd prepaid-only, 3rd blocked
+- Reminders at 1 day, 1 hour, and 30 minutes before
+
+### Module 3: Customer Management (CRM)
+Customer profiles, loyalty program, wallet, and segmentation.
+
+**Key Requirements:**
+- Phone number is unique customer identifier
+- Guest checkout allowed (name only)
+- Loyalty points: earn per spend, redeem for discounts, expire after period
+- Customer wallet for prepaid balance
+- Referral tracking with rewards on first visit completion
+- Auto-tagging: New, Regular (5+ visits), Inactive (90+ days), VIP
+- Stylist can only see masked phone numbers
+
+### Module 4: Services & Pricing
+Service catalog with flexible pricing variants.
+
+**Key Requirements:**
+- Two-level categories: Category → Sub-category → Service
+- Gender-based pricing variants (Men, Women, Kids)
+- Active time vs processing time (stylist can serve others during processing)
+- Tenant-level default prices with branch overrides
+- Combo services with bundled pricing
+- Service-inventory linkage for auto-consumption
+- Commission rules per service with staff overrides
+
+### Module 5: Billing & Invoicing
+Invoice generation, payments, GST, and reconciliation.
+
+**Key Requirements:**
+- Full payment required to close bill (no partial payments)
+- Support split payments (multiple methods in one transaction)
+- GST: CGST+SGST for intra-state, IGST for inter-state
+- Prices can be GST-inclusive or exclusive (branch config)
+- Commission locked at billing time
+- Credit notes required for refunds (GST compliance)
+- Day closure with cash reconciliation
+- Billing audit logs retained 7 years
+
+### Module 6: Staff Management
+Attendance, shifts, leaves, commissions, and payroll.
+
+**Key Requirements:**
+- Clock in/out with optional geo-location
+- Shift management with overtime tracking
+- Leave types: Casual, Sick, Earned, Unpaid, Emergency
+- Commission on services and products
+- Multi-staff commission splits for assisted services
+- Monthly payroll generation with automatic deductions
+- Attendance locked after payroll processing
+
+### Module 7: Inventory Management
+Product catalog, purchase orders, FIFO stock, transfers, and audits.
+
+**Key Requirements:**
+- FIFO (First In First Out) for consumption and valuation
+- Stock batches with expiry tracking
+- Auto-deduct consumables on service completion
+- Purchase orders → Goods receipts → Stock
+- Inter-branch transfers with approval workflow
+- Low stock alerts at reorder level
+- Physical stock audits with variance posting
+
+### Module 8: Memberships & Packages
+Prepaid plans and service bundles with benefit management.
+
+**Key Requirements:**
+- Membership: ongoing benefits (discounts, complimentary services)
+- Package: prepaid service credits or value
+- Benefits with cooldown and caps to prevent abuse
+- Membership freeze extends validity
+- Cross-branch usage tracking
+- Redemption: Package first, then membership discount
+- Prorated refund calculation for cancellations
+
+### Module 9: Expenses & Finance
+Expense tracking, petty cash, P&L, and period management.
+
+**Key Requirements:**
+- Indian financial year (April-March) by default
+- Pre-defined expense categories with custom additions
+- Approval workflow for expenses above threshold
+- Recurring expense automation
+- Petty cash with reconciliation
+- Period close locks data from modification
+- Opening balances for new system setup
+- Operational P&L (no complex accounting)
+
+### Module 10: Reports & Analytics
+Dashboards, data snapshots, alerts, and scheduled reports.
+
+**Key Requirements:**
+- Daily snapshots for historical accuracy
+- Role-based dashboards showing relevant KPIs
+- Revenue, appointments, staff, customer, inventory reports
+- P&L and GST reports for tax compliance
+- Anomaly alerts (revenue drop, high wastage, etc.)
+- Scheduled report delivery via email/WhatsApp
+- Export to PDF, Excel, CSV
+- Source traceability for all metrics
+
+### Module 11: Marketing & Engagement
+Campaigns, segments, triggers, coupons, and referrals.
+
+**Key Requirements:**
+- Customer consent management per channel
+- Dynamic segments with rule builder
+- Campaign types: one-time, recurring, trigger-based
+- WhatsApp as primary channel, SMS fallback
+- Throttling: daily and weekly limits per customer
+- Trigger campaigns: post-visit, birthday, rebooking reminder
+- Coupon validation with usage limits
+- Referral rewards on first paid visit
+
+### Module 12: Online Booking
+Public booking page with availability, prepayment, and fraud protection.
+
+**Key Requirements:**
+- Unique booking URL per tenant
+- Real-time availability synced with appointments
+- Slot locking during booking flow (5 minutes)
+- Prepayment modes: none, optional, required
+- Mandatory prepayment for no-show flagged customers
+- Cancellation window enforcement
+- Lead capture for abandoned bookings
+- Rate limiting and blacklist for fraud prevention
+
+## Cross-Cutting Concerns
+
+### Multi-Language (i18n)
+- English (en) and Hindi (hi) supported
+- Message templates in both languages
+- Indian date format: DD/MM/YYYY
+- Indian currency format: ₹X,XX,XXX
+- 12-hour time with AM/PM
+
+### Security & Isolation
+- Row-Level Security (RLS) for tenant isolation
+- Branch-level scoping where applicable
+- Soft deletes with tenant scope
+- Never rely on frontend for data isolation
+- Passwords hashed with bcrypt
+- Sensitive data encrypted at rest
+
+### Audit & Compliance
+- All sensitive actions logged
+- Price changes, discounts, refunds tracked
+- Audit logs retained minimum 2 years (7 years for financial)
+- Audit logs are read-only
+
+## Key Business Rules
+
+### Pricing
+- Prices locked at booking/billing time
+- Future price changes don't affect existing records
+- Branch overrides take precedence over tenant defaults
+
+### Appointments
+- No double-booking ever
+- Buffer time between appointments (configurable)
+- Walk-ins get token numbers
+- No-show impacts future booking ability
+
+### Billing
+- Full payment required (no unpaid bills)
+- GST calculated correctly based on branch config
+- Commissions locked, not recalculated later
+
+### Staff
+- Attendance linked to commission eligibility
+- Leave blocks appointments automatically
+- Payroll generated from attendance + commissions
+
+### Inventory
+- FIFO always for consumption
+- Stock deducted at billing, not booking
+- Expired stock blocked from consumption
+
+### Memberships/Packages
+- Check validity and branch eligibility before use
+- Credits deducted atomically
+- Freeze extends expiry by freeze days
+
+### Marketing
+- Never message opted-out customers
+- Transactional messages always allowed
+- Throttle marketing messages

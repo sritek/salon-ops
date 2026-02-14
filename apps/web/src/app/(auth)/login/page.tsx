@@ -11,13 +11,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api } from '@/lib/api/client';
@@ -60,19 +54,12 @@ export default function LoginPage() {
         password,
       });
 
-      setAuth(
-        response.user,
-        response.tenant,
-        response.accessToken,
-        response.refreshToken
-      );
+      setAuth(response.user, response.tenant, response.accessToken, response.refreshToken);
 
       toast.success('Welcome back!');
       router.push('/dashboard');
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Invalid email or password'
-      );
+      toast.error(error instanceof Error ? error.message : 'Invalid email or password');
     } finally {
       setIsLoading(false);
     }
@@ -81,9 +68,7 @@ export default function LoginPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold text-center">
-          Sign in to Salon Ops
-        </CardTitle>
+        <CardTitle className="text-2xl font-bold text-center">Sign in to Salon Ops</CardTitle>
         <CardDescription className="text-center">
           Enter your email and password to access your account
         </CardDescription>
@@ -119,16 +104,13 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-4 text-center text-sm">
-          <Link
-            href="/forgot-password"
-            className="text-primary hover:underline"
-          >
+          <Link href="/forgot-password" className="text-primary hover:underline">
             Forgot password?
           </Link>
         </div>
 
         <div className="mt-4 text-center text-sm text-muted-foreground">
-          Demo credentials: owner@demo.com / demo123
+          Demo credentials: owner@glamourstudio.com / demo123
         </div>
       </CardContent>
     </Card>

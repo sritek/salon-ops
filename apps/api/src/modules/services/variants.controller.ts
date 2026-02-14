@@ -9,6 +9,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { variantsService } from './variants.service';
+import { successResponse, deleteResponse, errorResponse } from '@/lib/response';
 
 import type { CreateVariantBody, UpdateVariantBody } from './services.schema';
 
@@ -16,42 +17,21 @@ export class VariantsController {
   /**
    * Get all variants for a service
    */
-  async getVariants(
-    request: FastifyRequest<{ Params: { id: string } }>,
-    reply: FastifyReply
-  ) {
+  async getVariants(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
     try {
       const { tenantId } = request.user;
 
-      const variants = await variantsService.getVariants(
-        tenantId,
-        request.params.id
-      );
+      const variants = await variantsService.getVariants(tenantId, request.params.id);
 
-      return reply.send({
-        success: true,
-        data: variants,
-      });
+      return reply.send(successResponse(variants));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to get variants';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'FETCH_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('FETCH_FAILED', message));
     }
   }
 
@@ -74,30 +54,15 @@ export class VariantsController {
         request.body
       );
 
-      return reply.code(201).send({
-        success: true,
-        data: variant,
-      });
+      return reply.code(201).send(successResponse(variant));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create variant';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'CREATE_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('CREATE_FAILED', message));
     }
   }
 
@@ -121,30 +86,15 @@ export class VariantsController {
         request.body
       );
 
-      return reply.send({
-        success: true,
-        data: variant,
-      });
+      return reply.send(successResponse(variant));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update variant';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'UPDATE_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('UPDATE_FAILED', message));
     }
   }
 
@@ -158,36 +108,17 @@ export class VariantsController {
     try {
       const { tenantId } = request.user;
 
-      await variantsService.deleteVariant(
-        tenantId,
-        request.params.id,
-        request.params.vid
-      );
+      await variantsService.deleteVariant(tenantId, request.params.id, request.params.vid);
 
-      return reply.send({
-        success: true,
-        data: { message: 'Variant deleted successfully' },
-      });
+      return reply.send(deleteResponse('Variant deleted successfully'));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete variant';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'DELETE_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('DELETE_FAILED', message));
     }
   }
 }

@@ -59,3 +59,20 @@ export class InternalServerError extends HttpError {
     super(500, message, code);
   }
 }
+
+/**
+ * Application Error - for business logic errors with custom codes
+ */
+export class AppError extends HttpError {
+  public details?: unknown;
+
+  constructor(
+    message: string,
+    statusCode: number = 400,
+    code: string = 'APP_ERROR',
+    details?: unknown
+  ) {
+    super(statusCode, message, code);
+    this.details = details;
+  }
+}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Layers, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import { useService } from '@/hooks/queries/use-services';
 import {
@@ -13,7 +14,13 @@ import {
 } from '@/hooks/queries/use-variants';
 import { formatCurrency } from '@/lib/format';
 
-import { EmptyState, PageContainer, PageContent, PageHeader } from '@/components/common';
+import {
+  ConfirmDialog,
+  EmptyState,
+  PageContainer,
+  PageContent,
+  PageHeader,
+} from '@/components/common';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,8 +50,10 @@ interface VariantsPageProps {
 
 export default function VariantsPage({ params }: VariantsPageProps) {
   const serviceId = params.id;
+  const t = useTranslations('common');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVariant, setEditingVariant] = useState<ServiceVariant | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: service } = useService(serviceId);
   const { data: variants, isLoading } = useVariants(serviceId);
@@ -62,9 +71,14 @@ export default function VariantsPage({ params }: VariantsPageProps) {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (variantId: string) => {
-    if (confirm('Are you sure you want to delete this variant?')) {
-      await deleteVariant.mutateAsync({ serviceId, variantId });
+  const handleDelete = (variantId: string) => {
+    setDeleteId(variantId);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteId) {
+      await deleteVariant.mutateAsync({ serviceId, variantId: deleteId });
+      setDeleteId(null);
     }
   };
 
@@ -307,6 +321,16 @@ export default function VariantsPage({ params }: VariantsPageProps) {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title={t('confirmDelete.title')}
+        description={t('confirmDelete.description')}
+        variant="destructive"
+        onConfirm={confirmDelete}
+        isLoading={deleteVariant.isPending}
+      />
     </PageContainer>
   );
 }

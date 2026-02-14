@@ -1,0 +1,2264 @@
+---
+# Inventory Management module patterns - products, vendors, purchase orders, stock tracking, transfers, and audits
+inclusion: fileMatch
+fileMatchPattern: '**/inventory/**/*.ts, **/product/**/*.ts, **/vendor/**/*.ts, **/stock/**/*.ts'
+---
+
+# Inventory Management Module
+
+## Overview
+
+This module handles product catalog management, vendor management, purchase orders, goods receipt, stock tracking, consumption, inter-branch transfers, wastage, physical audits, and inventory reporting. Inventory is managed at the branch level with FIFO valuation.
+
+**Related Requirements:** 7.1 - 7.18
+
+---
+
+## Database Schema
+
+```sql
+-- =====================================================
+-- PRODUCT CATEGORIES
+-- =====================================================
+CREATE TABLE product_categories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  
+  name VARCHAR(100) NOT NULL,
+  parent_id UUID REFERENCES product_categories(id),
+  
+  description TEXT,
+  display_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  
+  -- Expiry tracking at category level
+  track_expiry BOOLEAN DEFAULT false,
+  expiry_alert_days INTEGER DEFAULT 30,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(tenant_id, name, parent_id)
+);
+
+CREATE INDEX idx_product_categories ON product_categories(tenant_id, parent_id);
+
+-- =====================================================
+-- PRODUCTS (Master catalog)
+-- =====================================================
+CREATE TABLE products (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  
+  -- Basic info
+  name VARCHAR(255) NOT NULL,
+  sku VARCHAR(50),
+  barcode VARCHAR(50),
+  brand VARCHAR(100),
+  category_id UUID REFERENCES product_categories(id),
+  description TEXT,
+  
+  -- Classification
+  product_type VARCHAR(20) NOT NULL,  -- consumable, retail, both
+  
+  -- Unit of measure
+  unit VARCHAR(20) NOT NULL,  -- ml, gm, pieces, bottles, sachets
+  unit_quantity DECIMAL(10, 2) DEFAULT 1,  -- e.g., 500 for 500ml bottle
+  
+  -- Pricing
+  cost_price DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  selling_price DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  mrp DECIMAL(10, 2),
+  
+  -- Tax
+  gst_rate DECIMAL(5, 2) NOT NULL DEFAULT 18,
+  hsn_code VARCHAR(20),
+  
+  -- Images
+  image_url VARCHAR(500),
+  
+  -- Tracking
+  track_expiry BOOLEAN DEFAULT false,
+  
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(tenant_id, sku)
+);
+
+CREATE INDEX idx_products ON products(tenant_id, category_id);
+CREATE INDEX idx_products_sku ON products(tenant_id, sku);
+CREATE INDEX idx_products_barcode ON products(tenant_id, barcode);
+CREATE INDEX idx_products_type ON products(tenant_id, product_type);
+
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON products
+  FOR ALL USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =====================================================
+-- BRANCH PRODUCT SETTINGS
+-- =====================================================
+CREATE TABLE branch_product_settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  product_id UUID NOT NULL REFERENCES products(id),
+  
+  -- Availability
+  is_enabled BOOLEAN DEFAULT true,
+  is_temporarily_disabled BOOLEAN DEFAULT false,
+  disabled_reason VARCHAR(255),
+  disabled_until DATE,
+  
+  -- Stock levels
+  reorder_level DECIMAL(10, 2) DEFAULT 10,
+  max_stock_level DECIMAL(10, 2),
+  
+  -- Substitute product
+  substitute_product_id UUID REFERENCES products(id),
+  
+  -- Branch-specific pricing (optional override)
+  branch_cost_price DECIMAL(10, 2),
+  branch_selling_price DECIMAL(10, 2),
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(branch_id, product_id)
+);
+
+CREATE INDEX idx_branch_products ON branch_product_settings(branch_id, product_id);
+
+-- =====================================================
+-- VENDORS
+-- =====================================================
+CREATE TABLE vendors (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  
+  name VARCHAR(255) NOT NULL,
+  code VARCHAR(50),
+  
+  -- Contact
+  contact_person VARCHAR(100),
+  phone VARCHAR(20),
+  email VARCHAR(255),
+  
+  -- Address
+  address_line1 VARCHAR(255),
+  address_line2 VARCHAR(255),
+  city VARCHAR(100),
+  state VARCHAR(100),
+  pincode VARCHAR(10),
+  
+  -- GST
+  gstin VARCHAR(20),
+  
+  -- Terms
+  payment_terms VARCHAR(100),  -- e.g., "Net 30"
+  lead_time_days INTEGER DEFAULT 7,
+  
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(tenant_id, code)
+);
+
+CREATE INDEX idx_vendors ON vendors(tenant_id, is_active);
+
+-- =====================================================
+-- VENDOR PRODUCTS (Vendor-Product mapping)
+-- =====================================================
+CREATE TABLE vendor_products (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  vendor_id UUID NOT NULL REFERENCES vendors(id),
+  product_id UUID NOT NULL REFERENCES products(id),
+  
+  vendor_sku VARCHAR(50),
+  last_purchase_price DECIMAL(10, 2),
+  last_purchase_date DATE,
+  is_preferred BOOLEAN DEFAULT false,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(vendor_id, product_id)
+);
+
+CREATE INDEX idx_vendor_products ON vendor_products(product_id);
+
+-- =====================================================
+-- PURCHASE ORDERS
+-- =====================================================
+CREATE TABLE purchase_orders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  -- PO number
+  po_number VARCHAR(50) NOT NULL,
+  po_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  
+  -- Vendor
+  vendor_id UUID NOT NULL REFERENCES vendors(id),
+  
+  -- Expected delivery
+  expected_delivery_date DATE,
+  
+  -- Amounts
+  subtotal DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  gst_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  total_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',
+  -- draft, sent, partially_received, fully_received, cancelled
+  
+  -- Notes
+  notes TEXT,
+  internal_notes TEXT,
+  
+  -- Metadata
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  sent_at TIMESTAMP,
+  sent_by UUID REFERENCES users(id),
+  
+  UNIQUE(branch_id, po_number)
+);
+
+CREATE INDEX idx_purchase_orders ON purchase_orders(branch_id, status);
+CREATE INDEX idx_purchase_orders_vendor ON purchase_orders(vendor_id);
+
+-- =====================================================
+-- PURCHASE ORDER ITEMS
+-- =====================================================
+CREATE TABLE purchase_order_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  purchase_order_id UUID NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id),
+  
+  -- Quantities
+  ordered_quantity DECIMAL(10, 2) NOT NULL,
+  received_quantity DECIMAL(10, 2) DEFAULT 0,
+  pending_quantity DECIMAL(10, 2) NOT NULL,
+  
+  -- Pricing
+  unit_price DECIMAL(10, 2) NOT NULL,
+  gst_rate DECIMAL(5, 2) NOT NULL,
+  gst_amount DECIMAL(10, 2) NOT NULL,
+  total_amount DECIMAL(10, 2) NOT NULL,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_po_items ON purchase_order_items(purchase_order_id);
+
+-- =====================================================
+-- GOODS RECEIPTS
+-- =====================================================
+CREATE TABLE goods_receipts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  -- GRN number
+  grn_number VARCHAR(50) NOT NULL,
+  grn_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  
+  -- Reference
+  purchase_order_id UUID REFERENCES purchase_orders(id),
+  vendor_id UUID NOT NULL REFERENCES vendors(id),
+  vendor_invoice_number VARCHAR(50),
+  vendor_invoice_date DATE,
+  
+  -- Amounts
+  subtotal DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  gst_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  total_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'draft',
+  -- draft, confirmed, cancelled
+  
+  notes TEXT,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id),
+  confirmed_at TIMESTAMP,
+  confirmed_by UUID REFERENCES users(id),
+  
+  UNIQUE(branch_id, grn_number)
+);
+
+CREATE INDEX idx_goods_receipts ON goods_receipts(branch_id, grn_date);
+CREATE INDEX idx_goods_receipts_po ON goods_receipts(purchase_order_id);
+
+-- =====================================================
+-- GOODS RECEIPT ITEMS
+-- =====================================================
+CREATE TABLE goods_receipt_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  goods_receipt_id UUID NOT NULL REFERENCES goods_receipts(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id),
+  po_item_id UUID REFERENCES purchase_order_items(id),
+  
+  -- Quantities
+  received_quantity DECIMAL(10, 2) NOT NULL,
+  foc_quantity DECIMAL(10, 2) DEFAULT 0, -- Free of Cost
+  rejected_quantity DECIMAL(10, 2) DEFAULT 0,
+  accepted_quantity DECIMAL(10, 2) NOT NULL,
+  
+  -- Batch/Expiry
+  batch_number VARCHAR(50),
+  manufacturing_date DATE,
+  expiry_date DATE,
+  
+  -- Pricing
+  unit_price DECIMAL(10, 2) NOT NULL,
+  effective_unit_price DECIMAL(10, 2) NOT NULL, -- After FOC adjustment
+  gst_rate DECIMAL(5, 2) NOT NULL,
+  gst_amount DECIMAL(10, 2) NOT NULL,
+  total_amount DECIMAL(10, 2) NOT NULL,
+  
+  -- Quality check
+  quality_status VARCHAR(20) DEFAULT 'accepted', -- accepted, rejected, partial
+  rejection_reason TEXT,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_grn_items ON goods_receipt_items(goods_receipt_id);
+
+-- =====================================================
+-- STOCK BATCHES (FIFO tracking)
+-- =====================================================
+CREATE TABLE stock_batches (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  product_id UUID NOT NULL REFERENCES products(id),
+  
+  -- Batch info
+  batch_number VARCHAR(50),
+  expiry_date DATE,
+  
+  -- Source
+  source_type VARCHAR(20) NOT NULL, -- goods_receipt, transfer_in, opening, adjustment
+  source_id UUID,
+  
+  -- Quantities
+  initial_quantity DECIMAL(10, 2) NOT NULL,
+  current_quantity DECIMAL(10, 2) NOT NULL,
+  
+  -- Cost (for FIFO valuation)
+  unit_cost DECIMAL(10, 2) NOT NULL,
+  
+  -- Status
+  is_depleted BOOLEAN DEFAULT false,
+  is_expired BOOLEAN DEFAULT false,
+  
+  received_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  depleted_at TIMESTAMP,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_stock_batches ON stock_batches(branch_id, product_id, is_depleted);
+CREATE INDEX idx_stock_batches_expiry ON stock_batches(branch_id, expiry_date, is_depleted);
+
+-- =====================================================
+-- STOCK SUMMARY (Denormalized for quick lookup)
+-- =====================================================
+CREATE TABLE stock_summary (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  product_id UUID NOT NULL REFERENCES products(id),
+  
+  -- Current stock
+  quantity_on_hand DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  quantity_reserved DECIMAL(10, 2) DEFAULT 0, -- For pending orders
+  quantity_available DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  
+  -- Valuation
+  total_value DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  average_cost DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  
+  -- Alerts
+  is_low_stock BOOLEAN DEFAULT false,
+  is_out_of_stock BOOLEAN DEFAULT false,
+  
+  -- Last activity
+  last_stock_in_date DATE,
+  last_stock_out_date DATE,
+  
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(branch_id, product_id)
+);
+
+CREATE INDEX idx_stock_summary ON stock_summary(branch_id, product_id);
+CREATE INDEX idx_stock_low ON stock_summary(branch_id, is_low_stock);
+
+-- =====================================================
+-- STOCK MOVEMENTS (All stock transactions)
+-- =====================================================
+CREATE TABLE stock_movements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  product_id UUID NOT NULL REFERENCES products(id),
+  
+  -- Movement type
+  movement_type VARCHAR(30) NOT NULL,
+  -- stock_in, stock_out, consumption, sale, transfer_out, transfer_in,
+  -- wastage, adjustment, expired, opening
+  
+  -- Quantities
+  quantity DECIMAL(10, 2) NOT NULL, -- Positive for in, negative for out
+  balance_after DECIMAL(10, 2) NOT NULL,
+  
+  -- Cost
+  unit_cost DECIMAL(10, 2),
+  total_cost DECIMAL(10, 2),
+  
+  -- Reference
+  reference_type VARCHAR(30), -- goods_receipt, invoice, transfer, adjustment, audit
+  reference_id UUID,
+  batch_id UUID REFERENCES stock_batches(id),
+  
+  -- Reason (for adjustments, wastage)
+  reason_code VARCHAR(50),
+  reason_description TEXT,
+  
+  -- Metadata
+  movement_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_by UUID REFERENCES users(id)
+);
+
+CREATE INDEX idx_stock_movements ON stock_movements(branch_id, product_id, movement_date);
+CREATE INDEX idx_stock_movements_type ON stock_movements(branch_id, movement_type, movement_date);
+CREATE INDEX idx_stock_movements_ref ON stock_movements(reference_type, reference_id);
+
+-- =====================================================
+-- STOCK TRANSFERS
+-- =====================================================
+CREATE TABLE stock_transfers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  
+  -- Transfer number
+  transfer_number VARCHAR(50) NOT NULL,
+  transfer_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  
+  -- Branches
+  source_branch_id UUID NOT NULL REFERENCES branches(id),
+  destination_branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'requested',
+  -- requested, approved, in_transit, received, rejected, cancelled
+  
+  -- Totals
+  total_items INTEGER DEFAULT 0,
+  total_quantity DECIMAL(10, 2) DEFAULT 0,
+  total_value DECIMAL(12, 2) DEFAULT 0,
+  
+  -- Notes
+  request_notes TEXT,
+  approval_notes TEXT,
+  receipt_notes TEXT,
+  
+  -- Workflow
+  requested_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  requested_by UUID REFERENCES users(id),
+  approved_at TIMESTAMP,
+  approved_by UUID REFERENCES users(id),
+  dispatched_at TIMESTAMP,
+  dispatched_by UUID REFERENCES users(id),
+  received_at TIMESTAMP,
+  received_by UUID REFERENCES users(id),
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(tenant_id, transfer_number)
+);
+
+CREATE INDEX idx_stock_transfers ON stock_transfers(source_branch_id, status);
+CREATE INDEX idx_stock_transfers_dest ON stock_transfers(destination_branch_id, status);
+
+-- =====================================================
+-- STOCK TRANSFER ITEMS
+-- =====================================================
+CREATE TABLE stock_transfer_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  transfer_id UUID NOT NULL REFERENCES stock_transfers(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id),
+  
+  -- Quantities
+  requested_quantity DECIMAL(10, 2) NOT NULL,
+  approved_quantity DECIMAL(10, 2),
+  dispatched_quantity DECIMAL(10, 2),
+  received_quantity DECIMAL(10, 2),
+  
+  -- Discrepancy
+  discrepancy_quantity DECIMAL(10, 2) DEFAULT 0,
+  discrepancy_reason TEXT,
+  
+  -- Cost
+  unit_cost DECIMAL(10, 2) NOT NULL,
+  total_cost DECIMAL(10, 2) NOT NULL,
+  
+  -- Batch tracking
+  source_batch_id UUID REFERENCES stock_batches(id),
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_transfer_items ON stock_transfer_items(transfer_id);
+
+-- =====================================================
+-- STOCK AUDITS
+-- =====================================================
+CREATE TABLE stock_audits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  branch_id UUID NOT NULL REFERENCES branches(id),
+  
+  -- Audit number
+  audit_number VARCHAR(50) NOT NULL,
+  audit_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  
+  -- Scope
+  audit_type VARCHAR(20) NOT NULL, -- full, partial, category
+  category_id UUID REFERENCES product_categories(id), -- For partial audits
+  
+  -- Status
+  status VARCHAR(20) NOT NULL DEFAULT 'in_progress',
+  -- in_progress, completed, posted, cancelled
+  
+  -- Summary
+  total_items INTEGER DEFAULT 0,
+  items_with_variance INTEGER DEFAULT 0,
+  total_variance_value DECIMAL(12, 2) DEFAULT 0,
+  shrinkage_value DECIMAL(12, 2) DEFAULT 0,
+  
+  -- Notes
+  notes TEXT,
+  
+  -- Workflow
+  started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  started_by UUID REFERENCES users(id),
+  completed_at TIMESTAMP,
+  completed_by UUID REFERENCES users(id),
+  posted_at TIMESTAMP,
+  posted_by UUID REFERENCES users(id),
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(branch_id, audit_number)
+);
+
+CREATE INDEX idx_stock_audits ON stock_audits(branch_id, audit_date);
+
+-- =====================================================
+-- STOCK AUDIT ITEMS
+-- =====================================================
+CREATE TABLE stock_audit_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  audit_id UUID NOT NULL REFERENCES stock_audits(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id),
+  
+  -- Counts
+  system_quantity DECIMAL(10, 2) NOT NULL,
+  physical_quantity DECIMAL(10, 2),
+  variance_quantity DECIMAL(10, 2),
+  
+  -- Value
+  unit_cost DECIMAL(10, 2) NOT NULL,
+  variance_value DECIMAL(10, 2),
+  
+  -- Adjustment
+  adjustment_reason VARCHAR(255),
+  is_adjusted BOOLEAN DEFAULT false,
+  
+  counted_at TIMESTAMP,
+  counted_by UUID REFERENCES users(id),
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_audit_items ON stock_audit_items(audit_id);
+
+-- =====================================================
+-- SERVICE CONSUMABLES (Product-Service mapping)
+-- =====================================================
+CREATE TABLE service_consumables (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  service_id UUID NOT NULL REFERENCES services(id),
+  product_id UUID NOT NULL REFERENCES products(id),
+  
+  -- Consumption
+  quantity_per_service DECIMAL(10, 3) NOT NULL,
+  
+  -- Variant-based consumption (optional)
+  variant_quantities JSONB, -- {"short_hair": 10, "long_hair": 20}
+  
+  is_active BOOLEAN DEFAULT true,
+  
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  
+  UNIQUE(service_id, product_id)
+);
+
+CREATE INDEX idx_service_consumables ON service_consumables(service_id);
+```
+
+---
+
+## TypeScript Types
+
+```typescript
+// =====================================================
+// ENUMS
+// =====================================================
+export enum ProductType {
+  CONSUMABLE = 'consumable',
+  RETAIL = 'retail',
+  BOTH = 'both',
+}
+
+export enum ProductUnit {
+  ML = 'ml',
+  GM = 'gm',
+  PIECES = 'pieces',
+  BOTTLES = 'bottles',
+  SACHETS = 'sachets',
+  TUBES = 'tubes',
+  BOXES = 'boxes',
+}
+
+export enum PurchaseOrderStatus {
+  DRAFT = 'draft',
+  SENT = 'sent',
+  PARTIALLY_RECEIVED = 'partially_received',
+  FULLY_RECEIVED = 'fully_received',
+  CANCELLED = 'cancelled',
+}
+
+export enum GoodsReceiptStatus {
+  DRAFT = 'draft',
+  CONFIRMED = 'confirmed',
+  CANCELLED = 'cancelled',
+}
+
+export enum QualityStatus {
+  ACCEPTED = 'accepted',
+  REJECTED = 'rejected',
+  PARTIAL = 'partial',
+}
+
+export enum StockMovementType {
+  STOCK_IN = 'stock_in',
+  STOCK_OUT = 'stock_out',
+  CONSUMPTION = 'consumption',
+  SALE = 'sale',
+  TRANSFER_OUT = 'transfer_out',
+  TRANSFER_IN = 'transfer_in',
+  WASTAGE = 'wastage',
+  ADJUSTMENT = 'adjustment',
+  EXPIRED = 'expired',
+  OPENING = 'opening',
+}
+
+export enum TransferStatus {
+  REQUESTED = 'requested',
+  APPROVED = 'approved',
+  IN_TRANSIT = 'in_transit',
+  RECEIVED = 'received',
+  REJECTED = 'rejected',
+  CANCELLED = 'cancelled',
+}
+
+export enum AuditStatus {
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  POSTED = 'posted',
+  CANCELLED = 'cancelled',
+}
+
+export enum AuditType {
+  FULL = 'full',
+  PARTIAL = 'partial',
+  CATEGORY = 'category',
+}
+
+// =====================================================
+// CORE TYPES
+// =====================================================
+export interface ProductCategory {
+  id: string;
+  tenantId: string;
+  name: string;
+  parentId?: string;
+  description?: string;
+  displayOrder: number;
+  isActive: boolean;
+  trackExpiry: boolean;
+  expiryAlertDays: number;
+  createdAt: Date;
+  updatedAt: Date;
+  
+  parent?: ProductCategory;
+  children?: ProductCategory[];
+}
+
+export interface Product {
+  id: string;
+  tenantId: string;
+  name: string;
+  sku?: string;
+  barcode?: string;
+  brand?: string;
+  categoryId?: string;
+  description?: string;
+  productType: ProductType;
+  unit: ProductUnit;
+  unitQuantity: number;
+  costPrice: number;
+  sellingPrice: number;
+  mrp?: number;
+  gstRate: number;
+  hsnCode?: string;
+  imageUrl?: string;
+  trackExpiry: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  
+  category?: ProductCategory;
+  branchSettings?: BranchProductSettings[];
+}
+
+export interface BranchProductSettings {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  productId: string;
+  isEnabled: boolean;
+  isTemporarilyDisabled: boolean;
+  disabledReason?: string;
+  disabledUntil?: string;
+  reorderLevel: number;
+  maxStockLevel?: number;
+  substituteProductId?: string;
+  branchCostPrice?: number;
+  branchSellingPrice?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Vendor {
+  id: string;
+  tenantId: string;
+  name: string;
+  code?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  gstin?: string;
+  paymentTerms?: string;
+  leadTimeDays: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface VendorProduct {
+  id: string;
+  tenantId: string;
+  vendorId: string;
+  productId: string;
+  vendorSku?: string;
+  lastPurchasePrice?: number;
+  lastPurchaseDate?: string;
+  isPreferred: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  
+  vendor?: Vendor;
+  product?: Product;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  poNumber: string;
+  poDate: string;
+  vendorId: string;
+  expectedDeliveryDate?: string;
+  subtotal: number;
+  gstAmount: number;
+  totalAmount: number;
+  status: PurchaseOrderStatus;
+  notes?: string;
+  internalNotes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  sentAt?: Date;
+  sentBy?: string;
+  
+  vendor?: Vendor;
+  items?: PurchaseOrderItem[];
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  tenantId: string;
+  purchaseOrderId: string;
+  productId: string;
+  orderedQuantity: number;
+  receivedQuantity: number;
+  pendingQuantity: number;
+  unitPrice: number;
+  gstRate: number;
+  gstAmount: number;
+  totalAmount: number;
+  createdAt: Date;
+  
+  product?: Product;
+}
+
+export interface GoodsReceipt {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  grnNumber: string;
+  grnDate: string;
+  purchaseOrderId?: string;
+  vendorId: string;
+  vendorInvoiceNumber?: string;
+  vendorInvoiceDate?: string;
+  subtotal: number;
+  gstAmount: number;
+  totalAmount: number;
+  status: GoodsReceiptStatus;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  confirmedAt?: Date;
+  confirmedBy?: string;
+  
+  vendor?: Vendor;
+  purchaseOrder?: PurchaseOrder;
+  items?: GoodsReceiptItem[];
+}
+
+export interface GoodsReceiptItem {
+  id: string;
+  tenantId: string;
+  goodsReceiptId: string;
+  productId: string;
+  poItemId?: string;
+  receivedQuantity: number;
+  focQuantity: number;
+  rejectedQuantity: number;
+  acceptedQuantity: number;
+  batchNumber?: string;
+  manufacturingDate?: string;
+  expiryDate?: string;
+  unitPrice: number;
+  effectiveUnitPrice: number;
+  gstRate: number;
+  gstAmount: number;
+  totalAmount: number;
+  qualityStatus: QualityStatus;
+  rejectionReason?: string;
+  createdAt: Date;
+  
+  product?: Product;
+}
+
+export interface StockBatch {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  productId: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  sourceType: string;
+  sourceId?: string;
+  initialQuantity: number;
+  currentQuantity: number;
+  unitCost: number;
+  isDepleted: boolean;
+  isExpired: boolean;
+  receivedAt: Date;
+  depletedAt?: Date;
+  createdAt: Date;
+}
+
+export interface StockSummary {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  productId: string;
+  quantityOnHand: number;
+  quantityReserved: number;
+  quantityAvailable: number;
+  totalValue: number;
+  averageCost: number;
+  isLowStock: boolean;
+  isOutOfStock: boolean;
+  lastStockInDate?: string;
+  lastStockOutDate?: string;
+  updatedAt: Date;
+  
+  product?: Product;
+}
+
+export interface StockMovement {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  productId: string;
+  movementType: StockMovementType;
+  quantity: number;
+  balanceAfter: number;
+  unitCost?: number;
+  totalCost?: number;
+  referenceType?: string;
+  referenceId?: string;
+  batchId?: string;
+  reasonCode?: string;
+  reasonDescription?: string;
+  movementDate: string;
+  createdAt: Date;
+  createdBy?: string;
+  
+  product?: Product;
+}
+
+export interface StockTransfer {
+  id: string;
+  tenantId: string;
+  transferNumber: string;
+  transferDate: string;
+  sourceBranchId: string;
+  destinationBranchId: string;
+  status: TransferStatus;
+  totalItems: number;
+  totalQuantity: number;
+  totalValue: number;
+  requestNotes?: string;
+  approvalNotes?: string;
+  receiptNotes?: string;
+  requestedAt: Date;
+  requestedBy?: string;
+  approvedAt?: Date;
+  approvedBy?: string;
+  dispatchedAt?: Date;
+  dispatchedBy?: string;
+  receivedAt?: Date;
+  receivedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  
+  sourceBranch?: Branch;
+  destinationBranch?: Branch;
+  items?: StockTransferItem[];
+}
+
+export interface StockTransferItem {
+  id: string;
+  tenantId: string;
+  transferId: string;
+  productId: string;
+  requestedQuantity: number;
+  approvedQuantity?: number;
+  dispatchedQuantity?: number;
+  receivedQuantity?: number;
+  discrepancyQuantity: number;
+  discrepancyReason?: string;
+  unitCost: number;
+  totalCost: number;
+  sourceBatchId?: string;
+  createdAt: Date;
+  
+  product?: Product;
+}
+
+export interface StockAudit {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  auditNumber: string;
+  auditDate: string;
+  auditType: AuditType;
+  categoryId?: string;
+  status: AuditStatus;
+  totalItems: number;
+  itemsWithVariance: number;
+  totalVarianceValue: number;
+  shrinkageValue: number;
+  notes?: string;
+  startedAt: Date;
+  startedBy?: string;
+  completedAt?: Date;
+  completedBy?: string;
+  postedAt?: Date;
+  postedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  
+  items?: StockAuditItem[];
+}
+
+export interface StockAuditItem {
+  id: string;
+  tenantId: string;
+  auditId: string;
+  productId: string;
+  systemQuantity: number;
+  physicalQuantity?: number;
+  varianceQuantity?: number;
+  unitCost: number;
+  varianceValue?: number;
+  adjustmentReason?: string;
+  isAdjusted: boolean;
+  countedAt?: Date;
+  countedBy?: string;
+  createdAt: Date;
+  
+  product?: Product;
+}
+```
+
+---
+
+## API Endpoints
+
+### Products
+
+```
+GET    /api/v1/products                    List all products
+POST   /api/v1/products                    Create product
+GET    /api/v1/products/:id                Get product details
+PATCH  /api/v1/products/:id                Update product
+DELETE /api/v1/products/:id                Deactivate product
+POST   /api/v1/products/import             Bulk import products
+GET    /api/v1/products/:id/stock          Get stock across branches
+```
+
+### Product Categories
+
+```
+GET    /api/v1/product-categories          List categories
+POST   /api/v1/product-categories          Create category
+PATCH  /api/v1/product-categories/:id      Update category
+DELETE /api/v1/product-categories/:id      Delete category
+```
+
+### Branch Product Settings
+
+```
+GET    /api/v1/branches/:id/products       List products for branch
+PATCH  /api/v1/branches/:id/products/:pid  Update branch product settings
+POST   /api/v1/branches/:id/products/bulk  Bulk update settings
+```
+
+### Vendors
+
+```
+GET    /api/v1/vendors                     List vendors
+POST   /api/v1/vendors                     Create vendor
+GET    /api/v1/vendors/:id                 Get vendor details
+PATCH  /api/v1/vendors/:id                 Update vendor
+DELETE /api/v1/vendors/:id                 Deactivate vendor
+GET    /api/v1/vendors/:id/products        Get vendor products
+POST   /api/v1/vendors/:id/products        Map product to vendor
+```
+
+### Purchase Orders
+
+```
+GET    /api/v1/purchase-orders             List purchase orders
+POST   /api/v1/purchase-orders             Create purchase order
+GET    /api/v1/purchase-orders/:id         Get PO details
+PATCH  /api/v1/purchase-orders/:id         Update PO
+POST   /api/v1/purchase-orders/:id/send    Send PO to vendor
+POST   /api/v1/purchase-orders/:id/cancel  Cancel PO
+GET    /api/v1/purchase-orders/suggest     Get reorder suggestions
+```
+
+### Goods Receipts
+
+```
+GET    /api/v1/goods-receipts              List goods receipts
+POST   /api/v1/goods-receipts              Create goods receipt
+GET    /api/v1/goods-receipts/:id          Get GRN details
+PATCH  /api/v1/goods-receipts/:id          Update GRN
+POST   /api/v1/goods-receipts/:id/confirm  Confirm GRN
+POST   /api/v1/goods-receipts/:id/cancel   Cancel GRN
+```
+
+### Stock
+
+```
+GET    /api/v1/stock                       Get stock summary
+GET    /api/v1/stock/:productId            Get product stock details
+GET    /api/v1/stock/low                   Get low stock items
+GET    /api/v1/stock/expiring              Get near-expiry items
+POST   /api/v1/stock/consume               Record consumption
+POST   /api/v1/stock/adjust                Record adjustment
+GET    /api/v1/stock/movements             Get stock movements
+```
+
+### Stock Transfers
+
+```
+GET    /api/v1/stock-transfers             List transfers
+POST   /api/v1/stock-transfers             Create transfer request
+GET    /api/v1/stock-transfers/:id         Get transfer details
+POST   /api/v1/stock-transfers/:id/approve Approve transfer
+POST   /api/v1/stock-transfers/:id/reject  Reject transfer
+POST   /api/v1/stock-transfers/:id/dispatch Mark as dispatched
+POST   /api/v1/stock-transfers/:id/receive Confirm receipt
+```
+
+### Stock Audits
+
+```
+GET    /api/v1/stock-audits                List audits
+POST   /api/v1/stock-audits                Start new audit
+GET    /api/v1/stock-audits/:id            Get audit details
+PATCH  /api/v1/stock-audits/:id/items      Update audit counts
+POST   /api/v1/stock-audits/:id/complete   Complete audit
+POST   /api/v1/stock-audits/:id/post       Post adjustments
+```
+
+---
+
+## Business Logic
+
+### 1. Stock Service
+
+```typescript
+class StockService {
+  /**
+   * Add stock from goods receipt (FIFO)
+   */
+  async addStock(
+    branchId: string,
+    items: GoodsReceiptItem[],
+    sourceType: string,
+    sourceId: string,
+    userId: string
+  ): Promise<void> {
+    for (const item of items) {
+      if (item.acceptedQuantity <= 0) continue;
+
+      await this.db.transaction(async (tx) => {
+        // 1. Create stock batch
+        const batch = await tx.stockBatches.create({
+          tenantId: this.tenantId,
+          branchId,
+          productId: item.productId,
+          batchNumber: item.batchNumber,
+          expiryDate: item.expiryDate,
+          sourceType,
+          sourceId,
+          initialQuantity: item.acceptedQuantity,
+          currentQuantity: item.acceptedQuantity,
+          unitCost: item.effectiveUnitPrice,
+          receivedAt: new Date(),
+        });
+
+        // 2. Update stock summary
+        await this.updateStockSummary(tx, branchId, item.productId);
+
+        // 3. Record movement
+        const summary = await tx.stockSummary.findUnique({
+          where: { branchId_productId: { branchId, productId: item.productId } },
+        });
+
+        await tx.stockMovements.create({
+          tenantId: this.tenantId,
+          branchId,
+          productId: item.productId,
+          movementType: StockMovementType.STOCK_IN,
+          quantity: item.acceptedQuantity,
+          balanceAfter: summary!.quantityOnHand,
+          unitCost: item.effectiveUnitPrice,
+          totalCost: item.acceptedQuantity * item.effectiveUnitPrice,
+          referenceType: 'goods_receipt',
+          referenceId: sourceId,
+          batchId: batch.id,
+          movementDate: new Date().toISOString().split('T')[0],
+          createdBy: userId,
+        });
+      });
+    }
+  }
+
+  /**
+   * Consume stock using FIFO
+   */
+  async consumeStock(
+    branchId: string,
+    productId: string,
+    quantity: number,
+    reasonCode: string,
+    reasonDescription: string,
+    referenceType?: string,
+    referenceId?: string,
+    userId?: string,
+    allowNegative: boolean = false
+  ): Promise<StockMovement> {
+    return this.db.transaction(async (tx) => {
+      // 1. Check available stock
+      const summary = await tx.stockSummary.findUnique({
+        where: { branchId_productId: { branchId, productId } },
+      });
+
+      if (!summary || summary.quantityAvailable < quantity) {
+        if (!allowNegative) {
+          throw new BadRequestError(
+            'INSUFFICIENT_STOCK',
+            `Insufficient stock. Available: ${summary?.quantityAvailable || 0}, Requested: ${quantity}`
+          );
+        }
+      }
+
+      // 2. Consume from batches (FIFO - oldest first)
+      let remainingQuantity = quantity;
+      let totalCost = 0;
+
+      const batches = await tx.stockBatches.findMany({
+        where: {
+          branchId,
+          productId,
+          isDepleted: false,
+          currentQuantity: { gt: 0 },
+        },
+        orderBy: { receivedAt: 'asc' }, // FIFO
+      });
+
+      for (const batch of batches) {
+        if (remainingQuantity <= 0) break;
+
+        const consumeFromBatch = Math.min(batch.currentQuantity, remainingQuantity);
+        const newQuantity = batch.currentQuantity - consumeFromBatch;
+
+        await tx.stockBatches.update(batch.id, {
+          currentQuantity: newQuantity,
+          isDepleted: newQuantity === 0,
+          depletedAt: newQuantity === 0 ? new Date() : null,
+        });
+
+        totalCost += consumeFromBatch * batch.unitCost;
+        remainingQuantity -= consumeFromBatch;
+      }
+
+      // 3. Update stock summary
+      await this.updateStockSummary(tx, branchId, productId);
+
+      // 4. Get updated summary for balance
+      const updatedSummary = await tx.stockSummary.findUnique({
+        where: { branchId_productId: { branchId, productId } },
+      });
+
+      // 5. Record movement
+      const movement = await tx.stockMovements.create({
+        tenantId: this.tenantId,
+        branchId,
+        productId,
+        movementType: StockMovementType.CONSUMPTION,
+        quantity: -quantity,
+        balanceAfter: updatedSummary!.quantityOnHand,
+        unitCost: totalCost / quantity,
+        totalCost,
+        referenceType,
+        referenceId,
+        reasonCode,
+        reasonDescription,
+        movementDate: new Date().toISOString().split('T')[0],
+        createdBy: userId,
+      });
+
+      return movement;
+    });
+  }
+
+  /**
+   * Update stock summary (recalculate from batches)
+   */
+  private async updateStockSummary(
+    tx: Transaction,
+    branchId: string,
+    productId: string
+  ): Promise<void> {
+    // Get all active batches
+    const batches = await tx.stockBatches.findMany({
+      where: { branchId, productId, isDepleted: false },
+    });
+
+    const quantityOnHand = batches.reduce((sum, b) => sum + b.currentQuantity, 0);
+    const totalValue = batches.reduce((sum, b) => sum + (b.currentQuantity * b.unitCost), 0);
+    const averageCost = quantityOnHand > 0 ? totalValue / quantityOnHand : 0;
+
+    // Get branch settings for reorder level
+    const settings = await tx.branchProductSettings.findUnique({
+      where: { branchId_productId: { branchId, productId } },
+    });
+    const reorderLevel = settings?.reorderLevel || 10;
+
+    await tx.stockSummary.upsert({
+      where: { branchId_productId: { branchId, productId } },
+      create: {
+        tenantId: this.tenantId,
+        branchId,
+        productId,
+        quantityOnHand,
+        quantityAvailable: quantityOnHand,
+        totalValue,
+        averageCost,
+        isLowStock: quantityOnHand <= reorderLevel,
+        isOutOfStock: quantityOnHand === 0,
+        lastStockInDate: new Date().toISOString().split('T')[0],
+      },
+      update: {
+        quantityOnHand,
+        quantityAvailable: quantityOnHand,
+        totalValue,
+        averageCost,
+        isLowStock: quantityOnHand <= reorderLevel,
+        isOutOfStock: quantityOnHand === 0,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Get near-expiry items
+   */
+  async getNearExpiryItems(branchId: string, daysThreshold: number = 30): Promise<StockBatch[]> {
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
+
+    return this.db.stockBatches.findMany({
+      where: {
+        branchId,
+        isDepleted: false,
+        isExpired: false,
+        expiryDate: {
+          lte: thresholdDate.toISOString().split('T')[0],
+          gte: new Date().toISOString().split('T')[0],
+        },
+      },
+      include: { product: true },
+      orderBy: { expiryDate: 'asc' },
+    });
+  }
+
+  /**
+   * Mark expired batches
+   */
+  async markExpiredBatches(branchId: string): Promise<number> {
+    const today = new Date().toISOString().split('T')[0];
+
+    const expiredBatches = await this.db.stockBatches.findMany({
+      where: {
+        branchId,
+        isDepleted: false,
+        isExpired: false,
+        expiryDate: { lt: today },
+      },
+    });
+
+    for (const batch of expiredBatches) {
+      await this.db.transaction(async (tx) => {
+        // Mark batch as expired
+        await tx.stockBatches.update(batch.id, {
+          isExpired: true,
+        });
+
+        // Record movement
+        await tx.stockMovements.create({
+          tenantId: this.tenantId,
+          branchId,
+          productId: batch.productId,
+          movementType: StockMovementType.EXPIRED,
+          quantity: -batch.currentQuantity,
+          balanceAfter: 0,
+          unitCost: batch.unitCost,
+          totalCost: batch.currentQuantity * batch.unitCost,
+          batchId: batch.id,
+          reasonCode: 'expired',
+          reasonDescription: `Batch ${batch.batchNumber || batch.id} expired on ${batch.expiryDate}`,
+          movementDate: today,
+        });
+
+        // Update summary
+        await this.updateStockSummary(tx, branchId, batch.productId);
+      });
+    }
+
+    return expiredBatches.length;
+  }
+}
+```
+
+### 2. Stock Transfer Service
+
+```typescript
+class StockTransferService {
+  /**
+   * Create transfer request
+   */
+  async createTransferRequest(
+    request: CreateStockTransferRequest,
+    userId: string
+  ): Promise<StockTransfer> {
+    // Validate source has sufficient stock
+    for (const item of request.items) {
+      const stock = await this.db.stockSummary.findUnique({
+        where: {
+          branchId_productId: {
+            branchId: request.sourceBranchId,
+            productId: item.productId,
+          },
+        },
+      });
+
+      if (!stock || stock.quantityAvailable < item.quantity) {
+        const product = await this.db.products.findUnique({
+          where: { id: item.productId },
+        });
+        throw new BadRequestError(
+          'INSUFFICIENT_STOCK',
+          `Insufficient stock for ${product!.name}. Available: ${stock?.quantityAvailable || 0}`
+        );
+      }
+    }
+
+    // Generate transfer number
+    const transferNumber = await this.generateTransferNumber();
+
+    // Calculate totals
+    let totalQuantity = 0;
+    let totalValue = 0;
+
+    const itemsWithCost = await Promise.all(
+      request.items.map(async (item) => {
+        const stock = await this.db.stockSummary.findUnique({
+          where: {
+            branchId_productId: {
+              branchId: request.sourceBranchId,
+              productId: item.productId,
+            },
+          },
+        });
+
+        totalQuantity += item.quantity;
+        totalValue += item.quantity * stock!.averageCost;
+
+        return {
+          ...item,
+          unitCost: stock!.averageCost,
+          totalCost: item.quantity * stock!.averageCost,
+        };
+      })
+    );
+
+    // Create transfer
+    const transfer = await this.db.stockTransfers.create({
+      tenantId: this.tenantId,
+      transferNumber,
+      transferDate: new Date().toISOString().split('T')[0],
+      sourceBranchId: request.sourceBranchId,
+      destinationBranchId: request.destinationBranchId,
+      status: TransferStatus.REQUESTED,
+      totalItems: request.items.length,
+      totalQuantity,
+      totalValue,
+      requestNotes: request.requestNotes,
+      requestedBy: userId,
+    });
+
+    // Create transfer items
+    for (const item of itemsWithCost) {
+      await this.db.stockTransferItems.create({
+        tenantId: this.tenantId,
+        transferId: transfer.id,
+        productId: item.productId,
+        requestedQuantity: item.quantity,
+        unitCost: item.unitCost,
+        totalCost: item.totalCost,
+      });
+    }
+
+    // Notify destination branch
+    await this.notificationService.notifyTransferRequest(transfer);
+
+    return transfer;
+  }
+
+  /**
+   * Receive transfer at destination
+   */
+  async receiveTransfer(
+    transferId: string,
+    request: ReceiveStockTransferRequest,
+    userId: string
+  ): Promise<StockTransfer> {
+    const transfer = await this.db.stockTransfers.findUnique({
+      where: { id: transferId },
+      include: { items: true },
+    });
+
+    if (!transfer) {
+      throw new NotFoundError('TRANSFER_NOT_FOUND', 'Transfer not found');
+    }
+
+    if (transfer.status !== TransferStatus.IN_TRANSIT) {
+      throw new BadRequestError('INVALID_STATUS', 'Transfer is not in transit');
+    }
+
+    return this.db.transaction(async (tx) => {
+      const discrepancies: any[] = [];
+
+      for (const receivedItem of request.items) {
+        const transferItem = transfer.items!.find(
+          (i) => i.id === receivedItem.transferItemId
+        );
+
+        if (!transferItem) continue;
+
+        // Add stock to destination branch
+        if (receivedItem.receivedQuantity > 0) {
+          await this.stockService.addStock(
+            transfer.destinationBranchId,
+            [{
+              productId: transferItem.productId,
+              acceptedQuantity: receivedItem.receivedQuantity,
+              effectiveUnitPrice: transferItem.unitCost,
+              batchNumber: `TRF-${transfer.transferNumber}`,
+            }],
+            'transfer_in',
+            transfer.id,
+            userId
+          );
+        }
+
+        // Calculate discrepancy
+        const discrepancy = (transferItem.dispatchedQuantity || 0) - receivedItem.receivedQuantity;
+
+        // Update transfer item
+        await tx.stockTransferItems.update(transferItem.id, {
+          receivedQuantity: receivedItem.receivedQuantity,
+          discrepancyQuantity: discrepancy,
+          discrepancyReason: receivedItem.discrepancyReason,
+        });
+
+        if (discrepancy !== 0) {
+          const product = await tx.products.findUnique({
+            where: { id: transferItem.productId },
+          });
+          discrepancies.push({
+            productId: transferItem.productId,
+            productName: product!.name,
+            dispatched: transferItem.dispatchedQuantity,
+            received: receivedItem.receivedQuantity,
+            difference: discrepancy,
+          });
+        }
+      }
+
+      // Update transfer status
+      const updatedTransfer = await tx.stockTransfers.update(transferId, {
+        status: TransferStatus.RECEIVED,
+        receivedAt: new Date(),
+        receivedBy: userId,
+        receiptNotes: request.receiptNotes,
+      });
+
+      return updatedTransfer;
+    });
+  }
+}
+```
+
+### 3. Stock Audit Service
+
+```typescript
+class StockAuditService {
+  /**
+   * Start a new stock audit
+   */
+  async startAudit(
+    request: StartStockAuditRequest,
+    userId: string
+  ): Promise<StockAudit> {
+    // Check for existing in-progress audit
+    const existingAudit = await this.db.stockAudits.findFirst({
+      where: {
+        branchId: request.branchId,
+        status: AuditStatus.IN_PROGRESS,
+      },
+    });
+
+    if (existingAudit) {
+      throw new ConflictError(
+        'AUDIT_IN_PROGRESS',
+        'An audit is already in progress for this branch'
+      );
+    }
+
+    // Generate audit number
+    const auditNumber = await this.generateAuditNumber(request.branchId);
+
+    // Get products to audit based on audit type
+    let productsToAudit: Product[];
+    if (request.auditType === AuditType.FULL) {
+      productsToAudit = await this.db.products.findMany({
+        where: { isActive: true },
+      });
+    } else if (request.auditType === AuditType.CATEGORY && request.categoryId) {
+      productsToAudit = await this.db.products.findMany({
+        where: { categoryId: request.categoryId, isActive: true },
+      });
+    } else {
+      throw new BadRequestError(
+        'INVALID_AUDIT_TYPE',
+        'Category ID required for partial/category audits'
+      );
+    }
+
+    return this.db.transaction(async (tx) => {
+      // Create audit record
+      const audit = await tx.stockAudits.create({
+        tenantId: this.tenantId,
+        branchId: request.branchId,
+        auditNumber,
+        auditDate: new Date().toISOString().split('T')[0],
+        auditType: request.auditType,
+        categoryId: request.categoryId,
+        status: AuditStatus.IN_PROGRESS,
+        totalItems: productsToAudit.length,
+        notes: request.notes,
+        startedBy: userId,
+      });
+
+      // Create audit items with current system quantities
+      for (const product of productsToAudit) {
+        const stock = await tx.stockSummary.findUnique({
+          where: {
+            branchId_productId: {
+              branchId: request.branchId,
+              productId: product.id,
+            },
+          },
+        });
+
+        await tx.stockAuditItems.create({
+          tenantId: this.tenantId,
+          auditId: audit.id,
+          productId: product.id,
+          systemQuantity: stock?.quantityOnHand || 0,
+          unitCost: stock?.averageCost || product.costPrice,
+        });
+      }
+
+      return audit;
+    });
+  }
+
+  /**
+   * Post audit adjustments to stock
+   */
+  async postAuditAdjustments(
+    auditId: string,
+    items: { auditItemId: string; adjustmentReason: string }[],
+    userId: string
+  ): Promise<{ audit: StockAudit; adjustments: StockMovement[] }> {
+    const audit = await this.db.stockAudits.findUnique({
+      where: { id: auditId },
+      include: { items: true },
+    });
+
+    if (!audit) {
+      throw new NotFoundError('AUDIT_NOT_FOUND', 'Audit not found');
+    }
+
+    if (audit.status !== AuditStatus.COMPLETED) {
+      throw new BadRequestError(
+        'AUDIT_NOT_COMPLETED',
+        'Audit must be completed before posting adjustments'
+      );
+    }
+
+    const adjustments: StockMovement[] = [];
+
+    return this.db.transaction(async (tx) => {
+      for (const itemRequest of items) {
+        const auditItem = audit.items!.find(
+          (i) => i.id === itemRequest.auditItemId
+        );
+
+        if (!auditItem || auditItem.varianceQuantity === 0) continue;
+
+        // Create stock adjustment
+        const movement = await this.stockService.adjustStock(
+          audit.branchId,
+          auditItem.productId,
+          auditItem.varianceQuantity!,
+          'audit_adjustment',
+          itemRequest.adjustmentReason,
+          'audit',
+          audit.id,
+          userId
+        );
+
+        adjustments.push(movement);
+
+        // Mark item as adjusted
+        await tx.stockAuditItems.update(auditItem.id, {
+          adjustmentReason: itemRequest.adjustmentReason,
+          isAdjusted: true,
+        });
+      }
+
+      // Update audit status
+      const updatedAudit = await tx.stockAudits.update(auditId, {
+        status: AuditStatus.POSTED,
+        postedAt: new Date(),
+        postedBy: userId,
+      });
+
+      return { audit: updatedAudit, adjustments };
+    });
+  }
+}
+```
+
+---
+
+## Validation Schemas
+
+```typescript
+import { z } from 'zod';
+
+// =====================================================
+// PRODUCT
+// =====================================================
+export const createProductSchema = z.object({
+  name: z.string().min(2).max(255),
+  sku: z.string().max(50).optional(),
+  barcode: z.string().max(50).optional(),
+  brand: z.string().max(100).optional(),
+  categoryId: z.string().uuid().optional(),
+  description: z.string().max(1000).optional(),
+  productType: z.enum(['consumable', 'retail', 'both']),
+  unit: z.enum(['ml', 'gm', 'pieces', 'bottles', 'sachets', 'tubes', 'boxes']),
+  unitQuantity: z.number().min(0.01).default(1),
+  costPrice: z.number().min(0),
+  sellingPrice: z.number().min(0),
+  mrp: z.number().min(0).optional(),
+  gstRate: z.number().min(0).max(28).default(18),
+  hsnCode: z.string().max(20).optional(),
+  imageUrl: z.string().url().optional(),
+  trackExpiry: z.boolean().default(false),
+});
+
+export const updateProductSchema = createProductSchema.partial();
+
+// =====================================================
+// VENDOR
+// =====================================================
+export const createVendorSchema = z.object({
+  name: z.string().min(2).max(255),
+  code: z.string().max(50).optional(),
+  contactPerson: z.string().max(100).optional(),
+  phone: z.string().regex(/^[6-9]\d{9}$/).optional(),
+  email: z.string().email().optional(),
+  addressLine1: z.string().max(255).optional(),
+  addressLine2: z.string().max(255).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().max(100).optional(),
+  pincode: z.string().regex(/^\d{6}$/).optional(),
+  gstin: z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/).optional(),
+  paymentTerms: z.string().max(100).optional(),
+  leadTimeDays: z.number().int().min(0).default(7),
+});
+
+// =====================================================
+// PURCHASE ORDER
+// =====================================================
+export const createPurchaseOrderSchema = z.object({
+  branchId: z.string().uuid(),
+  vendorId: z.string().uuid(),
+  expectedDeliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  items: z.array(z.object({
+    productId: z.string().uuid(),
+    quantity: z.number().min(0.01),
+    unitPrice: z.number().min(0),
+  })).min(1),
+  notes: z.string().max(1000).optional(),
+});
+
+// =====================================================
+// GOODS RECEIPT
+// =====================================================
+export const createGoodsReceiptSchema = z.object({
+  branchId: z.string().uuid(),
+  purchaseOrderId: z.string().uuid().optional(),
+  vendorId: z.string().uuid(),
+  vendorInvoiceNumber: z.string().max(50).optional(),
+  vendorInvoiceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  items: z.array(z.object({
+    productId: z.string().uuid(),
+    poItemId: z.string().uuid().optional(),
+    receivedQuantity: z.number().min(0),
+    focQuantity: z.number().min(0).default(0),
+    rejectedQuantity: z.number().min(0).default(0),
+    batchNumber: z.string().max(50).optional(),
+    manufacturingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    expiryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    unitPrice: z.number().min(0),
+    qualityStatus: z.enum(['accepted', 'rejected', 'partial']).default('accepted'),
+    rejectionReason: z.string().max(500).optional(),
+  })).min(1),
+  notes: z.string().max(1000).optional(),
+});
+
+// =====================================================
+// STOCK OPERATIONS
+// =====================================================
+export const recordConsumptionSchema = z.object({
+  branchId: z.string().uuid(),
+  items: z.array(z.object({
+    productId: z.string().uuid(),
+    quantity: z.number().min(0.01),
+    reasonCode: z.enum(['service', 'sample', 'demo', 'wastage', 'other']),
+    reasonDescription: z.string().max(500).optional(),
+    referenceType: z.enum(['invoice', 'appointment']).optional(),
+    referenceId: z.string().uuid().optional(),
+  })).min(1),
+});
+
+export const stockAdjustmentSchema = z.object({
+  branchId: z.string().uuid(),
+  productId: z.string().uuid(),
+  adjustmentType: z.enum(['increase', 'decrease']),
+  quantity: z.number().min(0.01),
+  reasonCode: z.enum(['wastage', 'theft', 'damage', 'expired', 'correction', 'other']),
+  reasonDescription: z.string().min(10).max(500),
+});
+
+// =====================================================
+// STOCK TRANSFER
+// =====================================================
+export const createStockTransferSchema = z.object({
+  sourceBranchId: z.string().uuid(),
+  destinationBranchId: z.string().uuid(),
+  items: z.array(z.object({
+    productId: z.string().uuid(),
+    quantity: z.number().min(0.01),
+  })).min(1),
+  requestNotes: z.string().max(1000).optional(),
+}).refine(data => data.sourceBranchId !== data.destinationBranchId, {
+  message: 'Source and destination branches must be different',
+});
+
+export const receiveStockTransferSchema = z.object({
+  items: z.array(z.object({
+    transferItemId: z.string().uuid(),
+    receivedQuantity: z.number().min(0),
+    discrepancyReason: z.string().max(500).optional(),
+  })).min(1),
+  receiptNotes: z.string().max(1000).optional(),
+});
+
+// =====================================================
+// STOCK AUDIT
+// =====================================================
+export const startStockAuditSchema = z.object({
+  branchId: z.string().uuid(),
+  auditType: z.enum(['full', 'partial', 'category']),
+  categoryId: z.string().uuid().optional(),
+  notes: z.string().max(1000).optional(),
+}).refine(
+  data => !(data.auditType === 'category' && !data.categoryId),
+  { message: 'categoryId is required for category audits' }
+);
+
+export const updateAuditCountsSchema = z.object({
+  items: z.array(z.object({
+    auditItemId: z.string().uuid(),
+    physicalQuantity: z.number().min(0),
+  })).min(1),
+});
+
+export const postAuditAdjustmentsSchema = z.object({
+  items: z.array(z.object({
+    auditItemId: z.string().uuid(),
+    adjustmentReason: z.string().min(10).max(500),
+  })).min(1),
+});
+```
+
+---
+
+## Integration Points
+
+### Inbound Dependencies (This module uses)
+
+| Module             | Integration                | Purpose                            |
+| ------------------ | -------------------------- | ---------------------------------- |
+| Tenant Management  | Branch data                | Branch-level stock tracking        |
+| Services & Pricing | Service-consumable mapping | Auto-deduct consumables on billing |
+| Billing            | Invoice finalization       | Trigger stock consumption          |
+
+### Outbound Dependencies (Other modules use this)
+
+| Module             | Integration             | Purpose                                  |
+| ------------------ | ----------------------- | ---------------------------------------- |
+| Billing            | Product prices, stock   | Bill retail products, check availability |
+| Services & Pricing | Consumable availability | Check if service can be performed        |
+| Reports            | Stock data, movements   | Inventory reports, valuation reports     |
+| Expenses           | Purchase order data     | Track purchase expenses                  |
+
+### Event Emissions
+
+```typescript
+const INVENTORY_EVENTS = {
+  // Product events
+  PRODUCT_CREATED: 'product.created',
+  PRODUCT_UPDATED: 'product.updated',
+  PRODUCT_DEACTIVATED: 'product.deactivated',
+
+  // Stock events
+  STOCK_RECEIVED: 'stock.received',
+  STOCK_CONSUMED: 'stock.consumed',
+  STOCK_ADJUSTED: 'stock.adjusted',
+  STOCK_EXPIRED: 'stock.expired',
+
+  // Alert events
+  LOW_STOCK_ALERT: 'stock.low_stock_alert',
+  OUT_OF_STOCK_ALERT: 'stock.out_of_stock_alert',
+  EXPIRY_ALERT: 'stock.expiry_alert',
+
+  // Purchase order events
+  PO_CREATED: 'purchase_order.created',
+  PO_SENT: 'purchase_order.sent',
+  PO_RECEIVED: 'purchase_order.received',
+  PO_CANCELLED: 'purchase_order.cancelled',
+
+  // Transfer events
+  TRANSFER_REQUESTED: 'stock_transfer.requested',
+  TRANSFER_APPROVED: 'stock_transfer.approved',
+  TRANSFER_DISPATCHED: 'stock_transfer.dispatched',
+  TRANSFER_RECEIVED: 'stock_transfer.received',
+  TRANSFER_DISCREPANCY: 'stock_transfer.discrepancy',
+
+  // Audit events
+  AUDIT_STARTED: 'stock_audit.started',
+  AUDIT_COMPLETED: 'stock_audit.completed',
+  AUDIT_POSTED: 'stock_audit.posted',
+};
+
+interface LowStockAlertEvent {
+  tenantId: string;
+  branchId: string;
+  productId: string;
+  productName: string;
+  currentStock: number;
+  reorderLevel: number;
+}
+
+interface TransferDiscrepancyEvent {
+  tenantId: string;
+  transferId: string;
+  transferNumber: string;
+  sourceBranchId: string;
+  destinationBranchId: string;
+  discrepancies: {
+    productId: string;
+    productName: string;
+    dispatched: number;
+    received: number;
+    difference: number;
+  }[];
+}
+```
+
+---
+
+## Error Handling
+
+```typescript
+export const INVENTORY_ERRORS = {
+  // Product errors
+  PRODUCT_NOT_FOUND: {
+    code: 'INV_001',
+    message: 'Product not found',
+    httpStatus: 404,
+  },
+  DUPLICATE_SKU: {
+    code: 'INV_002',
+    message: 'Product with this SKU already exists',
+    httpStatus: 409,
+  },
+  DUPLICATE_BARCODE: {
+    code: 'INV_003',
+    message: 'Product with this barcode already exists',
+    httpStatus: 409,
+  },
+  PRODUCT_IN_USE: {
+    code: 'INV_004',
+    message: 'Product cannot be deleted as it is in use',
+    httpStatus: 400,
+  },
+
+  // Stock errors
+  INSUFFICIENT_STOCK: {
+    code: 'INV_010',
+    message: 'Insufficient stock available',
+    httpStatus: 400,
+  },
+  NEGATIVE_STOCK_NOT_ALLOWED: {
+    code: 'INV_011',
+    message: 'Stock cannot go negative',
+    httpStatus: 400,
+  },
+  STOCK_RESERVED: {
+    code: 'INV_012',
+    message: 'Stock is reserved for pending orders',
+    httpStatus: 400,
+  },
+
+  // Vendor errors
+  VENDOR_NOT_FOUND: {
+    code: 'INV_020',
+    message: 'Vendor not found',
+    httpStatus: 404,
+  },
+  VENDOR_INACTIVE: {
+    code: 'INV_021',
+    message: 'Vendor is inactive',
+    httpStatus: 400,
+  },
+
+  // Purchase order errors
+  PO_NOT_FOUND: {
+    code: 'INV_030',
+    message: 'Purchase order not found',
+    httpStatus: 404,
+  },
+  PO_NOT_DRAFT: {
+    code: 'INV_031',
+    message: 'Only draft purchase orders can be modified',
+    httpStatus: 400,
+  },
+  PO_ALREADY_SENT: {
+    code: 'INV_032',
+    message: 'Purchase order has already been sent',
+    httpStatus: 400,
+  },
+  PO_FULLY_RECEIVED: {
+    code: 'INV_033',
+    message: 'Purchase order has been fully received',
+    httpStatus: 400,
+  },
+
+  // Goods receipt errors
+  GRN_NOT_FOUND: {
+    code: 'INV_040',
+    message: 'Goods receipt not found',
+    httpStatus: 404,
+  },
+  GRN_ALREADY_CONFIRMED: {
+    code: 'INV_041',
+    message: 'Goods receipt has already been confirmed',
+    httpStatus: 400,
+  },
+  QUANTITY_EXCEEDS_PO: {
+    code: 'INV_042',
+    message: 'Received quantity exceeds pending PO quantity',
+    httpStatus: 400,
+  },
+
+  // Transfer errors
+  TRANSFER_NOT_FOUND: {
+    code: 'INV_050',
+    message: 'Stock transfer not found',
+    httpStatus: 404,
+  },
+  INVALID_TRANSFER_STATUS: {
+    code: 'INV_051',
+    message: 'Invalid transfer status for this operation',
+    httpStatus: 400,
+  },
+  SAME_BRANCH_TRANSFER: {
+    code: 'INV_052',
+    message: 'Cannot transfer to the same branch',
+    httpStatus: 400,
+  },
+  TRANSFER_DISCREPANCY_LIMIT: {
+    code: 'INV_053',
+    message: 'Transfer discrepancy exceeds allowed limit',
+    httpStatus: 400,
+  },
+
+  // Audit errors
+  AUDIT_NOT_FOUND: {
+    code: 'INV_060',
+    message: 'Stock audit not found',
+    httpStatus: 404,
+  },
+  AUDIT_IN_PROGRESS: {
+    code: 'INV_061',
+    message: 'An audit is already in progress for this branch',
+    httpStatus: 409,
+  },
+  AUDIT_NOT_IN_PROGRESS: {
+    code: 'INV_062',
+    message: 'Audit is not in progress',
+    httpStatus: 400,
+  },
+  AUDIT_NOT_COMPLETED: {
+    code: 'INV_063',
+    message: 'Audit must be completed before posting adjustments',
+    httpStatus: 400,
+  },
+  ITEMS_NOT_COUNTED: {
+    code: 'INV_064',
+    message: 'All items must be counted before completing audit',
+    httpStatus: 400,
+  },
+};
+```
+
+---
+
+## Testing Considerations
+
+### Unit Tests
+
+```typescript
+describe('StockService', () => {
+  describe('addStock', () => {
+    it('should create stock batch with correct FIFO data');
+    it('should update stock summary after adding stock');
+    it('should record stock_in movement');
+    it('should handle FOC quantity in effective price calculation');
+  });
+
+  describe('consumeStock', () => {
+    it('should consume from oldest batch first (FIFO)');
+    it('should throw error when insufficient stock');
+    it('should allow negative stock when allowNegative is true');
+    it('should mark batch as depleted when fully consumed');
+    it('should calculate weighted average cost for consumption');
+  });
+
+  describe('getNearExpiryItems', () => {
+    it('should return items expiring within threshold days');
+    it('should exclude already expired items');
+    it('should exclude depleted batches');
+  });
+});
+
+describe('StockTransferService', () => {
+  describe('createTransferRequest', () => {
+    it('should validate source branch has sufficient stock');
+    it('should calculate transfer value at average cost');
+    it('should notify destination branch');
+  });
+
+  describe('receiveTransfer', () => {
+    it('should add stock to destination branch');
+    it('should record discrepancies');
+    it('should create audit log for discrepancies');
+  });
+});
+
+describe('StockAuditService', () => {
+  describe('startAudit', () => {
+    it('should prevent starting audit when one is in progress');
+    it('should create audit items with current system quantities');
+    it('should filter products by category for partial audits');
+  });
+
+  describe('postAuditAdjustments', () => {
+    it('should create stock adjustments for variances');
+    it('should update stock summary after adjustments');
+    it('should create audit log with shrinkage details');
+  });
+});
+```
+
+### Integration Tests
+
+```typescript
+describe('Inventory Flow Integration', () => {
+  it('should complete full PO flow: create → send → receive → stock update');
+  it('should complete transfer flow: request → approve → dispatch → receive');
+  it('should complete audit flow: start → count → complete → post adjustments');
+  it('should auto-deduct consumables when invoice is finalized');
+  it('should trigger low stock alert when stock falls below reorder level');
+});
+```
+
+---
+
+## Performance Considerations
+
+1. **Stock Summary Table**: Denormalized table for quick stock lookups, updated on every stock movement
+2. **Batch Queries**: Index on (branch_id, product_id, is_depleted) for efficient FIFO consumption
+3. **Expiry Checks**: Scheduled job to mark expired batches, index on (branch_id, expiry_date, is_depleted)
+4. **Movement History**: Partition stock_movements table by date for large datasets
+5. **Reorder Suggestions**: Cache consumption trends, recalculate daily via scheduled job
+6. **Bulk Operations**: Use batch inserts for GRN items and audit items
+7. **Stock Valuation**: Pre-calculate total_value in stock_summary, avoid real-time aggregation
+
+---
+
+## Security Considerations
+
+1. **Price Manipulation**: Validate GRN prices against PO prices, flag significant deviations
+2. **Stock Adjustments**: Require Branch_Manager or higher for manual adjustments, log all with reason
+3. **Audit Access**: Only Branch_Manager can start/complete/post audits
+4. **Transfer Authorization**: Source branch manager must approve outgoing transfers
+5. **Negative Stock Prevention**: Block consumption when stock is insufficient (configurable)
+6. **Shrinkage Monitoring**: Alert on high shrinkage values, require explanation for variances
+7. **Audit Trail**: Log all stock movements with user ID, timestamp, and reference
+8. **Vendor Data**: Validate GSTIN format, prevent duplicate vendor codes

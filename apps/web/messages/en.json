@@ -1,0 +1,1145 @@
+{
+  "common": {
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "add": "Add",
+      "search": "Search",
+      "filter": "Filter",
+      "export": "Export",
+      "back": "Back",
+      "next": "Next",
+      "previous": "Previous",
+      "confirm": "Confirm",
+      "close": "Close",
+      "view": "View",
+      "create": "Create",
+      "update": "Update",
+      "submit": "Submit",
+      "reset": "Reset",
+      "clear": "Clear",
+      "apply": "Apply",
+      "refresh": "Refresh",
+      "duplicate": "Duplicate",
+      "viewDetails": "View Details"
+    },
+    "status": {
+      "loading": "Loading...",
+      "saving": "Saving...",
+      "creating": "Creating...",
+      "success": "Success",
+      "error": "Error",
+      "pending": "Pending",
+      "completed": "Completed",
+      "active": "Active",
+      "inactive": "Inactive",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "confirmed": "Confirmed",
+      "inProgress": "In Progress",
+      "popular": "Popular"
+    },
+    "validation": {
+      "required": "This field is required",
+      "invalidEmail": "Invalid email address",
+      "invalidPhone": "Invalid phone number",
+      "minLength": "Must be at least {min} characters",
+      "maxLength": "Must be at most {max} characters",
+      "minValue": "Must be at least {min}",
+      "maxValue": "Must be at most {max}",
+      "phoneMinLength": "Phone number must be at least 10 digits",
+      "phoneMaxLength": "Phone number is too long",
+      "phoneFormat": "Invalid phone number format",
+      "nameMinLength": "Name must be at least 2 characters"
+    },
+    "pagination": {
+      "page": "Page",
+      "of": "of",
+      "showing": "Showing",
+      "to": "to",
+      "results": "results",
+      "rowsPerPage": "Rows per page",
+      "noResults": "No results found"
+    },
+    "empty": {
+      "title": "No data",
+      "description": "No items to display"
+    },
+    "confirm": {
+      "deleteTitle": "Confirm Delete",
+      "deleteDescription": "Are you sure you want to delete this item? This action cannot be undone."
+    },
+    "time": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "yesterday": "Yesterday",
+      "min": "min"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "customers": "Customers",
+    "appointments": "Appointments",
+    "walkIn": "Walk-in Queue",
+    "services": "Services",
+    "staff": "Staff",
+    "staffList": "Staff List",
+    "attendance": "Attendance",
+    "leaves": "Leaves",
+    "payroll": "Payroll",
+    "billing": "Billing",
+    "invoices": "Invoices",
+    "dayClosure": "Day Closure",
+    "creditNotes": "Credit Notes",
+    "inventory": "Inventory",
+    "stock": "Stock",
+    "products": "Products",
+    "vendors": "Vendors",
+    "purchaseOrders": "Purchase Orders",
+    "goodsReceipts": "Goods Receipts",
+    "transfers": "Transfers",
+    "audits": "Audits",
+    "inventoryReports": "Inventory Reports",
+    "memberships": "Memberships",
+    "membershipPlans": "Membership Plans",
+    "customerMemberships": "Customer Memberships",
+    "packages": "Packages",
+    "customerPackages": "Customer Packages",
+    "reports": "Reports",
+    "settings": "Settings",
+    "marketing": "Marketing",
+    "help": "Help",
+    "categories": "Categories",
+    "combos": "Combos"
+  },
+  "dashboard": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "subtitle": "Here's what's happening at {salon} today",
+    "quickActions": {
+      "newAppointment": "New Appointment",
+      "walkIn": "Walk-in",
+      "addCustomer": "Add Customer"
+    },
+    "stats": {
+      "todayAppointments": "Today's Appointments",
+      "pendingConfirmations": "Pending Confirmations",
+      "todayRevenue": "Today's Revenue",
+      "walkInSlots": "Walk-in Slots"
+    },
+    "schedule": {
+      "title": "Today's Schedule",
+      "noAppointments": "No appointments today",
+      "noAppointmentsDesc": "Your schedule is clear. Add a new appointment or wait for online bookings."
+    },
+    "activity": {
+      "title": "Recent Activity",
+      "noActivity": "No recent activity",
+      "noActivityDesc": "Activity will appear here as you manage your salon."
+    }
+  },
+  "customers": {
+    "list": {
+      "title": "Customers",
+      "description": "Manage your customer database and profiles",
+      "addCustomer": "Add Customer",
+      "noCustomers": "No customers found",
+      "noCustomersFiltered": "Try adjusting your filters to find what you're looking for.",
+      "noCustomersEmpty": "Get started by adding your first customer.",
+      "searchPlaceholder": "Search by name or phone...",
+      "confirmDelete": "Are you sure you want to deactivate this customer?"
+    },
+    "detail": {
+      "title": "Customer Details",
+      "overview": "Overview",
+      "loyalty": "Loyalty",
+      "wallet": "Wallet",
+      "notes": "Notes",
+      "history": "History",
+      "notFound": "Customer not found",
+      "notFoundDesc": "The customer you're looking for doesn't exist or has been removed.",
+      "backToCustomers": "Back to Customers"
+    },
+    "form": {
+      "addTitle": "Add Customer",
+      "addDescription": "Create a new customer profile",
+      "editTitle": "Edit {name}",
+      "editDescription": "Update customer information",
+      "basicInfo": "Basic Information",
+      "basicInfoDesc": "Customer contact details",
+      "personalDetails": "Personal Details",
+      "personalDetailsDesc": "Important dates and address",
+      "healthSafety": "Health & Safety",
+      "healthSafetyDesc": "Important health information for service providers",
+      "communication": "Communication",
+      "communicationDesc": "Marketing and notification preferences",
+      "phone": {
+        "label": "Phone Number",
+        "placeholder": "e.g., 9876543210",
+        "description": "Primary contact number (unique identifier)",
+        "cannotChange": "Phone number cannot be changed here"
+      },
+      "name": {
+        "label": "Full Name",
+        "placeholder": "e.g., John Doe"
+      },
+      "email": {
+        "label": "Email",
+        "placeholder": "e.g., john@example.com"
+      },
+      "gender": {
+        "label": "Gender",
+        "placeholder": "Select gender",
+        "male": "Male",
+        "female": "Female",
+        "other": "Other"
+      },
+      "dateOfBirth": {
+        "label": "Date of Birth",
+        "description": "For birthday greetings"
+      },
+      "anniversary": {
+        "label": "Anniversary Date",
+        "description": "For anniversary greetings"
+      },
+      "address": {
+        "label": "Address",
+        "placeholder": "Full address..."
+      },
+      "allergies": {
+        "label": "Allergies & Sensitivities",
+        "placeholder": "e.g., Latex, Ammonia, Certain hair dyes...",
+        "description": "Separate multiple allergies with commas. This will show a warning to staff."
+      },
+      "marketingConsent": {
+        "label": "Marketing Consent",
+        "description": "Customer agrees to receive promotional messages and offers"
+      },
+      "saveChanges": "Save Changes",
+      "createCustomer": "Create Customer"
+    },
+    "table": {
+      "name": "Name",
+      "phone": "Phone",
+      "email": "Email",
+      "loyaltyPoints": "Loyalty Points",
+      "walletBalance": "Wallet Balance",
+      "visits": "Visits",
+      "lastVisit": "Last Visit",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "filters": {
+      "allTags": "All Tags",
+      "allStatus": "All Status",
+      "normal": "Normal",
+      "vip": "VIP",
+      "blocked": "Blocked",
+      "restricted": "Restricted"
+    },
+    "overview": {
+      "basicInfo": "Basic Information",
+      "personalDetails": "Personal Details",
+      "tags": "Tags",
+      "tagsDesc": "Customer tags and segments",
+      "addTag": "Add Tag",
+      "noTags": "No tags assigned",
+      "allergies": "Allergies & Sensitivities",
+      "customerSince": "Customer Since",
+      "marketingConsent": "Marketing Consent",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "stats": {
+      "totalCustomers": "Total Customers",
+      "newThisMonth": "New This Month",
+      "activeCustomers": "Active Customers",
+      "totalLoyaltyPoints": "Total Loyalty Points",
+      "totalSpend": "Total Spend",
+      "totalVisits": "Total Visits",
+      "avgTicket": "Avg. Ticket",
+      "noShows": "No-Shows"
+    },
+    "loyalty": {
+      "currentBalance": "Current Balance",
+      "adjustPoints": "Adjust Points",
+      "transactionHistory": "Transaction History",
+      "noTransactions": "No transactions yet"
+    },
+    "wallet": {
+      "currentBalance": "Current Balance",
+      "adjustBalance": "Adjust Balance",
+      "transactionHistory": "Transaction History",
+      "noTransactions": "No transactions yet"
+    },
+    "notes": {
+      "addNote": "Add Note",
+      "addNotePlaceholder": "Add a note about this customer...",
+      "adding": "Adding...",
+      "notesHistory": "Notes History",
+      "noNotes": "No notes yet"
+    },
+    "dialogs": {
+      "delete": {
+        "title": "Delete Customer",
+        "description": "Are you sure you want to delete this customer? This action cannot be undone."
+      },
+      "adjustLoyalty": {
+        "title": "Adjust Loyalty Points",
+        "currentPoints": "Current Points",
+        "adjustment": "Adjustment",
+        "reason": "Reason",
+        "add": "Add Points",
+        "deduct": "Deduct Points"
+      },
+      "adjustWallet": {
+        "title": "Adjust Wallet Balance",
+        "currentBalance": "Current Balance",
+        "adjustment": "Adjustment",
+        "reason": "Reason",
+        "credit": "Credit",
+        "debit": "Debit"
+      },
+      "addTag": {
+        "title": "Add Tag",
+        "selectTag": "Select a tag",
+        "noTags": "No tags available"
+      }
+    },
+    "tags": {
+      "new": "New",
+      "regular": "Regular",
+      "vip": "VIP",
+      "inactive": "Inactive"
+    }
+  },
+  "services": {
+    "list": {
+      "title": "Services",
+      "description": "Manage your salon services and pricing",
+      "addService": "Add Service",
+      "noServices": "No services found",
+      "noServicesFiltered": "Try adjusting your filters to find what you're looking for.",
+      "noServicesEmpty": "Get started by creating your first service.",
+      "searchPlaceholder": "Search services...",
+      "confirmDelete": "Are you sure you want to delete this service?"
+    },
+    "table": {
+      "service": "Service",
+      "category": "Category",
+      "price": "Price",
+      "duration": "Duration",
+      "status": "Status"
+    },
+    "filters": {
+      "allCategories": "All Categories",
+      "allStatus": "All Status",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "detail": {
+      "errorLoading": "Error loading services",
+      "errorLoadingDesc": "There was a problem loading your services. Please try again."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "loyalty": {
+      "title": "Loyalty Settings",
+      "description": "Configure loyalty program settings"
+    },
+    "tags": {
+      "title": "Customer Tags",
+      "description": "Manage customer tags"
+    }
+  },
+  "appointments": {
+    "list": {
+      "title": "Appointments",
+      "description": "Manage your salon appointments and schedule",
+      "newAppointment": "New Appointment",
+      "viewCalendar": "Calendar",
+      "noAppointments": "No appointments found",
+      "noAppointmentsFiltered": "Try adjusting your filters to find what you're looking for.",
+      "noAppointmentsEmpty": "No appointments scheduled for this date.",
+      "searchPlaceholder": "Search by customer name or phone...",
+      "cancelReason": "Please enter a reason for cancellation:",
+      "confirmNoShow": "Are you sure you want to mark this appointment as no-show?"
+    },
+    "status": {
+      "booked": "Booked",
+      "confirmed": "Confirmed",
+      "checked_in": "Checked In",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No Show",
+      "rescheduled": "Rescheduled"
+    },
+    "filters": {
+      "selectDate": "Select date",
+      "allStatus": "All Status",
+      "allTypes": "All Types"
+    },
+    "bookingType": {
+      "online": "Online",
+      "phone": "Phone",
+      "walk_in": "Walk-in"
+    },
+    "actions": {
+      "checkIn": "Check In",
+      "start": "Start Service",
+      "complete": "Complete",
+      "cancel": "Cancel",
+      "noShow": "Mark No-Show",
+      "reschedule": "Reschedule",
+      "viewDetails": "View Details"
+    },
+    "calendar": {
+      "title": "Appointment Calendar",
+      "description": "View and manage appointments in calendar view",
+      "today": "Today",
+      "dayView": "Day",
+      "weekView": "Week",
+      "monthView": "Month",
+      "listView": "List View",
+      "total": "Total"
+    },
+    "form": {
+      "title": "New Appointment",
+      "description": "Schedule a new appointment",
+      "customer": "Customer",
+      "searchCustomer": "Search existing customer...",
+      "changeCustomer": "Change customer",
+      "orEnterDetails": "Or enter customer details:",
+      "customerName": "Customer Name",
+      "customerPhone": "Phone Number",
+      "dateTime": "Date & Time",
+      "date": "Date",
+      "selectDate": "Select a date",
+      "time": "Time",
+      "selectTime": "Select a time",
+      "bookingType": "Booking Type",
+      "services": "Services",
+      "notes": "Notes",
+      "customerNotes": "Customer Notes",
+      "internalNotes": "Internal Notes",
+      "totalDuration": "Total Duration",
+      "totalPrice": "Total Price",
+      "cancel": "Cancel",
+      "create": "Create Appointment",
+      "creating": "Creating..."
+    },
+    "detail": {
+      "title": "Appointment Details",
+      "backToList": "Back to Appointments",
+      "backToDetail": "Back to Appointment",
+      "notFound": "Appointment not found",
+      "notFoundDesc": "The appointment you're looking for doesn't exist or has been removed.",
+      "appointmentInfo": "Appointment Information",
+      "date": "Date",
+      "time": "Time",
+      "token": "Token",
+      "customer": "Customer",
+      "customerInfo": "Customer Information",
+      "services": "Services",
+      "total": "Total",
+      "statusHistory": "Status History",
+      "actions": "Actions",
+      "notes": "Notes",
+      "customerNotes": "Customer Notes",
+      "internalNotes": "Internal Notes",
+      "bookingInfo": "Booking Information",
+      "bookingType": "Booking Type",
+      "createdAt": "Created",
+      "priceLocked": "Price Locked"
+    },
+    "reschedule": {
+      "title": "Reschedule Appointment",
+      "description": "Change the date and time of this appointment",
+      "backToDetail": "Back to Appointment",
+      "currentAppointment": "Current Appointment",
+      "newDateTime": "New Date & Time",
+      "newDate": "New Date",
+      "newTime": "New Time",
+      "selectDate": "Select a date",
+      "selectTime": "Select a time",
+      "reason": "Reason for Rescheduling",
+      "reasonPlaceholder": "Optional: Enter reason for rescheduling...",
+      "count": "Reschedule Count",
+      "confirm": "Reschedule Appointment",
+      "rescheduling": "Rescheduling...",
+      "success": "Appointment rescheduled successfully",
+      "error": "Failed to reschedule appointment",
+      "notAllowed": "Cannot Reschedule",
+      "maxReached": "This appointment has reached the maximum number of reschedules (3).",
+      "invalidStatus": "This appointment cannot be rescheduled in its current status.",
+      "lastReschedule": "Last Reschedule Warning",
+      "lastRescheduleWarning": "This will be the final reschedule allowed for this appointment."
+    }
+  },
+  "walkIn": {
+    "title": "Walk-in Queue",
+    "description": "Manage walk-in customers and queue",
+    "addToQueue": "Add to Queue",
+    "currentlyServing": "Currently Serving",
+    "called": "Called",
+    "waitingQueue": "Waiting Queue",
+    "noWaiting": "No customers waiting",
+    "waitTime": "Est. wait",
+    "stats": {
+      "waiting": "Waiting",
+      "serving": "Serving",
+      "avgWait": "Avg. Wait",
+      "completed": "Completed Today"
+    },
+    "form": {
+      "name": "Customer Name",
+      "phone": "Phone (optional)",
+      "services": "Services",
+      "stylistPreference": "Stylist Preference",
+      "any": "Any",
+      "male": "Male",
+      "female": "Female",
+      "add": "Add to Queue",
+      "adding": "Adding..."
+    },
+    "actions": {
+      "call": "Call",
+      "serve": "Start Serving",
+      "complete": "Complete",
+      "left": "Left"
+    }
+  },
+  "stylistSchedule": {
+    "title": "Schedule",
+    "description": "View and manage stylist schedule, breaks, and blocked slots",
+    "backToStaff": "Back to Staff",
+    "addBreak": "Add Break",
+    "blockSlot": "Block Slot",
+    "today": "Today",
+    "noSchedule": "No schedule",
+    "fullDayBlocked": "Full Day Blocked",
+    "blocked": "Blocked",
+    "confirmDeleteBreak": "Are you sure you want to delete this break?",
+    "confirmDeleteBlock": "Are you sure you want to delete this blocked slot?",
+    "legend": {
+      "appointment": "Appointment",
+      "break": "Break",
+      "blocked": "Blocked"
+    },
+    "error": {
+      "title": "Error loading schedule",
+      "description": "There was a problem loading the schedule. Please try again."
+    },
+    "breakDialog": {
+      "title": "Add Recurring Break",
+      "description": "Create a recurring break for this stylist",
+      "name": "Break Name",
+      "namePlaceholder": "e.g., Lunch Break",
+      "dayOfWeek": "Day of Week",
+      "selectDay": "Select a day",
+      "dayHint": "Leave empty for daily break",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "cancel": "Cancel",
+      "add": "Add Break",
+      "adding": "Adding..."
+    },
+    "blockDialog": {
+      "title": "Block Time Slot",
+      "description": "Block a specific date or time for this stylist",
+      "date": "Date",
+      "fullDay": "Full Day",
+      "fullDayHint": "Block the entire day",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "reason": "Reason (optional)",
+      "reasonPlaceholder": "e.g., Personal leave, Training",
+      "cancel": "Cancel",
+      "block": "Block Slot",
+      "blocking": "Blocking..."
+    }
+  },
+  "billing": {
+    "title": "Billing",
+    "description": "Manage invoices and payments",
+    "newInvoice": "New Invoice",
+    "searchPlaceholder": "Search by invoice number, customer...",
+    "filterStatus": "Filter by status",
+    "filterPayment": "Filter by payment",
+    "allStatuses": "All Statuses",
+    "allPayments": "All Payments",
+    "status": {
+      "draft": "Draft",
+      "finalized": "Finalized",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    },
+    "payment": {
+      "pending": "Pending",
+      "partial": "Partial",
+      "paid": "Paid",
+      "refunded": "Refunded"
+    },
+    "table": {
+      "invoiceNumber": "Invoice #",
+      "date": "Date",
+      "customer": "Customer",
+      "amount": "Amount",
+      "status": "Status",
+      "payment": "Payment"
+    },
+    "empty": {
+      "title": "No invoices found",
+      "description": "Create your first invoice to get started."
+    },
+    "pagination": {
+      "showing": "Showing {from} to {to} of {total} invoices",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "detail": {
+      "title": "Invoice Details",
+      "backToList": "Back to Invoices",
+      "notFound": "Invoice not found",
+      "notFoundDesc": "The invoice you're looking for doesn't exist.",
+      "invoiceInfo": "Invoice Information",
+      "customerInfo": "Customer Information",
+      "items": "Items",
+      "payments": "Payments",
+      "summary": "Summary",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "taxable": "Taxable Amount",
+      "cgst": "CGST",
+      "sgst": "SGST",
+      "igst": "IGST",
+      "totalTax": "Total Tax",
+      "roundOff": "Round Off",
+      "grandTotal": "Grand Total",
+      "amountPaid": "Amount Paid",
+      "amountDue": "Amount Due",
+      "loyaltyEarned": "Loyalty Points Earned",
+      "loyaltyRedeemed": "Loyalty Points Redeemed",
+      "walletUsed": "Wallet Amount Used"
+    },
+    "form": {
+      "title": "New Invoice",
+      "description": "Create a new invoice",
+      "customer": "Customer",
+      "customerName": "Customer Name",
+      "customerPhone": "Phone Number",
+      "searchCustomer": "Search customer...",
+      "orEnterDetails": "Or enter customer details:",
+      "services": "Services",
+      "addService": "Add Service",
+      "selectService": "Select a service",
+      "quantity": "Qty",
+      "price": "Price",
+      "total": "Total",
+      "remove": "Remove",
+      "payment": "Payment",
+      "paymentMethod": "Payment Method",
+      "amount": "Amount",
+      "addPayment": "Add Payment",
+      "notes": "Notes",
+      "create": "Create Invoice",
+      "createAndFinalize": "Create & Finalize",
+      "creating": "Creating...",
+      "products": "Products",
+      "addProduct": "Add Product",
+      "searchProduct": "Search product...",
+      "outOfStock": "Out of stock",
+      "lowStock": "Low stock",
+      "stockAvailable": "Stock: {count}",
+      "exceedsStock": "Exceeds available stock",
+      "insufficientStock": "Insufficient stock for {product}. Available: {available}, Requested: {requested}"
+    },
+    "paymentMethods": {
+      "cash": "Cash",
+      "card": "Card",
+      "upi": "UPI",
+      "wallet": "Wallet",
+      "loyalty": "Loyalty Points",
+      "bank_transfer": "Bank Transfer",
+      "cheque": "Cheque"
+    },
+    "actions": {
+      "finalize": "Finalize",
+      "cancel": "Cancel Invoice",
+      "addPayment": "Add Payment",
+      "print": "Print",
+      "download": "Download PDF"
+    },
+    "dayClosureTitle": "Day Closure",
+    "dayClosureDescription": "Manage daily cash reconciliation and closure",
+    "openDay": "Open Day",
+    "closeDay": "Close Day",
+    "todayStatus": "Today's Status",
+    "dayOpen": "Day Open",
+    "dayClosed": "Day Closed",
+    "currentCashBalance": "Current Cash Balance",
+    "todayRevenue": "Today's Revenue",
+    "todayInvoices": "Today's Invoices",
+    "closureHistory": "Closure History",
+    "noClosures": "No closures yet",
+    "noClosuresDescription": "Day closure history will appear here.",
+    "date": "Date",
+    "revenue": "Revenue",
+    "invoices": "Invoices",
+    "expectedCash": "Expected Cash",
+    "actualCash": "Actual Cash",
+    "difference": "Difference",
+    "openDayTitle": "Open Day",
+    "openingCash": "Opening Cash",
+    "openingCashHint": "Leave empty to use previous day's closing balance",
+    "cancel": "Cancel",
+    "opening": "Opening...",
+    "closeDayTitle": "Close Day",
+    "notes": "Notes",
+    "closureNotesPlaceholder": "Add any notes about the day closure...",
+    "closing": "Closing...",
+    "creditNotes": "Credit Notes",
+    "creditNotesDescription": "Manage refunds and credit notes"
+  },
+  "staff": {
+    "title": "Staff",
+    "description": "Manage staff profiles, attendance, and payroll",
+    "addStaff": "Add Staff",
+    "searchPlaceholder": "Search by name, phone, or employee code...",
+    "noStaff": "No staff found",
+    "noStaffFiltered": "Try adjusting your filters to find what you're looking for.",
+    "noStaffEmpty": "Get started by adding your first staff member.",
+    "notFound": "Staff not found",
+    "notFoundDesc": "The staff member you're looking for doesn't exist or has been removed.",
+    "backToList": "Back to Staff",
+    "form": {
+      "addTitle": "Add Staff Member",
+      "addDescription": "Create a new staff profile",
+      "editTitle": "Edit Staff Member",
+      "editDescription": "Update staff information",
+      "basicInfo": "Basic Information",
+      "basicInfoDesc": "Staff contact and login details",
+      "personalDetails": "Personal Details",
+      "personalDetailsDesc": "Personal information and emergency contact",
+      "employmentDetails": "Employment Details",
+      "employmentDetailsDesc": "Job role and employment information",
+      "salaryCommission": "Salary & Commission",
+      "salaryCommissionDesc": "Compensation and commission settings",
+      "bankDetails": "Bank Details",
+      "bankDetailsDesc": "Bank account for salary payments",
+      "idDocuments": "ID Documents",
+      "idDocumentsDesc": "Government ID numbers",
+      "name": "Full Name",
+      "phone": "Phone Number",
+      "email": "Email",
+      "password": "Password",
+      "role": "Role",
+      "gender": "Gender",
+      "dateOfBirth": "Date of Birth",
+      "bloodGroup": "Blood Group",
+      "emergencyContactName": "Emergency Contact Name",
+      "emergencyContactPhone": "Emergency Contact Phone",
+      "address": "Address",
+      "city": "City",
+      "state": "State",
+      "pincode": "PIN Code",
+      "employeeCode": "Employee Code",
+      "designation": "Designation",
+      "department": "Department",
+      "dateOfJoining": "Date of Joining",
+      "employmentType": "Employment Type",
+      "skillLevel": "Skill Level",
+      "salaryType": "Salary Type",
+      "baseSalary": "Base Salary",
+      "commissionEnabled": "Enable Commission",
+      "commissionEnabledDesc": "Staff will earn commission on services",
+      "commissionType": "Commission Type",
+      "commissionRate": "Commission Rate",
+      "bankName": "Bank Name",
+      "bankAccountNumber": "Account Number",
+      "bankIfsc": "IFSC Code",
+      "aadharNumber": "Aadhar Number",
+      "panNumber": "PAN Number",
+      "saveChanges": "Save Changes",
+      "createStaff": "Create Staff"
+    },
+    "tabs": {
+      "profile": "Profile",
+      "employment": "Employment",
+      "salary": "Salary & Bank",
+      "documents": "Documents"
+    },
+    "sections": {
+      "basicInfo": "Basic Information",
+      "basicInfoDesc": "Contact and role details",
+      "personalDetails": "Personal Details",
+      "employmentDetails": "Employment Details",
+      "salaryDetails": "Salary Details",
+      "bankDetails": "Bank Details",
+      "idDocuments": "ID Documents"
+    },
+    "fields": {
+      "name": "Name",
+      "phone": "Phone",
+      "email": "Email",
+      "role": "Role",
+      "gender": "Gender",
+      "status": "Status",
+      "dateOfBirth": "Date of Birth",
+      "bloodGroup": "Blood Group",
+      "emergencyContact": "Emergency Contact",
+      "address": "Address",
+      "employeeCode": "Employee Code",
+      "designation": "Designation",
+      "department": "Department",
+      "employmentType": "Employment Type",
+      "dateOfJoining": "Date of Joining",
+      "skillLevel": "Skill Level",
+      "primaryBranch": "Primary Branch",
+      "specializations": "Specializations",
+      "salaryType": "Salary Type",
+      "baseSalary": "Base Salary",
+      "commissionEnabled": "Commission Enabled",
+      "commissionType": "Commission Type",
+      "commissionRate": "Commission Rate",
+      "bankName": "Bank Name",
+      "accountNumber": "Account Number",
+      "ifscCode": "IFSC Code",
+      "aadharNumber": "Aadhar Number",
+      "panNumber": "PAN Number"
+    },
+    "stats": {
+      "attendance": "Attendance",
+      "commissions": "Commissions",
+      "baseSalary": "Base Salary",
+      "overtime": "Overtime",
+      "daysThisMonth": "days this month",
+      "thisMonth": "this month"
+    },
+    "filters": {
+      "allRoles": "All Roles",
+      "allStatus": "All Status",
+      "allBranches": "All Branches",
+      "allTypes": "All Types"
+    },
+    "table": {
+      "name": "Name",
+      "employeeCode": "Employee Code",
+      "role": "Role",
+      "phone": "Phone",
+      "branch": "Branch",
+      "status": "Status",
+      "joiningDate": "Joining Date"
+    },
+    "roles": {
+      "super_owner": "Super Owner",
+      "regional_manager": "Regional Manager",
+      "branch_manager": "Branch Manager",
+      "receptionist": "Receptionist",
+      "stylist": "Stylist",
+      "accountant": "Accountant"
+    },
+    "employmentTypes": {
+      "full_time": "Full Time",
+      "part_time": "Part Time",
+      "contract": "Contract",
+      "intern": "Intern"
+    },
+    "attendance": {
+      "title": "Attendance",
+      "description": "Track staff attendance and working hours",
+      "checkIn": "Check In",
+      "checkOut": "Check Out",
+      "manualEntry": "Manual Entry",
+      "selectDate": "Select Date",
+      "selectStaff": "Select Staff",
+      "status": {
+        "present": "Present",
+        "absent": "Absent",
+        "half_day": "Half Day",
+        "on_leave": "On Leave",
+        "holiday": "Holiday",
+        "week_off": "Week Off"
+      },
+      "table": {
+        "staff": "Staff",
+        "date": "Date",
+        "checkIn": "Check In",
+        "checkOut": "Check Out",
+        "hours": "Hours",
+        "overtime": "Overtime",
+        "status": "Status"
+      },
+      "summary": {
+        "present": "Present",
+        "absent": "Absent",
+        "onLeave": "On Leave",
+        "overtime": "Overtime Hours"
+      },
+      "noRecords": "No attendance records found",
+      "noRecordsDesc": "Attendance records will appear here."
+    },
+    "leaves": {
+      "title": "Leaves",
+      "description": "Manage leave requests and balances",
+      "applyLeave": "Apply Leave",
+      "leaveBalance": "Leave Balance",
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      },
+      "types": {
+        "casual": "Casual Leave",
+        "sick": "Sick Leave",
+        "earned": "Earned Leave",
+        "unpaid": "Unpaid Leave",
+        "maternity": "Maternity Leave",
+        "paternity": "Paternity Leave",
+        "comp_off": "Compensatory Off"
+      },
+      "table": {
+        "staff": "Staff",
+        "type": "Type",
+        "from": "From",
+        "to": "To",
+        "days": "Days",
+        "reason": "Reason",
+        "status": "Status"
+      },
+      "noLeaves": "No leave requests found",
+      "noLeavesDesc": "Leave requests will appear here.",
+      "actions": {
+        "approve": "Approve",
+        "reject": "Reject",
+        "cancel": "Cancel"
+      },
+      "form": {
+        "title": "Apply Leave",
+        "leaveType": "Leave Type",
+        "startDate": "Start Date",
+        "endDate": "End Date",
+        "halfDay": "Half Day",
+        "halfDayType": "Half Day Type",
+        "firstHalf": "First Half",
+        "secondHalf": "Second Half",
+        "reason": "Reason",
+        "reasonPlaceholder": "Enter reason for leave...",
+        "submit": "Submit Request",
+        "submitting": "Submitting..."
+      }
+    },
+    "payroll": {
+      "title": "Payroll",
+      "description": "Generate and manage monthly payroll",
+      "generatePayroll": "Generate Payroll",
+      "status": {
+        "draft": "Draft",
+        "processing": "Processing",
+        "approved": "Approved",
+        "paid": "Paid",
+        "cancelled": "Cancelled"
+      },
+      "table": {
+        "month": "Month",
+        "employees": "Employees",
+        "grossSalary": "Gross Salary",
+        "deductions": "Deductions",
+        "commissions": "Commissions",
+        "netSalary": "Net Salary",
+        "status": "Status"
+      },
+      "noPayroll": "No payroll records found",
+      "noPayrollDesc": "Generate your first payroll to get started.",
+      "actions": {
+        "process": "Process",
+        "approve": "Approve",
+        "markPaid": "Mark as Paid",
+        "viewDetails": "View Details"
+      },
+      "form": {
+        "title": "Generate Payroll",
+        "month": "Payroll Month",
+        "branch": "Branch",
+        "allBranches": "All Branches",
+        "generate": "Generate",
+        "generating": "Generating..."
+      },
+      "detail": {
+        "title": "Payroll Details",
+        "backToList": "Back to Payroll",
+        "summary": "Summary",
+        "employees": "Employee Breakdown",
+        "totalEmployees": "Total Employees",
+        "totalGross": "Total Gross",
+        "totalDeductions": "Total Deductions",
+        "totalCommissions": "Total Commissions",
+        "totalNet": "Total Net"
+      },
+      "payslip": {
+        "title": "Payslip",
+        "listTitle": "Payslips",
+        "number": "Payslip #",
+        "employee": "Employee",
+        "netSalary": "Net Salary",
+        "emailStatus": "Email",
+        "whatsappStatus": "WhatsApp",
+        "download": "Download PDF",
+        "sendEmail": "Send via Email",
+        "sendWhatsApp": "Send via WhatsApp",
+        "sent": "Sent",
+        "notSent": "Not Sent",
+        "notGenerated": "Not generated",
+        "downloadError": "Failed to download payslip",
+        "emailSent": "Payslip sent via email",
+        "emailError": "Failed to send email",
+        "whatsappSent": "Payslip sent via WhatsApp",
+        "whatsappError": "Failed to send WhatsApp"
+      }
+    },
+    "shifts": {
+      "title": "Shift Management",
+      "description": "Manage work shifts and staff assignments",
+      "addShift": "Add Shift",
+      "createShift": "Create Shift",
+      "createShiftDescription": "Define a new work shift for this branch",
+      "editShift": "Edit Shift",
+      "editShiftDescription": "Update shift details",
+      "deleteConfirmTitle": "Delete Shift",
+      "deleteConfirmDescription": "Are you sure you want to delete the shift \"{name}\"? This action cannot be undone.",
+      "selectBranch": "Select Branch",
+      "selectBranchFirst": "Select a Branch",
+      "selectBranchDescription": "Choose a branch to view and manage its shifts",
+      "noShifts": "No Shifts",
+      "noShiftsDescription": "No shifts have been created for this branch yet.",
+      "assignShift": "Assign Shift",
+      "assignShiftDescription": "Assign {shiftName} to a staff member",
+      "assignStaff": "Assign Staff",
+      "assign": "Assign",
+      "table": {
+        "name": "Name",
+        "timing": "Timing",
+        "break": "Break",
+        "applicableDays": "Applicable Days",
+        "status": "Status"
+      },
+      "form": {
+        "name": "Shift Name",
+        "namePlaceholder": "e.g., Morning Shift",
+        "startTime": "Start Time",
+        "endTime": "End Time",
+        "breakDuration": "Break Duration (minutes)",
+        "applicableDays": "Applicable Days",
+        "staffMember": "Staff Member",
+        "selectStaff": "Select a staff member",
+        "effectiveFrom": "Effective From",
+        "effectiveUntil": "Effective Until (optional)"
+      }
+    },
+    "commissions": {
+      "title": "Commission Tracking",
+      "description": "Track and manage staff commissions",
+      "exportCSV": "Export CSV",
+      "approveSelected": "Approve ({count})",
+      "noCommissions": "No Commissions",
+      "noCommissionsDescription": "No commission records found for the selected filters.",
+      "summary": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "paid": "Paid"
+      },
+      "filters": {
+        "allStaff": "All Staff",
+        "allStatus": "All Status"
+      },
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "paid": "Paid",
+        "cancelled": "Cancelled"
+      },
+      "table": {
+        "date": "Date",
+        "staff": "Staff",
+        "service": "Service",
+        "serviceAmount": "Service Amount",
+        "rate": "Rate",
+        "commission": "Commission",
+        "status": "Status"
+      }
+    },
+    "deductions": {
+      "title": "Deductions - {name}",
+      "description": "Manage salary deductions for this staff member",
+      "backToProfile": "Back to Profile",
+      "addDeduction": "Add Deduction",
+      "noDeductions": "No Deductions",
+      "noDeductionsDescription": "No deductions have been added for this staff member.",
+      "cancelConfirmTitle": "Cancel Deduction",
+      "cancelConfirmDescription": "Are you sure you want to cancel the deduction \"{description}\"? This action cannot be undone.",
+      "cancelDeduction": "Cancel Deduction",
+      "cancelSuccess": "Deduction cancelled successfully",
+      "cancelError": "Failed to cancel deduction",
+      "addSuccess": "Deduction added successfully",
+      "addError": "Failed to add deduction",
+      "updateSuccess": "Deduction updated successfully",
+      "updateError": "Failed to update deduction",
+      "summary": {
+        "activeDeductions": "Active Deductions",
+        "totalRemaining": "Total Remaining",
+        "monthlyDeduction": "Monthly Deduction"
+      },
+      "types": {
+        "loan": "Loan",
+        "advance": "Advance",
+        "emi": "EMI",
+        "penalty": "Penalty",
+        "other": "Other"
+      },
+      "status": {
+        "active": "Active",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "table": {
+        "type": "Type",
+        "description": "Description",
+        "totalAmount": "Total Amount",
+        "monthly": "Monthly",
+        "progress": "Progress",
+        "startDate": "Start Date",
+        "status": "Status"
+      },
+      "form": {
+        "addTitle": "Add Deduction",
+        "addDescription": "Create a new deduction for this staff member",
+        "editTitle": "Edit Deduction",
+        "editDescription": "Update the monthly deduction amount",
+        "type": "Deduction Type",
+        "selectType": "Select type",
+        "description": "Description",
+        "descriptionPlaceholder": "e.g., Personal loan repayment",
+        "totalAmount": "Total Amount",
+        "monthlyDeduction": "Monthly Deduction",
+        "startDate": "Start Date",
+        "endDate": "End Date (optional)",
+        "endDateHint": "Leave empty to continue until fully paid",
+        "estimatedDuration": "Estimated duration: {months} months",
+        "estimatedRemaining": "Estimated remaining: {months} months",
+        "remaining": "Remaining",
+        "paid": "Paid",
+        "currentMonthly": "Current: {amount}/month",
+        "add": "Add Deduction"
+      }
+    }
+  }
+}

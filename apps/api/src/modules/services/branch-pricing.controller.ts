@@ -9,11 +9,9 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { branchPricingService } from './branch-pricing.service';
+import { successResponse, errorResponse } from '@/lib/response';
 
-import type {
-  BulkUpdateBranchPricesBody,
-  UpdateBranchPriceBody,
-} from './services.schema';
+import type { BulkUpdateBranchPricesBody, UpdateBranchPriceBody } from './services.schema';
 
 export class BranchPricingController {
   /**
@@ -26,35 +24,17 @@ export class BranchPricingController {
     try {
       const { tenantId } = request.user;
 
-      const prices = await branchPricingService.getBranchServicePrices(
-        tenantId,
-        request.params.id
-      );
+      const prices = await branchPricingService.getBranchServicePrices(tenantId, request.params.id);
 
-      return reply.send({
-        success: true,
-        data: prices,
-      });
+      return reply.send(successResponse(prices));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to get prices';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'FETCH_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('FETCH_FAILED', message));
     }
   }
 
@@ -78,30 +58,15 @@ export class BranchPricingController {
         sub
       );
 
-      return reply.send({
-        success: true,
-        data: result,
-      });
+      return reply.send(successResponse(result));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update prices';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'UPDATE_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('UPDATE_FAILED', message));
     }
   }
 
@@ -126,30 +91,15 @@ export class BranchPricingController {
         sub
       );
 
-      return reply.send({
-        success: true,
-        data: branchPrice,
-      });
+      return reply.send(successResponse(branchPrice));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update price';
 
       if (message.includes('not found')) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message,
-          },
-        });
+        return reply.code(404).send(errorResponse('NOT_FOUND', message));
       }
 
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'UPDATE_FAILED',
-          message,
-        },
-      });
+      return reply.code(400).send(errorResponse('UPDATE_FAILED', message));
     }
   }
 }

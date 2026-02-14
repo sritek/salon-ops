@@ -1,6 +1,6 @@
 /**
  * Common Components - Barrel Export
- * 
+ *
  * Import from this file for all common wrapper components.
  * Example: import { PageHeader, DataTable, StatusBadge } from '@/components/common';
  */
@@ -11,6 +11,8 @@ export { PageHeader } from './page-header';
 export { PageContent } from './page-content';
 
 // Data display
+export { DataTable, SortableHeader, getSelectionColumn } from './data-table';
+export type { DataTableProps, PaginationMeta, ColumnDef, SortingState, Row } from './data-table';
 export { StatCard } from './stat-card';
 export { StatusBadge } from './status-badge';
 export { EmptyState } from './empty-state';
@@ -27,6 +29,8 @@ export { ConfirmDialog } from './confirm-dialog';
 export { ActionMenu } from './action-menu';
 export { SearchInput } from './search-input';
 export { FilterBar } from './filter-bar';
+export { DatePicker } from './date-picker';
+export { TimePicker } from './time-picker';
 
 // Feedback components
 export { LoadingSpinner } from './loading-spinner';
@@ -35,3 +39,6 @@ export { LoadingOverlay } from './loading-overlay';
 // Access control components
 export { PermissionGuard } from './permission-guard';
 export { AccessDenied } from './access-denied';
+
+// i18n components
+export { LanguageSwitcher, LanguageSwitcherCompact } from './language-switcher';

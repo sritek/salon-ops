@@ -13,6 +13,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ROLE_PERMISSIONS } from '@salon-ops/shared';
 
 import { prisma } from '../../lib/prisma';
+import { successResponse, errorResponse } from '../../lib/response';
 import { authService } from './auth.service';
 
 import type { LoginBody, RefreshTokenBody, RegisterBody } from './auth.schema';
@@ -24,10 +25,7 @@ export class AuthController {
   /**
    * Login endpoint
    */
-  async login(
-    request: FastifyRequest<{ Body: LoginBody }>,
-    reply: FastifyReply
-  ) {
+  async login(request: FastifyRequest<{ Body: LoginBody }>, reply: FastifyReply) {
     try {
       const result = await authService.login(request.body);
 
@@ -65,33 +63,30 @@ export class AuthController {
         },
       });
 
-      return reply.send({
-        success: true,
-        data: {
+      return reply.send(
+        successResponse({
           user: result.user,
           tenant: result.tenant,
           accessToken,
           refreshToken,
-        },
-      });
+        })
+      );
     } catch (error) {
-      return reply.code(401).send({
-        success: false,
-        error: {
-          code: 'INVALID_CREDENTIALS',
-          message: error instanceof Error ? error.message : 'Invalid credentials',
-        },
-      });
+      return reply
+        .code(401)
+        .send(
+          errorResponse(
+            'INVALID_CREDENTIALS',
+            error instanceof Error ? error.message : 'Invalid credentials'
+          )
+        );
     }
   }
 
   /**
    * Register endpoint
    */
-  async register(
-    request: FastifyRequest<{ Body: RegisterBody }>,
-    reply: FastifyReply
-  ) {
+  async register(request: FastifyRequest<{ Body: RegisterBody }>, reply: FastifyReply) {
     try {
       const result = await authService.register(request.body);
 
@@ -129,23 +124,23 @@ export class AuthController {
         },
       });
 
-      return reply.code(201).send({
-        success: true,
-        data: {
+      return reply.code(201).send(
+        successResponse({
           user: result.user,
           tenant: result.tenant,
           accessToken,
           refreshToken,
-        },
-      });
+        })
+      );
     } catch (error) {
-      return reply.code(400).send({
-        success: false,
-        error: {
-          code: 'REGISTRATION_FAILED',
-          message: error instanceof Error ? error.message : 'Registration failed',
-        },
-      });
+      return reply
+        .code(400)
+        .send(
+          errorResponse(
+            'REGISTRATION_FAILED',
+            error instanceof Error ? error.message : 'Registration failed'
+          )
+        );
     }
   }
 
@@ -153,10 +148,7 @@ export class AuthController {
    * Refresh token endpoint
    * Implements token rotation: old token is deleted, new one is created
    */
-  async refresh(
-    request: FastifyRequest<{ Body: RefreshTokenBody }>,
-    reply: FastifyReply
-  ) {
+  async refresh(request: FastifyRequest<{ Body: RefreshTokenBody }>, reply: FastifyReply) {
     try {
       const { refreshToken } = request.body;
 
@@ -231,21 +223,16 @@ export class AuthController {
         }),
       ]);
 
-      return reply.send({
-        success: true,
-        data: {
+      return reply.send(
+        successResponse({
           accessToken: newAccessToken,
           refreshToken: newRefreshToken,
-        },
-      });
+        })
+      );
     } catch (error) {
-      return reply.code(401).send({
-        success: false,
-        error: {
-          code: 'INVALID_REFRESH_TOKEN',
-          message: 'Invalid or expired refresh token',
-        },
-      });
+      return reply
+        .code(401)
+        .send(errorResponse('INVALID_REFRESH_TOKEN', 'Invalid or expired refresh token'));
     }
   }
 
@@ -260,20 +247,13 @@ export class AuthController {
       const user = await authService.getUserById(payload.sub);
 
       if (!user) {
-        return reply.code(404).send({
-          success: false,
-          error: {
-            code: 'USER_NOT_FOUND',
-            message: 'User not found',
-          },
-        });
+        return reply.code(404).send(errorResponse('USER_NOT_FOUND', 'User not found'));
       }
 
       const branchIds = user.branchAssignments.map((ba) => ba.branchId);
 
-      return reply.send({
-        success: true,
-        data: {
+      return reply.send(
+        successResponse({
           id: user.id,
           email: user.email,
           phone: user.phone,
@@ -286,16 +266,10 @@ export class AuthController {
             name: user.tenant.name,
             slug: user.tenant.slug,
           },
-        },
-      });
+        })
+      );
     } catch (error) {
-      return reply.code(401).send({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Invalid or expired token',
-        },
-      });
+      return reply.code(401).send(errorResponse('UNAUTHORIZED', 'Invalid or expired token'));
     }
   }
 
@@ -303,10 +277,7 @@ export class AuthController {
    * Logout endpoint
    * Revokes the current refresh token
    */
-  async logout(
-    request: FastifyRequest<{ Body: { refreshToken?: string } }>,
-    reply: FastifyReply
-  ) {
+  async logout(request: FastifyRequest<{ Body: { refreshToken?: string } }>, reply: FastifyReply) {
     try {
       const { refreshToken } = request.body || {};
 
@@ -317,20 +288,10 @@ export class AuthController {
         });
       }
 
-      return reply.send({
-        success: true,
-        data: {
-          message: 'Logged out successfully',
-        },
-      });
+      return reply.send(successResponse({ message: 'Logged out successfully' }));
     } catch (error) {
       // Still return success even if token deletion fails
-      return reply.send({
-        success: true,
-        data: {
-          message: 'Logged out successfully',
-        },
-      });
+      return reply.send(successResponse({ message: 'Logged out successfully' }));
     }
   }
 
@@ -348,20 +309,9 @@ export class AuthController {
         where: { userId: payload.sub },
       });
 
-      return reply.send({
-        success: true,
-        data: {
-          message: 'Logged out from all devices',
-        },
-      });
+      return reply.send(successResponse({ message: 'Logged out from all devices' }));
     } catch (error) {
-      return reply.code(401).send({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Invalid or expired token',
-        },
-      });
+      return reply.code(401).send(errorResponse('UNAUTHORIZED', 'Invalid or expired token'));
     }
   }
 }

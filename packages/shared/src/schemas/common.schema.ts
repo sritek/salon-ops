@@ -61,6 +61,8 @@ export const idParamSchema = z.object({
   id: uuidSchema,
 });
 
+export type IdParam = z.infer<typeof idParamSchema>;
+
 /**
  * Password schema with requirements
  */
@@ -68,3 +70,50 @@ export const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters')
   .max(100, 'Password must be less than 100 characters');
+
+// =====================================================
+// QUERY SCHEMAS FOR ROUTES
+// =====================================================
+
+/**
+ * Pagination query schema (for route querystring)
+ */
+export const paginationQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
+
+/**
+ * Sort query schema (for route querystring)
+ */
+export const sortQuerySchema = z.object({
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type SortQuery = z.infer<typeof sortQuerySchema>;
+
+/**
+ * Combined list query schema (pagination + sort)
+ */
+export const listQuerySchema = paginationQuerySchema.merge(sortQuerySchema);
+
+export type ListQuery = z.infer<typeof listQuerySchema>;
+
+/**
+ * Search query schema
+ */
+export const searchQuerySchema = z.object({
+  search: z.string().max(100).optional(),
+});
+
+export type SearchQuery = z.infer<typeof searchQuerySchema>;
+
+/**
+ * Full list query schema (pagination + sort + search)
+ */
+export const fullListQuerySchema = listQuerySchema.merge(searchQuerySchema);
+
+export type FullListQuery = z.infer<typeof fullListQuerySchema>;

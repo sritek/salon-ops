@@ -129,16 +129,6 @@ export interface ServiceFilters {
   sortOrder?: 'asc' | 'desc';
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
 // ============================================
 // Variant Types
 // ============================================

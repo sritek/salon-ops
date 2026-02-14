@@ -4,6 +4,7 @@
  */
 
 import { useAuthStore } from '@/stores/auth-store';
+import type { ApiResponse, PaginatedApiResponse, PaginatedResult } from '@/types/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -52,10 +53,10 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-export async function apiClient<T>(
-  endpoint: string,
-  options: RequestOptions = {}
-): Promise<T> {
+/**
+ * Base API client that returns the full response
+ */
+async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { params, headers: customHeaders, ...init } = options;
   const { accessToken } = useAuthStore.getState();
 
@@ -108,22 +109,87 @@ export async function apiClient<T>(
     );
   }
 
-  return data.data as T;
+  return data as T;
 }
 
-// Convenience methods
+// ============================================
+// API Methods
+// ============================================
+
 export const api = {
-  get: <T>(endpoint: string, params?: Record<string, unknown>) =>
-    apiClient<T>(endpoint, { method: 'GET', params: params as Record<string, string | number | boolean | undefined> }),
+  /**
+   * GET request - extracts data from response
+   */
+  get: async <T>(endpoint: string, params?: Record<string, unknown>): Promise<T> => {
+    const response = await apiRequest<ApiResponse<T>>(endpoint, {
+      method: 'GET',
+      params: params as Record<string, string | number | boolean | undefined>,
+    });
+    return response.data;
+  },
 
-  post: <T>(endpoint: string, body?: unknown) =>
-    apiClient<T>(endpoint, { method: 'POST', body: JSON.stringify(body) }),
+  /**
+   * GET request for paginated endpoints - returns data and meta
+   */
+  getPaginated: async <T>(
+    endpoint: string,
+    params?: Record<string, unknown>
+  ): Promise<PaginatedResult<T>> => {
+    const response = await apiRequest<PaginatedApiResponse<T>>(endpoint, {
+      method: 'GET',
+      params: params as Record<string, string | number | boolean | undefined>,
+    });
+    return {
+      data: response.data,
+      meta: response.meta,
+    };
+  },
 
-  put: <T>(endpoint: string, body?: unknown) =>
-    apiClient<T>(endpoint, { method: 'PUT', body: JSON.stringify(body) }),
+  /**
+   * POST request - extracts data from response
+   */
+  post: async <T>(endpoint: string, body?: unknown): Promise<T> => {
+    const response = await apiRequest<ApiResponse<T>>(endpoint, {
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : JSON.stringify({}),
+    });
+    return response.data;
+  },
 
-  patch: <T>(endpoint: string, body?: unknown) =>
-    apiClient<T>(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
+  /**
+   * PUT request - extracts data from response
+   */
+  put: async <T>(endpoint: string, body?: unknown): Promise<T> => {
+    const response = await apiRequest<ApiResponse<T>>(endpoint, {
+      method: 'PUT',
+      body: body !== undefined ? JSON.stringify(body) : JSON.stringify({}),
+    });
+    return response.data;
+  },
 
-  delete: <T>(endpoint: string) => apiClient<T>(endpoint, { method: 'DELETE' }),
+  /**
+   * PATCH request - extracts data from response
+   */
+  patch: async <T>(endpoint: string, body?: unknown): Promise<T> => {
+    const response = await apiRequest<ApiResponse<T>>(endpoint, {
+      method: 'PATCH',
+      body: body !== undefined ? JSON.stringify(body) : JSON.stringify({}),
+    });
+    return response.data;
+  },
+
+  /**
+   * DELETE request - extracts data from response
+   */
+  delete: async <T>(endpoint: string): Promise<T> => {
+    const response = await apiRequest<ApiResponse<T>>(endpoint, {
+      method: 'DELETE',
+    });
+    return response.data;
+  },
 };
+
+// Legacy export for backwards compatibility
+export async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  return apiRequest<T>(endpoint, options);
+}

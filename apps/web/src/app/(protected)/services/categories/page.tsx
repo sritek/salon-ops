@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Folder, FolderPlus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Folder, FolderPlus, Pencil, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import {
   useCategories,
@@ -12,6 +13,8 @@ import {
 } from '@/hooks/queries/use-categories';
 
 import {
+  ActionMenu,
+  ConfirmDialog,
   EmptyState,
   PageContainer,
   PageContent,
@@ -27,13 +30,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,9 +38,10 @@ import { Textarea } from '@/components/ui/textarea';
 import type { ServiceCategory, CreateCategoryInput } from '@/types/services';
 
 export default function CategoriesPage() {
+  const t = useTranslations('common');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] =
-    useState<ServiceCategory | null>(null);
+  const [editingCategory, setEditingCategory] = useState<ServiceCategory | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: categories, isLoading } = useCategories({
     includeInactive: true,
@@ -64,9 +61,14 @@ export default function CategoriesPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this category?')) {
-      await deleteCategory.mutateAsync(id);
+  const handleDelete = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteId) {
+      await deleteCategory.mutateAsync(deleteId);
+      setDeleteId(null);
     }
   };
 
@@ -153,9 +155,7 @@ export default function CategoriesPage() {
                         className="flex h-full w-full items-center justify-center rounded-lg"
                         style={{ color: category.color }}
                       >
-                        <span className="text-lg font-bold">
-                          {category.name.charAt(0)}
-                        </span>
+                        <span className="text-lg font-bold">{category.name.charAt(0)}</span>
                       </div>
                     </div>
                     <div>
@@ -166,33 +166,31 @@ export default function CategoriesPage() {
                     </div>
                   </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                  <ActionMenu
+                    items={[
+                      {
+                        label: 'Edit',
+                        icon: Pencil,
+                        onClick: () => handleOpenEdit(category),
+                      },
+                      {
+                        label: 'Delete',
+                        icon: Trash2,
+                        onClick: () => handleDelete(category.id),
+                        variant: 'destructive',
+                        separator: true,
+                      },
+                    ]}
+                    trigger={
                       <Button
                         variant="ghost"
                         size="icon"
                         className="opacity-0 group-hover:opacity-100"
                       >
-                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Open menu</span>
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => handleOpenEdit(category)}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(category.id)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    }
+                  />
                 </div>
 
                 {category.description && (
@@ -216,9 +214,7 @@ export default function CategoriesPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingCategory ? 'Edit Category' : 'Create Category'}
-            </DialogTitle>
+            <DialogTitle>{editingCategory ? 'Edit Category' : 'Create Category'}</DialogTitle>
             <DialogDescription>
               {editingCategory
                 ? 'Update the category details below.'
@@ -297,24 +293,26 @@ export default function CategoriesPage() {
             </div>
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending
-                  ? 'Saving...'
-                  : editingCategory
-                    ? 'Save Changes'
-                    : 'Create Category'}
+                {isPending ? 'Saving...' : editingCategory ? 'Save Changes' : 'Create Category'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title={t('confirmDelete.title')}
+        description={t('confirmDelete.description')}
+        variant="destructive"
+        onConfirm={confirmDelete}
+        isLoading={deleteCategory.isPending}
+      />
     </PageContainer>
   );
 }

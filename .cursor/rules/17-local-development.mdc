@@ -180,7 +180,7 @@ npm run dev
 
 # Expected output:
 # Server listening on http://localhost:3000
-# API docs at http://localhost:3000/documentation
+# API docs at http://localhost:3000/docs
 ```
 
 **Terminal 2 - Frontend Dashboard:**
@@ -422,8 +422,8 @@ npx prisma studio
 
 ### API Documentation
 
-- **Swagger UI:** http://localhost:3000/documentation
-- **OpenAPI JSON:** http://localhost:3000/documentation/json
+- **Swagger UI:** http://localhost:3000/docs
+- **OpenAPI JSON:** http://localhost:3000/docs/json
 
 ### Testing API Endpoints
 

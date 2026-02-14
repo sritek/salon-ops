@@ -3,7 +3,7 @@
  * Based on: .cursor/rules/13-backend-implementation.mdc lines 48-100
  */
 
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 import { env } from '../config/env';
 
@@ -14,11 +14,51 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    // log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    log: ['error'],
   });
 
 if (env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
+}
+
+/**
+ * Recursively convert Prisma Decimal fields to JavaScript numbers.
+ *
+ * Prisma's Decimal type serializes to strings via JSON.stringify() to preserve
+ * precision. Call this on query results before sending as JSON response to
+ * ensure numeric fields are actual numbers in the API response.
+ */
+export function serializeDecimals<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  // Check if it's a Prisma Decimal
+  if (obj instanceof Prisma.Decimal) {
+    return obj.toNumber() as T;
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return obj.map(serializeDecimals) as T;
+  }
+
+  // Handle Date objects - return as-is
+  if (obj instanceof Date) {
+    return obj;
+  }
+
+  // Handle plain objects
+  if (typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = serializeDecimals(value);
+    }
+    return result as T;
+  }
+
+  return obj;
 }
 
 /**
