@@ -33,9 +33,59 @@ brew services start postgresql@15
 brew services start redis
 ```
 
-### Install Prerequisites (Docker)
+### Install Prerequisites (Windows)
 
-Alternatively, use Docker for PostgreSQL and Redis:
+#### Option 1: Using Chocolatey (Recommended)
+
+```powershell
+# Install Chocolatey (run PowerShell as Administrator)
+Set-ExecutionPolicy Bypass -Scope Process -Force
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install Node.js
+choco install nodejs-lts --version=22.0.0
+
+# Install pnpm
+npm install -g pnpm@9
+
+# Install PostgreSQL
+choco install postgresql15
+# Default credentials: postgres/postgres
+# Add to PATH: C:\Program Files\PostgreSQL\15\bin
+
+# Install Redis (via Memurai - Redis-compatible for Windows)
+choco install memurai-developer
+```
+
+#### Option 2: Manual Installation
+
+1. **Node.js**: Download from https://nodejs.org (v22 LTS)
+2. **pnpm**: Run `npm install -g pnpm@9`
+3. **PostgreSQL**: Download from https://www.postgresql.org/download/windows/
+4. **Redis**: Use one of these options:
+   - [Memurai](https://www.memurai.com/) (Redis-compatible, recommended)
+   - [Redis for Windows](https://github.com/microsoftarchive/redis/releases) (older, v3.x)
+   - Docker (see below)
+
+#### Create Database (Windows)
+
+```powershell
+# Open PowerShell and connect to PostgreSQL
+psql -U postgres
+
+# In psql prompt, create the database
+CREATE DATABASE salon_ops;
+\q
+```
+
+### Install Prerequisites (Docker - All Platforms)
+
+Docker is the easiest way to run PostgreSQL and Redis on any platform.
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+2. Start PostgreSQL and Redis:
 
 ```bash
 # Start PostgreSQL
@@ -52,6 +102,37 @@ docker run -d \
   --name salon-redis \
   -p 6379:6379 \
   redis:7
+```
+
+Or use Docker Compose (create `docker-compose.yml` in project root):
+
+```yaml
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: salon_ops
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+
+volumes:
+  postgres_data:
+```
+
+Then run:
+
+```bash
+docker-compose up -d
 ```
 
 ## Getting Started
