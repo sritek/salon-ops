@@ -16,7 +16,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import {
-  LayoutDashboard,
   Calendar,
   Users,
   Scissors,
@@ -39,6 +38,7 @@ import {
   CreditCard,
   Gift,
   Crown,
+  Gauge,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -63,7 +63,7 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-  { titleKey: 'dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { titleKey: 'today', href: '/today', icon: Gauge },
   {
     titleKey: 'appointments',
     href: '/appointments',
@@ -481,7 +481,7 @@ export function Sidebar({ className }: SidebarProps) {
           )}
         >
           <Link
-            href="/dashboard"
+            href="/today"
             className={cn(
               'flex items-center gap-2 font-bold',
               sidebarCollapsed ? 'text-lg' : 'text-xl'

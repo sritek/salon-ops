@@ -32,13 +32,11 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
 
   // Actions
   setAuth: (user: User, tenant: Tenant, accessToken: string, refreshToken: string) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   logout: () => void;
-  setLoading: (loading: boolean) => void;
 }
 
 /**
@@ -76,7 +74,6 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
-      isLoading: true,
 
       setAuth: (user, tenant, accessToken, refreshToken) =>
         set({
@@ -85,7 +82,6 @@ export const useAuthStore = create<AuthState>()(
           accessToken,
           refreshToken,
           isAuthenticated: true,
-          isLoading: false,
         }),
 
       setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
@@ -97,10 +93,7 @@ export const useAuthStore = create<AuthState>()(
           accessToken: null,
           refreshToken: null,
           isAuthenticated: false,
-          isLoading: false,
         }),
-
-      setLoading: (isLoading) => set({ isLoading }),
     }),
     {
       name: 'auth-storage',

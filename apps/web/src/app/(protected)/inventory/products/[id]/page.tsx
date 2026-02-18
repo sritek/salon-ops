@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Package, Settings, Store, Users } from 'lucide-react';
+import { ArrowLeft, Package, Settings, Users } from 'lucide-react';
 
 import {
   useProduct,

@@ -19,6 +19,7 @@ export interface AppointmentFiltersState {
   search: string;
   status: string;
   bookingType: string;
+  stylistId?: string;
 }
 
 interface AppointmentsUIState {

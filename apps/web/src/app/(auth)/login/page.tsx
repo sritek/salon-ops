@@ -57,7 +57,12 @@ export default function LoginPage() {
       setAuth(response.user, response.tenant, response.accessToken, response.refreshToken);
 
       toast.success('Welcome back!');
-      router.push('/dashboard');
+
+      // Small delay to ensure cookie is written before navigation
+      // This prevents race condition with middleware reading old cookie
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      router.push('/today');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Invalid email or password');
     } finally {

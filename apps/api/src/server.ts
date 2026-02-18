@@ -22,6 +22,7 @@ import servicesRoutes from './modules/services/services.routes';
 import customersRoutes from './modules/customers/customers.routes';
 import { appointmentsRoutes } from './modules/appointments';
 import { billingRoutes } from './modules/billing';
+import { checkoutRoutes } from './modules/checkout';
 import { staffRoutes } from './modules/staff';
 import productRoutes from './modules/inventory/product.routes';
 import vendorRoutes from './modules/inventory/vendor.routes';
@@ -39,6 +40,10 @@ import {
   redemptionRoutes,
   membershipConfigRoutes,
 } from './modules/memberships';
+import { dashboardRoutes } from './modules/dashboard';
+import { calendarRoutes } from './modules/calendar';
+import { realTimeRoutes } from './modules/real-time';
+import { searchRoutes } from './modules/search';
 
 // Create Fastify instance with Zod type provider
 const fastify = Fastify({
@@ -201,6 +206,7 @@ async function registerRoutes() {
   fastify.register(customersRoutes, { prefix: '/api/v1' });
   fastify.register(appointmentsRoutes, { prefix: '/api/v1/appointments' });
   fastify.register(billingRoutes, { prefix: '/api/v1/invoices' });
+  fastify.register(checkoutRoutes, { prefix: '/api/v1/checkout' });
   fastify.register(staffRoutes, { prefix: '/api/v1/staff' });
   fastify.register(productRoutes, { prefix: '/api/v1' });
   fastify.register(vendorRoutes, { prefix: '/api/v1' });
@@ -218,6 +224,18 @@ async function registerRoutes() {
   fastify.register(customerPackageRoutes, { prefix: '/api/v1' });
   fastify.register(redemptionRoutes, { prefix: '/api/v1' });
   fastify.register(membershipConfigRoutes, { prefix: '/api/v1' });
+
+  // Dashboard routes
+  fastify.register(dashboardRoutes, { prefix: '/api/v1/dashboard' });
+
+  // Calendar routes
+  fastify.register(calendarRoutes, { prefix: '/api/v1/calendar' });
+
+  // Real-time events routes
+  fastify.register(realTimeRoutes, { prefix: '/api/v1/events' });
+
+  // Search routes
+  fastify.register(searchRoutes, { prefix: '/api/v1' });
 }
 
 // Start server

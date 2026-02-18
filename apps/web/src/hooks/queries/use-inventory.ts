@@ -1293,7 +1293,7 @@ export function useProductsForBilling(branchId: string, search?: string) {
         stockMap.set(stock.productId, {
           availableQuantity: stock.availableQuantity,
           isLowStock: stock.isLowStock,
-          reorderLevel: stock.reorderLevel,
+          reorderLevel: stock.reorderLevel ?? null,
         });
       }
 

@@ -5,12 +5,13 @@
  * - Mobile: Hamburger menu + logo + user avatar
  * - Desktop: Search (Cmd+K) + notifications + user dropdown
  * - Branch switcher (if multiple branches)
+ * - View switcher for role-based views
  */
 
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Menu, Search, Bell, LogOut, User, Settings, ChevronDown } from 'lucide-react';
+import { Menu, Search, LogOut, User, Settings, ChevronDown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -26,6 +27,9 @@ import { api } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth-store';
 import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
+import { useCommandPalette } from '@/hooks/use-command-palette';
+import { ViewSwitcher } from './view-switcher';
+import { ConnectionStatus } from '@/components/ux/real-time';
 
 interface HeaderProps {
   className?: string;
@@ -35,6 +39,7 @@ export function Header({ className }: HeaderProps) {
   const router = useRouter();
   const { user, tenant, refreshToken, logout } = useAuthStore();
   const { setMobileNavOpen } = useUIStore();
+  const { open: openCommandPalette } = useCommandPalette();
 
   const handleLogout = async () => {
     try {
@@ -84,8 +89,39 @@ export function Header({ className }: HeaderProps) {
         </div>
       </div>
 
-      {/* Right side - User */}
+      {/* Right side - Connection Status + View Switcher + Search + User */}
       <div className="flex items-center gap-2">
+        {/* Connection Status Indicator (Requirement 9.5) */}
+        <ConnectionStatus className="hidden sm:flex" />
+
+        {/* View Switcher (Requirement 7.9, 7.10) */}
+        <ViewSwitcher className="hidden md:flex" />
+
+        {/* Search button - opens command palette (Requirement 2.11) */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden md:flex items-center gap-2 text-muted-foreground"
+          onClick={openCommandPalette}
+        >
+          <Search className="h-4 w-4" />
+          <span className="text-sm">Search...</span>
+          <kbd className="pointer-events-none ml-2 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+            <span className="text-xs">⌘</span>K
+          </kbd>
+        </Button>
+
+        {/* Mobile search button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={openCommandPalette}
+          aria-label="Search"
+        >
+          <Search className="h-5 w-5" />
+        </Button>
+
         {/* User dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

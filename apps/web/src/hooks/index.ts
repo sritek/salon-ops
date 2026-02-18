@@ -7,3 +7,49 @@ export { useMediaQuery, useIsMobile, useIsTablet, useIsDesktop } from './use-med
 export { useConfirm } from './use-confirm';
 export { usePagination } from './use-pagination';
 export { usePermissions, PERMISSIONS } from './use-permissions';
+
+// UX Redesign hooks
+export {
+  useSlideOver,
+  useCurrentPanelId,
+  useSlideOverUnsavedChanges,
+  type UseSlideOverReturn,
+} from './use-slide-over';
+
+export { useCommandPalette, type UseCommandPaletteReturn } from './use-command-palette';
+
+export { useQuickActions, useActionContext } from './use-quick-actions';
+
+export { useLongPress } from './use-long-press';
+
+// Real-time event hooks
+export { useAppointmentEvents } from './use-appointment-events';
+export { useWalkInEvents } from './use-walk-in-events';
+
+// Optimistic update hooks
+export {
+  useOptimisticUpdate,
+  useOptimisticStatusChange,
+  useOptimisticCheckIn,
+  useOptimisticRemove,
+  useOptimisticItemUpdate,
+} from './use-optimistic-update';
+
+// Throttled updates hooks
+export {
+  useThrottledUpdates,
+  useBatchedUpdates,
+  useThrottledEventHandler,
+} from './use-throttled-updates';
+
+// Update highlighting hooks
+export { useHighlightUpdate, useHighlightClass, useHighlightedItem } from './use-highlight-update';
+
+// Concurrent edit hooks
+export { useConcurrentEdit, ConcurrentEditIndicator } from './use-concurrent-edit';
+
+// Offline support hooks
+export { useOfflineSupport, useOfflineData } from './use-offline-support';
+
+// Reduced motion hooks
+export { useReducedMotion, usePrefersReducedMotion } from './use-reduced-motion';

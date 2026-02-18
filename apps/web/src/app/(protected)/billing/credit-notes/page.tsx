@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { format } from 'date-fns';
 import Link from 'next/link';
-import { FileText, Plus, Eye, ArrowLeft } from 'lucide-react';
+import { FileText, Eye, ArrowLeft } from 'lucide-react';
 import { PageContainer, PageHeader, PageContent, EmptyState } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,13 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCreditNotes } from '@/hooks/queries/use-invoices';
 import { formatCurrency } from '@/lib/format';

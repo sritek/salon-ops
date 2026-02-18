@@ -8,16 +8,6 @@ import { useTranslations } from 'next-intl';
 import { useWalkInQueue } from '@/hooks/queries/use-appointments';
 import { useAuthStore } from '@/stores/auth-store';
 
-import type { QueueStatus } from '@/types/appointments';
-
-const statusColors: Record<QueueStatus, string> = {
-  waiting: 'bg-yellow-500',
-  called: 'bg-blue-500',
-  serving: 'bg-green-500',
-  completed: 'bg-gray-500',
-  left: 'bg-red-500',
-};
-
 export default function QueueDisplayPage() {
   const t = useTranslations('walkIn');
   const user = useAuthStore((state) => state.user);

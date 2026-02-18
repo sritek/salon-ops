@@ -3,15 +3,7 @@
 import { use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  AlertCircle,
-  ArrowLeft,
-  CheckCircle,
-  Clock,
-  FileText,
-  Package,
-  XCircle,
-} from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle, Clock, Package, XCircle } from 'lucide-react';
 
 import { useGoodsReceipt, useConfirmGoodsReceipt } from '@/hooks/queries/use-inventory';
 import { useAuthStore } from '@/stores/auth-store';

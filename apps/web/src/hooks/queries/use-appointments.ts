@@ -72,11 +72,12 @@ export const stylistScheduleKeys = {
 /**
  * Get appointments with pagination and filtering
  */
-export function useAppointments(filters: AppointmentFilters = {}) {
+export function useAppointments(filters: AppointmentFilters = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: appointmentKeys.list(filters),
     queryFn: () =>
       api.getPaginated<Appointment>('/appointments', filters as Record<string, unknown>),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -199,6 +200,23 @@ export function useMarkNoShow() {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
       queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(id) });
+    },
+  });
+}
+
+/**
+ * Update appointment status (generic status change)
+ */
+export function useUpdateAppointmentStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.patch<Appointment>(`/appointments/${id}/status`, { status }),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
     },
   });
 }

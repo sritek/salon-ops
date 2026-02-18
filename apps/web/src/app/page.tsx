@@ -1,10 +1,10 @@
 /**
- * Home Page - Redirects to dashboard or login
+ * Home Page - Redirects to today page or login
  */
 
 import { redirect } from 'next/navigation';
 
 export default function HomePage() {
-  // Redirect to dashboard (middleware will handle auth check)
-  redirect('/dashboard');
+  // Redirect to today page (middleware will handle auth check)
+  redirect('/today');
 }

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -62,8 +62,7 @@ export default function RescheduleAppointmentPage() {
   const params = useParams();
   const router = useRouter();
   const t = useTranslations('appointments');
-  const { hasPermission } = usePermissions();
-  const canWrite = hasPermission(PERMISSIONS.APPOINTMENTS_WRITE);
+  usePermissions(); // Permission check for guard
 
   const id = params.id as string;
   const { data: appointment, isLoading } = useAppointment(id);

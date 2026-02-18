@@ -83,6 +83,10 @@ export interface Appointment {
     id: string;
     name: string;
   } | null;
+  stylist?: {
+    id: string;
+    name: string;
+  } | null;
   services?: AppointmentService[];
   statusHistory?: AppointmentStatusHistory[];
 }

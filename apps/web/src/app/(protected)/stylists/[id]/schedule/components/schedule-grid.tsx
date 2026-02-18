@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { format, isSameDay, isToday } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { Trash2 } from 'lucide-react';
 

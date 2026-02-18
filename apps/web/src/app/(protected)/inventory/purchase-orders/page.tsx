@@ -33,7 +33,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -53,7 +52,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 
-import type { POFilters, POStatus, PO_STATUS_LABELS } from '@/types/inventory';
+import type { POFilters, POStatus } from '@/types/inventory';
 
 const statusLabels: Record<POStatus, string> = {
   draft: 'Draft',

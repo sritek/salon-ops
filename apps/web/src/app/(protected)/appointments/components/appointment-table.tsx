@@ -23,11 +23,13 @@ interface AppointmentTableProps {
   page: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  onView: (id: string) => void;
   onCheckIn: (id: string) => void;
   onStart: (id: string) => void;
   onComplete: (id: string) => void;
   onCancel: (id: string) => void;
   onNoShow: (id: string) => void;
+  onCheckout?: (id: string) => void;
   hasFilters: boolean;
 }
 
@@ -43,11 +45,13 @@ export function AppointmentTable({
   page,
   onPageChange,
   onPageSizeChange,
+  onView,
   onCheckIn,
   onStart,
   onComplete,
   onCancel,
   onNoShow,
+  onCheckout,
   hasFilters,
 }: AppointmentTableProps) {
   const t = useTranslations('appointments.list');
@@ -56,13 +60,15 @@ export function AppointmentTable({
     () =>
       getAppointmentColumns({
         canWrite,
+        onView,
         onCheckIn,
         onStart,
         onComplete,
         onCancel,
         onNoShow,
+        onCheckout,
       }),
-    [canWrite, onCheckIn, onStart, onComplete, onCancel, onNoShow]
+    [canWrite, onView, onCheckIn, onStart, onComplete, onCancel, onNoShow, onCheckout]
   );
 
   const emptyState = (

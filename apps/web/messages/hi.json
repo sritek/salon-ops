@@ -79,7 +79,9 @@
     }
   },
   "navigation": {
+    "today": "आज",
     "dashboard": "डैशबोर्ड",
+    "commandCenter": "कमांड सेंटर",
     "customers": "ग्राहक",
     "appointments": "अपॉइंटमेंट",
     "walkIn": "वॉक-इन कतार",
@@ -516,6 +518,33 @@
       "complete": "पूर्ण करें",
       "left": "चला गया"
     }
+  },
+  "calendar": {
+    "today": "आज",
+    "day": "दिन",
+    "week": "सप्ताह",
+    "previousDay": "पिछला दिन",
+    "nextDay": "अगला दिन",
+    "previousWeek": "पिछला सप्ताह",
+    "nextWeek": "अगला सप्ताह",
+    "filter": "फ़िल्टर",
+    "newAppointment": "नई अपॉइंटमेंट",
+    "noData": "कोई कैलेंडर डेटा उपलब्ध नहीं",
+    "loading": "कैलेंडर लोड हो रहा है...",
+    "dragToReschedule": "रीशेड्यूल करने के लिए खींचें",
+    "clickToBook": "बुक करने के लिए क्लिक करें",
+    "conflict": "विवाद",
+    "break": "ब्रेक",
+    "blocked": "ब्लॉक",
+    "unavailable": "अनुपलब्ध",
+    "available": "उपलब्ध",
+    "occupied": "व्यस्त",
+    "timeRemaining": "{minutes} मिनट बाकी",
+    "zoomLevel": "ज़ूम",
+    "stylists": "स्टाइलिस्ट",
+    "filterByStatus": "स्थिति के अनुसार फ़िल्टर करें",
+    "filterByStylist": "स्टाइलिस्ट के अनुसार फ़िल्टर करें",
+    "clearFilters": "फ़िल्टर साफ़ करें"
   },
   "stylistSchedule": {
     "title": "शेड्यूल",

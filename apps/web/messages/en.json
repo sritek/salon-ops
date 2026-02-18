@@ -79,7 +79,9 @@
     }
   },
   "navigation": {
+    "today": "Today",
     "dashboard": "Dashboard",
+    "commandCenter": "Command Center",
     "customers": "Customers",
     "appointments": "Appointments",
     "walkIn": "Walk-in Queue",
@@ -516,6 +518,33 @@
       "complete": "Complete",
       "left": "Left"
     }
+  },
+  "calendar": {
+    "today": "Today",
+    "day": "Day",
+    "week": "Week",
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "filter": "Filter",
+    "newAppointment": "New Appointment",
+    "noData": "No calendar data available",
+    "loading": "Loading calendar...",
+    "dragToReschedule": "Drag to reschedule",
+    "clickToBook": "Click to book",
+    "conflict": "Conflict",
+    "break": "Break",
+    "blocked": "Blocked",
+    "unavailable": "Unavailable",
+    "available": "Available",
+    "occupied": "Occupied",
+    "timeRemaining": "{minutes} min left",
+    "zoomLevel": "Zoom",
+    "stylists": "Stylists",
+    "filterByStatus": "Filter by status",
+    "filterByStylist": "Filter by stylist",
+    "clearFilters": "Clear filters"
   },
   "stylistSchedule": {
     "title": "Schedule",

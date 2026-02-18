@@ -1,0 +1,464 @@
+/**
+ * Calendar Service
+ * Business logic for resource calendar operations
+ */
+
+import { PrismaClient, Prisma } from '@prisma/client';
+import { format, parseISO, startOfWeek, endOfWeek, getDay } from 'date-fns';
+import { AppError } from '../../lib/errors';
+import { serializeDecimals } from '../../lib/prisma';
+
+// Day-specific working hours structure from branch settings
+interface DayWorkingHours {
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
+}
+
+interface BranchWorkingHours {
+  monday?: DayWorkingHours;
+  tuesday?: DayWorkingHours;
+  wednesday?: DayWorkingHours;
+  thursday?: DayWorkingHours;
+  friday?: DayWorkingHours;
+  saturday?: DayWorkingHours;
+  sunday?: DayWorkingHours;
+}
+
+const DAY_NAMES = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const;
+const DEFAULT_HOURS = { start: '09:00', end: '21:00' };
+
+/**
+ * Extract simple working hours from day-specific branch configuration
+ * Returns { start, end } for the specific day of the week
+ */
+function extractSimpleWorkingHours(
+  branchWorkingHours: BranchWorkingHours | null | undefined,
+  date: string
+): { start: string; end: string } {
+  if (!branchWorkingHours) {
+    return DEFAULT_HOURS;
+  }
+
+  // Get day of week from date (0 = Sunday, 1 = Monday, etc.)
+  const dateObj = parseISO(date);
+  const dayIndex = getDay(dateObj);
+  const dayName = DAY_NAMES[dayIndex] as keyof BranchWorkingHours;
+  const dayHours = branchWorkingHours[dayName];
+
+  if (!dayHours || !dayHours.isOpen) {
+    return DEFAULT_HOURS;
+  }
+
+  return {
+    start: dayHours.openTime || DEFAULT_HOURS.start,
+    end: dayHours.closeTime || DEFAULT_HOURS.end,
+  };
+}
+import type {
+  GetResourceCalendarInput,
+  MoveAppointmentInput,
+  CalendarStylist,
+  CalendarAppointment,
+  ResourceCalendarResponse,
+} from './calendar.schema';
+
+// Stylist colors for visual distinction
+const STYLIST_COLORS = [
+  '#6366f1', // indigo
+  '#ec4899', // pink
+  '#14b8a6', // teal
+  '#f59e0b', // amber
+  '#8b5cf6', // violet
+  '#10b981', // emerald
+  '#f97316', // orange
+  '#06b6d4', // cyan
+];
+
+export class CalendarService {
+  constructor(private prisma: PrismaClient) {}
+
+  /**
+   * Get resource calendar data for a branch
+   */
+  async getResourceCalendar(
+    tenantId: string,
+    input: GetResourceCalendarInput
+  ): Promise<ResourceCalendarResponse> {
+    const { branchId, date, view } = input;
+    const dateObj = parseISO(date);
+
+    // Calculate date range based on view
+    let startDate: Date;
+    let endDate: Date;
+
+    if (view === 'week') {
+      startDate = startOfWeek(dateObj, { weekStartsOn: 1 }); // Monday
+      endDate = endOfWeek(dateObj, { weekStartsOn: 1 }); // Sunday
+    } else {
+      startDate = dateObj;
+      endDate = dateObj;
+    }
+
+    // Get branch working hours
+    const branch = await this.prisma.branch.findFirst({
+      where: { id: branchId, tenantId, deletedAt: null },
+      select: { workingHours: true },
+    });
+
+    if (!branch) {
+      throw new AppError('Branch not found', 404, 'CAL_001');
+    }
+
+    // Extract simple working hours for the requested date from day-specific config
+    const workingHours = extractSimpleWorkingHours(
+      branch.workingHours as BranchWorkingHours | null,
+      date
+    );
+
+    // Get stylists assigned to this branch
+    const userBranches = await this.prisma.userBranch.findMany({
+      where: {
+        branchId,
+        user: {
+          tenantId,
+          role: 'stylist',
+          isActive: true,
+          deletedAt: null,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    // Get stylist breaks and blocked slots
+    const stylistIds = userBranches.map((ub) => ub.user.id);
+
+    const [breaks, blockedSlots] = await Promise.all([
+      this.prisma.stylistBreak.findMany({
+        where: {
+          tenantId,
+          stylistId: { in: stylistIds },
+          isActive: true,
+        },
+      }),
+      this.prisma.stylistBlockedSlot.findMany({
+        where: {
+          tenantId,
+          stylistId: { in: stylistIds },
+          blockedDate: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      }),
+    ]);
+
+    // Build stylists array with availability info
+    const stylists: CalendarStylist[] = userBranches.map((ub, index) => {
+      const stylistBreaks = breaks
+        .filter((b) => b.stylistId === ub.user.id)
+        .map((b) => ({
+          id: b.id,
+          start: b.startTime,
+          end: b.endTime,
+          name: b.name,
+        }));
+
+      const stylistBlocked = blockedSlots
+        .filter((bs) => bs.stylistId === ub.user.id)
+        .map((bs) => ({
+          id: bs.id,
+          start: bs.startTime || '00:00',
+          end: bs.endTime || '23:59',
+          reason: bs.reason,
+          isFullDay: bs.isFullDay,
+        }));
+
+      // Check if stylist has full day blocked for the requested date
+      const isFullDayBlocked = stylistBlocked.some(
+        (bs) => bs.isFullDay && format(parseISO(date), 'yyyy-MM-dd') === date
+      );
+
+      return {
+        id: ub.user.id,
+        name: ub.user.name,
+        avatar: ub.user.avatarUrl,
+        color: STYLIST_COLORS[index % STYLIST_COLORS.length],
+        isAvailable: !isFullDayBlocked,
+        workingHours: workingHours,
+        breaks: stylistBreaks,
+        blockedSlots: stylistBlocked,
+      };
+    });
+
+    // Get appointments for the date range
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        tenantId,
+        branchId,
+        scheduledDate: {
+          gte: startDate,
+          lte: endDate,
+        },
+        status: { notIn: ['cancelled', 'no_show', 'rescheduled'] },
+        deletedAt: null,
+      },
+      include: {
+        services: {
+          select: { serviceName: true },
+        },
+        customer: {
+          select: { name: true, phone: true },
+        },
+      },
+      orderBy: [{ scheduledDate: 'asc' }, { scheduledTime: 'asc' }],
+    });
+
+    const calendarAppointments: CalendarAppointment[] = appointments.map((apt) => ({
+      id: apt.id,
+      stylistId: apt.stylistId,
+      date: format(apt.scheduledDate, 'yyyy-MM-dd'),
+      startTime: apt.scheduledTime,
+      endTime: apt.endTime,
+      customerName: apt.customer?.name || apt.customerName || 'Guest',
+      customerPhone: apt.customer?.phone || apt.customerPhone,
+      services: apt.services.map((s) => s.serviceName),
+      status: apt.status,
+      bookingType: apt.bookingType,
+      totalAmount: Number(apt.totalAmount),
+      hasConflict: apt.hasConflict,
+    }));
+
+    return {
+      date,
+      view,
+      stylists,
+      appointments: serializeDecimals(calendarAppointments) as CalendarAppointment[],
+      workingHours,
+    };
+  }
+
+  /**
+   * Move an appointment to a new time/stylist (drag-drop)
+   */
+  async moveAppointment(
+    tenantId: string,
+    appointmentId: string,
+    input: MoveAppointmentInput,
+    userId: string
+  ) {
+    const { newStylistId, newDate, newTime } = input;
+
+    // Get the appointment
+    const appointment = await this.prisma.appointment.findFirst({
+      where: {
+        id: appointmentId,
+        tenantId,
+        deletedAt: null,
+      },
+      include: {
+        services: true,
+      },
+    });
+
+    if (!appointment) {
+      throw new AppError('Appointment not found', 404, 'CAL_002');
+    }
+
+    // Check if appointment can be moved
+    if (['completed', 'cancelled', 'no_show', 'rescheduled'].includes(appointment.status)) {
+      throw new AppError('Cannot move appointment in current status', 400, 'CAL_003');
+    }
+
+    // Calculate new end time
+    const newEndTime = this.calculateEndTime(newTime, appointment.totalDuration);
+
+    // Check for conflicts at new time/stylist
+    const targetStylistId = newStylistId || appointment.stylistId;
+
+    if (targetStylistId) {
+      const conflicts = await this.checkConflicts(
+        tenantId,
+        appointment.branchId,
+        newDate,
+        newTime,
+        appointment.totalDuration,
+        targetStylistId,
+        appointmentId
+      );
+
+      if (conflicts.length > 0) {
+        throw new AppError('Time slot conflicts with existing appointments', 409, 'CAL_CONFLICT', {
+          conflicts,
+        });
+      }
+
+      // Check if stylist is blocked at this time
+      const isBlocked = await this.isStylistBlocked(
+        tenantId,
+        targetStylistId,
+        newDate,
+        newTime,
+        newEndTime
+      );
+
+      if (isBlocked) {
+        throw new AppError('Stylist is not available at this time', 400, 'CAL_004');
+      }
+    }
+
+    // Update the appointment
+    return this.prisma.$transaction(async (tx) => {
+      const oldDate = format(appointment.scheduledDate, 'yyyy-MM-dd');
+      const oldTime = appointment.scheduledTime;
+      const oldStylistId = appointment.stylistId;
+
+      const updated = await tx.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          scheduledDate: parseISO(newDate),
+          scheduledTime: newTime,
+          endTime: newEndTime,
+          stylistId: targetStylistId,
+          updatedAt: new Date(),
+        },
+        include: {
+          services: true,
+          customer: {
+            select: { id: true, name: true, phone: true },
+          },
+        },
+      });
+
+      // Create audit log
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          branchId: appointment.branchId,
+          userId,
+          action: 'APPOINTMENT_MOVED',
+          entityType: 'appointment',
+          entityId: appointmentId,
+          oldValues: {
+            scheduledDate: oldDate,
+            scheduledTime: oldTime,
+            stylistId: oldStylistId,
+          },
+          newValues: {
+            scheduledDate: newDate,
+            scheduledTime: newTime,
+            stylistId: targetStylistId,
+          },
+        },
+      });
+
+      return serializeDecimals(updated);
+    });
+  }
+
+  /**
+   * Check for conflicting appointments
+   */
+  private async checkConflicts(
+    tenantId: string,
+    branchId: string,
+    date: string,
+    startTime: string,
+    duration: number,
+    stylistId: string,
+    excludeAppointmentId?: string
+  ) {
+    const endTime = this.calculateEndTime(startTime, duration);
+    const dateObj = parseISO(date);
+
+    const where: Prisma.AppointmentWhereInput = {
+      tenantId,
+      branchId,
+      stylistId,
+      scheduledDate: dateObj,
+      status: { notIn: ['cancelled', 'no_show', 'rescheduled'] },
+      deletedAt: null,
+    };
+
+    if (excludeAppointmentId) {
+      where.id = { not: excludeAppointmentId };
+    }
+
+    const existingAppointments = await this.prisma.appointment.findMany({
+      where,
+      select: {
+        id: true,
+        scheduledTime: true,
+        endTime: true,
+        customerName: true,
+        status: true,
+      },
+    });
+
+    return existingAppointments.filter((apt) => {
+      return this.timesOverlap(startTime, endTime, apt.scheduledTime, apt.endTime);
+    });
+  }
+
+  /**
+   * Check if stylist is blocked at a specific time
+   */
+  private async isStylistBlocked(
+    tenantId: string,
+    stylistId: string,
+    date: string,
+    startTime: string,
+    endTime: string
+  ): Promise<boolean> {
+    const dateObj = parseISO(date);
+
+    const blockedSlots = await this.prisma.stylistBlockedSlot.findMany({
+      where: {
+        tenantId,
+        stylistId,
+        blockedDate: dateObj,
+      },
+    });
+
+    return blockedSlots.some((slot) => {
+      if (slot.isFullDay) return true;
+      const slotStart = slot.startTime || '00:00';
+      const slotEnd = slot.endTime || '23:59';
+      return this.timesOverlap(startTime, endTime, slotStart, slotEnd);
+    });
+  }
+
+  /**
+   * Helper: Check if two time ranges overlap
+   */
+  private timesOverlap(start1: string, end1: string, start2: string, end2: string): boolean {
+    return start1 < end2 && end1 > start2;
+  }
+
+  /**
+   * Helper: Calculate end time from start time and duration
+   */
+  private calculateEndTime(startTime: string, durationMinutes: number): string {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + durationMinutes;
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+  }
+}

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import { useCreateAudit, useProducts, useProductCategories } from '@/hooks/queries/use-inventory';
 import { useAuthStore } from '@/stores/auth-store';

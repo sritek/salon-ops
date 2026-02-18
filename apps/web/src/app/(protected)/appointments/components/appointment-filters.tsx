@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useStaffList } from '@/hooks/queries/use-staff';
 
 import type { AppointmentStatus, BookingType } from '@/types/appointments';
 
@@ -22,6 +23,7 @@ export interface AppointmentFiltersState {
   date: Date | undefined;
   status: string;
   bookingType: string;
+  stylistId: string;
 }
 
 interface AppointmentFiltersProps {
@@ -58,6 +60,13 @@ const bookingTypeOptions: { value: BookingType | 'all'; label: string }[] = [
 export function AppointmentFilters({ filters, onFiltersChange }: AppointmentFiltersProps) {
   const t = useTranslations('appointments');
 
+  // Get stylists for filter dropdown
+  const { data: staffData } = useStaffList({ role: 'stylist', limit: 100 });
+  const stylists = (staffData?.data || []).map((staff) => ({
+    id: staff.user?.id || staff.userId,
+    name: staff.user?.name || 'Unknown',
+  }));
+
   const handleSearchChange = (value: string) => {
     onFiltersChange({ ...filters, search: value });
   };
@@ -72,6 +81,10 @@ export function AppointmentFilters({ filters, onFiltersChange }: AppointmentFilt
 
   const handleBookingTypeChange = (value: string) => {
     onFiltersChange({ ...filters, bookingType: value });
+  };
+
+  const handleStylistChange = (value: string) => {
+    onFiltersChange({ ...filters, stylistId: value });
   };
 
   return (
@@ -92,6 +105,21 @@ export function AppointmentFilters({ filters, onFiltersChange }: AppointmentFilt
           className="w-[180px]"
           align="end"
         />
+
+        {/* Stylist Filter */}
+        <Select value={filters.stylistId} onValueChange={handleStylistChange}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="All Stylists" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Stylists</SelectItem>
+            {stylists.map((stylist) => (
+              <SelectItem key={stylist.id} value={stylist.id}>
+                {stylist.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         {/* Status Filter */}
         <Select value={filters.status} onValueChange={handleStatusChange}>

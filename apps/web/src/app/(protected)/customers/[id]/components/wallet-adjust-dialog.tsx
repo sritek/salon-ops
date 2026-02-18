@@ -66,7 +66,9 @@ export function WalletAdjustDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Adjust Wallet Balance</DialogTitle>
-          <DialogDescription>Add or remove funds from this customer's wallet.</DialogDescription>
+          <DialogDescription>
+            Add or remove funds from this customer&apos;s wallet.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">

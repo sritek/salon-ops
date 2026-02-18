@@ -40,15 +40,22 @@ async function main() {
     const customers = await seedCustomers(tenant.id, branches[0].id);
     console.log(`✅ Created ${customers.length} customers`);
 
-    // 6. Appointments
-    const appointments = await seedAppointments(
+    // 6. Appointments - seed for both branches
+    const appointments1 = await seedAppointments(
       tenant.id,
       branches[0].id,
       users,
       services,
       customers
     );
-    console.log(`✅ Created ${appointments.length} appointments`);
+    const appointments2 = await seedAppointments(
+      tenant.id,
+      branches[1].id,
+      users,
+      services,
+      customers
+    );
+    console.log(`✅ Created ${appointments1.length + appointments2.length} appointments`);
 
     // 7. Inventory: Products & Categories
     const products = await seedInventory(tenant.id, branches);
@@ -525,6 +532,87 @@ async function seedStaffData(
   ];
 
   await prisma.tenantLeavePolicy.createMany({ data: leavePolicies });
+
+  // Stylist Breaks (regular breaks like lunch)
+  const stylistUsers = users.filter((u) => u.role === 'stylist');
+  const primaryBranchId = branches[0].id;
+
+  const stylistBreaksData = stylistUsers.flatMap((user) => [
+    {
+      tenantId,
+      branchId: primaryBranchId,
+      stylistId: user.id,
+      name: 'Lunch Break',
+      startTime: '13:00',
+      endTime: '14:00',
+      isActive: true,
+    },
+    {
+      tenantId,
+      branchId: primaryBranchId,
+      stylistId: user.id,
+      name: 'Tea Break',
+      startTime: '16:30',
+      endTime: '16:45',
+      isActive: true,
+    },
+  ]);
+
+  await prisma.stylistBreak.createMany({ data: stylistBreaksData });
+
+  // Stylist Blocked Slots (vacation days, training, etc.)
+  const blockedSlotsData: Prisma.StylistBlockedSlotCreateManyInput[] = [];
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Add some blocked slots for testing
+  if (stylistUsers.length > 0) {
+    // First stylist has a full day blocked tomorrow
+    blockedSlotsData.push({
+      tenantId,
+      branchId: primaryBranchId,
+      stylistId: stylistUsers[0].id,
+      blockedDate: tomorrow,
+      isFullDay: true,
+      reason: 'Personal Leave',
+    });
+
+    // Second stylist has afternoon blocked in 3 days
+    if (stylistUsers.length > 1) {
+      const threeDaysLater = new Date();
+      threeDaysLater.setDate(threeDaysLater.getDate() + 3);
+      blockedSlotsData.push({
+        tenantId,
+        branchId: primaryBranchId,
+        stylistId: stylistUsers[1].id,
+        blockedDate: threeDaysLater,
+        isFullDay: false,
+        startTime: '14:00',
+        endTime: '18:00',
+        reason: 'Training Session',
+      });
+    }
+
+    // Third stylist has morning blocked next week
+    if (stylistUsers.length > 2) {
+      const nextWeek = new Date();
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      blockedSlotsData.push({
+        tenantId,
+        branchId: primaryBranchId,
+        stylistId: stylistUsers[2].id,
+        blockedDate: nextWeek,
+        isFullDay: false,
+        startTime: '09:00',
+        endTime: '12:00',
+        reason: 'Doctor Appointment',
+      });
+    }
+  }
+
+  if (blockedSlotsData.length > 0) {
+    await prisma.stylistBlockedSlot.createMany({ data: blockedSlotsData });
+  }
 }
 
 // ============================================
@@ -1134,7 +1222,19 @@ async function seedAppointments(
   }[],
   customers: { id: string; name: string; phone: string }[]
 ) {
-  const stylists = users.filter((u) => u.role === 'stylist');
+  // Get stylists assigned to this specific branch
+  const branchStylists = await prisma.userBranch.findMany({
+    where: { branchId },
+    select: { userId: true },
+  });
+  const branchStylistIds = new Set(branchStylists.map((ub) => ub.userId));
+  const stylists = users.filter((u) => u.role === 'stylist' && branchStylistIds.has(u.id));
+
+  if (stylists.length === 0) {
+    console.log('⚠️  No stylists found for branch, skipping appointments');
+    return [];
+  }
+
   const today = new Date();
 
   const appointmentsData: Prisma.AppointmentCreateManyInput[] = [];

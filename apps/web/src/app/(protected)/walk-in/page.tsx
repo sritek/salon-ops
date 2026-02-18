@@ -78,7 +78,7 @@ export default function WalkInQueuePage() {
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-  const { data: queueData, isLoading } = useWalkInQueue({
+  const { data: queueData } = useWalkInQueue({
     branchId,
     date: format(new Date(), 'yyyy-MM-dd'),
   });

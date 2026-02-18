@@ -1,11 +1,11 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   Calendar,
   CheckCircle,
   Clock,
+  CreditCard,
   Eye,
   MoreHorizontal,
   Phone,
@@ -16,6 +16,7 @@ import {
 
 import { formatCurrency } from '@/lib/format';
 
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -54,20 +55,24 @@ const bookingTypeIcons: Record<BookingType, React.ReactNode> = {
 
 interface GetColumnsOptions {
   canWrite: boolean;
+  onView: (id: string) => void;
   onCheckIn: (id: string) => void;
   onStart: (id: string) => void;
   onComplete: (id: string) => void;
   onCancel: (id: string) => void;
   onNoShow: (id: string) => void;
+  onCheckout?: (id: string) => void;
 }
 
 export function getAppointmentColumns({
   canWrite,
+  onView,
   onCheckIn,
   onStart,
   onComplete,
   onCancel,
   onNoShow,
+  onCheckout,
 }: GetColumnsOptions): ColumnDef<Appointment>[] {
   return [
     {
@@ -94,6 +99,33 @@ export function getAppointmentColumns({
           <div className="flex flex-col">
             <span className="font-medium">{name}</span>
             {phone && <span className="text-xs text-muted-foreground font-mono">{phone}</span>}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'stylist',
+      header: 'Stylist',
+      cell: ({ row }) => {
+        const apt = row.original;
+        const stylistName = apt.stylist?.name;
+        if (!stylistName) {
+          return <span className="text-muted-foreground text-sm">Unassigned</span>;
+        }
+        const initials = stylistName
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2);
+        return (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm">{stylistName}</span>
           </div>
         );
       },
@@ -172,11 +204,13 @@ export function getAppointmentColumns({
         <AppointmentActions
           appointment={row.original}
           canWrite={canWrite}
+          onView={onView}
           onCheckIn={onCheckIn}
           onStart={onStart}
           onComplete={onComplete}
           onCancel={onCancel}
           onNoShow={onNoShow}
+          onCheckout={onCheckout}
         />
       ),
     },
@@ -190,23 +224,26 @@ export function getAppointmentColumns({
 interface AppointmentActionsProps {
   appointment: Appointment;
   canWrite: boolean;
+  onView: (id: string) => void;
   onCheckIn: (id: string) => void;
   onStart: (id: string) => void;
   onComplete: (id: string) => void;
   onCancel: (id: string) => void;
   onNoShow: (id: string) => void;
+  onCheckout?: (id: string) => void;
 }
 
 function AppointmentActions({
   appointment,
   canWrite,
+  onView,
   onCheckIn,
   onStart,
   onComplete,
   onCancel,
   onNoShow,
+  onCheckout,
 }: AppointmentActionsProps) {
-  const router = useRouter();
   const { status, id } = appointment;
 
   const canCheckIn = status === 'booked' || status === 'confirmed';
@@ -214,6 +251,7 @@ function AppointmentActions({
   const canComplete = status === 'in_progress';
   const canCancel = status === 'booked' || status === 'confirmed' || status === 'checked_in';
   const canMarkNoShow = status === 'booked' || status === 'confirmed';
+  const canCheckout = status === 'in_progress' || status === 'completed';
 
   return (
     <DropdownMenu>
@@ -223,7 +261,7 @@ function AppointmentActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => router.push(`/appointments/${id}`)}>
+        <DropdownMenuItem onClick={() => onView(id)}>
           <Eye className="mr-2 h-4 w-4" />
           View Details
         </DropdownMenuItem>
@@ -250,6 +288,13 @@ function AppointmentActions({
               <DropdownMenuItem onClick={() => onComplete(id)}>
                 <CheckCircle className="mr-2 h-4 w-4" />
                 Complete
+              </DropdownMenuItem>
+            )}
+
+            {canCheckout && onCheckout && (
+              <DropdownMenuItem onClick={() => onCheckout(id)}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                Checkout
               </DropdownMenuItem>
             )}
 

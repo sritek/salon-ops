@@ -6,7 +6,6 @@
 
 'use client';
 
-import { use } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { format } from 'date-fns';

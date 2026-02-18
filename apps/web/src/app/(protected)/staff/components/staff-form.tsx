@@ -137,7 +137,9 @@ export function StaffForm({ staff, branchId, onSuccess }: StaffFormProps) {
   const onSubmit = async (data: StaffFormValues) => {
     try {
       if (isEditing && staff) {
-        const { phone, password, ...updatePayload } = data;
+        // Exclude phone and password from update payload (they can't be changed)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { phone: _phone, password: _password, ...updatePayload } = data;
         await updateStaff.mutateAsync({
           id: staff.userId,
           ...updatePayload,

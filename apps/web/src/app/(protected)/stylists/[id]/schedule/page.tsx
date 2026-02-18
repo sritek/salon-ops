@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Ban } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Ban } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { PageContainer, PageHeader, LoadingSpinner, ErrorState } from '@/components/common';
 import { useStylistSchedule } from '@/hooks/queries/use-appointments';
 
@@ -19,7 +19,6 @@ import type { StylistBreak, StylistBlockedSlot } from '@/types/appointments';
 
 export default function StylistSchedulePage() {
   const params = useParams();
-  const router = useRouter();
   const t = useTranslations('stylistSchedule');
   const stylistId = params.id as string;
 
@@ -121,7 +120,11 @@ export default function StylistSchedulePage() {
         <ErrorState
           title={t('error.title')}
           description={t('error.description')}
-          onRetry={() => refetch()}
+          action={
+            <Button variant="outline" onClick={() => refetch()}>
+              {t('error.retry')}
+            </Button>
+          }
         />
       </PageContainer>
     );
@@ -135,19 +138,19 @@ export default function StylistSchedulePage() {
         }
         description={t('description')}
         backHref="/staff"
-        backLabel={t('backToStaff')}
-      >
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowAddBreak(true)}>
-            <Clock className="h-4 w-4 mr-2" />
-            {t('addBreak')}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowBlockSlot(true)}>
-            <Ban className="h-4 w-4 mr-2" />
-            {t('blockSlot')}
-          </Button>
-        </div>
-      </PageHeader>
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowAddBreak(true)}>
+              <Clock className="h-4 w-4 mr-2" />
+              {t('addBreak')}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowBlockSlot(true)}>
+              <Ban className="h-4 w-4 mr-2" />
+              {t('blockSlot')}
+            </Button>
+          </div>
+        }
+      />
 
       {/* Week Navigation */}
       <Card className="mb-6">

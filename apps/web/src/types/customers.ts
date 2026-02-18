@@ -16,6 +16,7 @@ export interface Customer {
   dateOfBirth?: string | null;
   anniversaryDate?: string | null;
   address?: string | null;
+  notes?: string | null;
   preferences: CustomerPreferences;
   allergies: string[];
   tags: string[];
@@ -31,6 +32,11 @@ export interface Customer {
   // Extended fields from API
   hasAllergyWarning?: boolean;
   customerNotes?: CustomerNote[];
+  // Stats fields (may be populated by API)
+  visitCount?: number;
+  totalSpend?: number;
+  lastVisitDate?: string | null;
+  preferredStylist?: string | null;
 }
 
 export interface CustomerPreferences {

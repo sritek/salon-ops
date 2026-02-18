@@ -15,7 +15,6 @@ import { useEffect, useCallback, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
   Calendar,
   Users,
   Scissors,
@@ -36,6 +35,7 @@ import {
   Gift,
   Crown,
   ChevronDown,
+  Gauge,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -57,7 +57,7 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-  { titleKey: 'dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { titleKey: 'today', href: '/today', icon: Gauge },
   {
     titleKey: 'appointments',
     href: '/appointments',
@@ -399,7 +399,7 @@ export function MobileNav() {
       <SheetContent side="left" className="w-72 p-0">
         <SheetHeader className="border-b px-4 py-4">
           <SheetTitle asChild>
-            <Link href="/dashboard" className="flex items-center gap-2 text-xl font-bold">
+            <Link href="/today" className="flex items-center gap-2 text-xl font-bold">
               <span className="text-primary">Salon</span>
               <span>Ops</span>
             </Link>

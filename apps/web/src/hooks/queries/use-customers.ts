@@ -245,6 +245,42 @@ export function useCustomerStats(customerId: string) {
   });
 }
 
+/**
+ * Get customer appointments
+ */
+export function useCustomerAppointments(
+  customerId: string,
+  filters: { page?: number; limit?: number } = {}
+) {
+  return useQuery({
+    queryKey: [...customerKeys.detail(customerId), 'appointments', filters],
+    queryFn: () =>
+      api.getPaginated<unknown>(`/customers/${customerId}/appointments`, {
+        page: filters.page || 1,
+        limit: filters.limit || 10,
+      }),
+    enabled: !!customerId,
+  });
+}
+
+/**
+ * Get customer invoices
+ */
+export function useCustomerInvoices(
+  customerId: string,
+  filters: { page?: number; limit?: number } = {}
+) {
+  return useQuery({
+    queryKey: [...customerKeys.detail(customerId), 'invoices', filters],
+    queryFn: () =>
+      api.getPaginated<unknown>(`/customers/${customerId}/invoices`, {
+        page: filters.page || 1,
+        limit: filters.limit || 10,
+      }),
+    enabled: !!customerId,
+  });
+}
+
 // ============================================
 // Tags Hooks
 // ============================================
