@@ -10,7 +10,8 @@
       ]
     },
     "noImplicitAny": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "preserveSymlinks": true
   },
   "include": [
     "src/**/*",
