@@ -19,7 +19,7 @@ interface StylistInfo {
 }
 
 export class AvailabilityService {
-  constructor(private prisma: PrismaClient) {}
+  constructor(private prisma: PrismaClient) { }
 
   /**
    * Get available time slots for a branch/date/services
@@ -141,7 +141,7 @@ export class AvailabilityService {
       genderPreference
     );
 
-    const availableStylists = [];
+    const availableStylists: Array<StylistInfo & { isAvailable: boolean }> = [];
     for (const stylist of stylists) {
       const isAvailable = await this.isStylistAvailable(tenantId, stylist.id, date, time, duration);
       if (isAvailable) {
@@ -178,7 +178,7 @@ export class AvailabilityService {
     if (availableStylists.length === 0) return null;
 
     // Get workload for each stylist (count of appointments for the day)
-    const workloads = await Promise.all(
+    const workloads: Array<{ stylistId: string; count: number }> = await Promise.all(
       availableStylists.map(async (stylist) => {
         const count = await this.prisma.appointment.count({
           where: {

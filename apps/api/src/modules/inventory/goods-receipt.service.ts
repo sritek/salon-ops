@@ -488,8 +488,10 @@ export class GoodsReceiptService {
 
     // Use transaction for all updates
     const result = await prisma.$transaction(async (tx) => {
-      const stockBatches = [];
-      const stockMovements = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stockBatches: any[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stockMovements: any[] = [];
 
       for (const item of grn.items) {
         // Only create batches for accepted quantities
