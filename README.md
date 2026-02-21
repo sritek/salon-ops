@@ -8,7 +8,7 @@ A multi-tenant SaaS platform for salon management. Built with Next.js, Fastify, 
 - **Backend**: Fastify, Prisma ORM, Zod validation
 - **Database**: PostgreSQL 15
 - **Cache**: Redis
-- **Package Manager**: pnpm (monorepo with Turborepo)
+- **Package Manager**: pnpm (monorepo with Turborepo) 
 
 ## Prerequisites
 
