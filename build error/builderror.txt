@@ -1,0 +1,370 @@
+20:28:40.869 
+../../packages/shared postinstall: CJS Build start
+20:28:40.870 
+../../packages/shared postinstall: ESM Build start
+20:28:40.986 
+../../packages/shared postinstall: ESM dist/index.mjs 15.98 KB
+20:28:40.987 
+../../packages/shared postinstall: ESM ⚡️ Build success in 114ms
+20:28:40.990 
+../../packages/shared postinstall: CJS dist/index.js 19.79 KB
+20:28:40.990 
+../../packages/shared postinstall: CJS ⚡️ Build success in 119ms
+20:28:41.246 
+../../packages/shared postinstall: DTS Build start
+20:28:42.811 
+../../packages/shared postinstall: DTS ⚡️ Build success in 1566ms
+20:28:42.812 
+../../packages/shared postinstall: DTS dist/index.d.ts  33.71 KB
+20:28:42.813 
+../../packages/shared postinstall: DTS dist/index.d.mts 33.71 KB
+20:28:42.838 
+../../packages/shared postinstall: Done
+20:28:42.871 
+Done in 4.4s using pnpm v9.15.9
+20:28:43.085 
+Using TypeScript 5.9.3 (local user-provided)
+20:28:52.186 src/modules/auth/auth.controller.ts(188,53): error TS7006: Parameter 'ba' implicitly has an 'any' type.
+20:28:52.187 src/modules/auth/auth.controller.ts(253,53): error TS7006: Parameter 'ba' implicitly has an 'any' type.
+20:28:52.667 src/modules/customers/tags.service.ts(75,32): error TS7006: Parameter 'customer' implicitly has an 'any' type.
+20:28:52.667 src/modules/customers/tags.service.ts(79,41): error TS7006: Parameter 't' implicitly has an 'any' type.
+20:28:52.667 src/modules/customers/tags.service.ts(107,47): error TS7006: Parameter 't' implicitly has an 'any' type.
+20:28:52.667 src/modules/customers/tags.service.ts(165,43): error TS7006: Parameter 't' implicitly has an 'any' type.
+20:28:52.797 src/modules/services/price-engine.ts(312,34): error TS7006: Parameter 'item' implicitly has an 'any' type.
+20:28:53.614 src/lib/prisma.ts(6,10): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:53.615 src/lib/prisma.ts(6,18): error TS2305: Module '"@prisma/client"' has no exported member 'PrismaClient'.
+20:28:53.616 src/lib/prisma.ts(39,16): error TS2339: Property 'toNumber' does not exist on type 'T & {}'.
+20:28:53.616 src/lib/prisma.ts(71,37): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:53.617 src/lib/prisma.ts(86,37): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:53.618 src/lib/prisma.ts(102,37): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:53.642 src/modules/auth/auth.service.ts(58,51): error TS7006: Parameter 'ba' implicitly has an 'any' type.
+20:28:53.642 src/modules/auth/auth.service.ts(100,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:53.725 src/modules/inventory/audit.service.ts(9,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:53.726 src/modules/inventory/audit.service.ts(108,34): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.727 src/modules/inventory/audit.service.ts(120,34): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.727 src/modules/inventory/audit.service.ts(422,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:53.794 src/modules/inventory/goods-receipt.service.ts(9,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:53.795 src/modules/inventory/goods-receipt.service.ts(137,46): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.795 src/modules/inventory/goods-receipt.service.ts(143,54): error TS2339: Property 'taxRate' does not exist on type '{}'.
+20:28:53.796 src/modules/inventory/goods-receipt.service.ts(157,91): error TS2339: Property 'name' does not exist on type '{}'.
+20:28:53.796 src/modules/inventory/goods-receipt.service.ts(163,74): error TS2339: Property 'name' does not exist on type '{}'.
+20:28:53.797 src/modules/inventory/goods-receipt.service.ts(169,30): error TS2339: Property 'name' does not exist on type '{}'.
+20:28:53.797 src/modules/inventory/goods-receipt.service.ts(262,48): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.798 src/modules/inventory/goods-receipt.service.ts(268,56): error TS2339: Property 'taxRate' does not exist on type '{}'.
+20:28:53.798 src/modules/inventory/goods-receipt.service.ts(281,93): error TS2339: Property 'name' does not exist on type '{}'.
+20:28:53.799 src/modules/inventory/goods-receipt.service.ts(286,76): error TS2339: Property 'name' does not exist on type '{}'.
+20:28:53.799 src/modules/inventory/goods-receipt.service.ts(292,32): error TS2339: Property 'name' does not exist on type '{}'.
+20:28:53.799 src/modules/inventory/goods-receipt.service.ts(490,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:53.800 src/modules/inventory/goods-receipt.service.ts(556,16): error TS7006: Parameter 'poi' implicitly has an 'any' type.
+20:28:53.800 src/modules/inventory/goods-receipt.service.ts(642,28): error TS7006: Parameter 'item' implicitly has an 'any' type.
+20:28:53.889 src/modules/inventory/purchase-order.service.ts(9,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:53.891 src/modules/inventory/purchase-order.service.ts(114,47): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(117,70): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(125,46): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(131,54): error TS2339: Property 'taxRate' does not exist on type '{}'.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(141,30): error TS2339: Property 'name' does not exist on type '{}'.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(142,29): error TS2339: Property 'sku' does not exist on type '{}'.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(257,49): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(260,72): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(265,48): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(271,56): error TS2339: Property 'taxRate' does not exist on type '{}'.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(281,32): error TS2339: Property 'name' does not exist on type '{}'.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(282,31): error TS2339: Property 'sku' does not exist on type '{}'.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(522,43): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(522,48): error TS7006: Parameter 'item' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(523,44): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(523,49): error TS7006: Parameter 'item' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(585,44): error TS7006: Parameter 'bs' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(602,28): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(619,63): error TS7006: Parameter 'item' implicitly has an 'any' type.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(636,11): error TS2322: Type '{}' is not assignable to type 'number'.
+20:28:53.892 src/modules/inventory/purchase-order.service.ts(639,58): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+20:28:53.966 src/modules/inventory/transfer.service.ts(9,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:53.966 src/modules/inventory/transfer.service.ts(66,45): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:53.967 src/modules/inventory/transfer.service.ts(411,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:53.967 src/modules/inventory/transfer.service.ts(503,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:54.012 src/modules/inventory/vendor.service.ts(9,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:54.096 src/modules/inventory/stock.service.ts(9,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:54.097 src/modules/inventory/stock.service.ts(108,38): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:54.097 src/modules/inventory/stock.service.ts(125,28): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:54.097 src/modules/inventory/stock.service.ts(153,47): error TS7006: Parameter 'e' implicitly has an 'any' type.
+20:28:54.098 src/modules/inventory/stock.service.ts(156,51): error TS7006: Parameter 'product' implicitly has an 'any' type.
+20:28:54.098 src/modules/inventory/stock.service.ts(166,33): error TS2339: Property 'quantityOnHand' does not exist on type '{}'.
+20:28:54.099 src/modules/inventory/stock.service.ts(166,60): error TS2339: Property 'totalValue' does not exist on type '{}'.
+20:28:54.099 src/modules/inventory/stock.service.ts(166,79): error TS2339: Property 'quantityOnHand' does not exist on type '{}'.
+20:28:54.099 src/modules/inventory/stock.service.ts(174,31): error TS2339: Property 'quantityOnHand' does not exist on type '{}'.
+20:28:54.100 src/modules/inventory/stock.service.ts(176,34): error TS2339: Property 'availableQuantity' does not exist on type '{}'.
+20:28:54.100 src/modules/inventory/stock.service.ts(178,27): error TS2339: Property 'totalValue' does not exist on type '{}'.
+20:28:54.100 src/modules/inventory/stock.service.ts(180,52): error TS2339: Property 'availableQuantity' does not exist on type '{}'.
+20:28:54.195 src/modules/inventory/product.service.ts(9,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:54.195 src/modules/inventory/product.service.ts(9,23): error TS2305: Module '"@prisma/client"' has no exported member 'ProductCategory'.
+20:28:54.196 src/modules/inventory/product.service.ts(9,40): error TS2305: Module '"@prisma/client"' has no exported member 'BranchProductSettings'.
+20:28:54.196 src/modules/inventory/product.service.ts(618,48): error TS7006: Parameter 'product' implicitly has an 'any' type.
+20:28:54.237 src/modules/customers/customers.service.ts(8,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:54.237 src/modules/customers/customers.service.ts(8,23): error TS2305: Module '"@prisma/client"' has no exported member 'Customer'.
+20:28:54.237 src/modules/customers/customers.service.ts(638,45): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:54.238 src/modules/customers/customers.service.ts(638,50): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:54.245 src/modules/customers/customers.service.ts(647,8): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+20:28:54.246 src/modules/customers/customers.service.ts(647,13): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:54.246 src/modules/customers/customers.service.ts(655,59): error TS18046: 'b' is of type 'unknown'.
+20:28:54.252 src/modules/customers/customers.service.ts(655,63): error TS18046: 'a' is of type 'unknown'.
+20:28:54.273 src/modules/services/addons.service.ts(8,15): error TS2305: Module '"@prisma/client"' has no exported member 'ServiceAddOn'.
+20:28:54.273 src/modules/services/addons.service.ts(207,26): error TS7006: Parameter 'm' implicitly has an 'any' type.
+20:28:54.312 src/modules/services/branch-pricing.service.ts(8,15): error TS2305: Module '"@prisma/client"' has no exported member 'BranchServicePrice'.
+20:28:54.318 src/modules/services/branch-pricing.service.ts(62,54): error TS7006: Parameter 'bp' implicitly has an 'any' type.
+20:28:54.318 src/modules/services/branch-pricing.service.ts(64,26): error TS7006: Parameter 'service' implicitly has an 'any' type.
+20:28:54.319 src/modules/services/branch-pricing.service.ts(72,38): error TS2339: Property 'price' does not exist on type '{}'.
+20:28:54.319 src/modules/services/branch-pricing.service.ts(73,32): error TS2339: Property 'price' does not exist on type '{}'.
+20:28:54.319 src/modules/services/branch-pricing.service.ts(75,35): error TS2339: Property 'isAvailable' does not exist on type '{}'.
+20:28:54.320 src/modules/services/branch-pricing.service.ts(186,46): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:54.320 src/modules/services/branch-pricing.service.ts(193,53): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:54.321 src/modules/services/branch-pricing.service.ts(205,36): error TS2339: Property 'price' does not exist on type '{}'.
+20:28:54.321 src/modules/services/branch-pricing.service.ts(206,29): error TS2339: Property 'price' does not exist on type '{}'.
+20:28:54.321 src/modules/services/branch-pricing.service.ts(207,28): error TS2339: Property 'basePrice' does not exist on type '{}'.
+20:28:54.322 src/modules/services/branch-pricing.service.ts(224,35): error TS2339: Property 'id' does not exist on type '{}'.
+20:28:54.351 src/modules/services/categories.service.ts(8,15): error TS2305: Module '"@prisma/client"' has no exported member 'ServiceCategory'.
+20:28:54.387 src/modules/services/combos.service.ts(8,15): error TS2305: Module '"@prisma/client"' has no exported member 'ComboService'.
+20:28:54.387 src/modules/services/combos.service.ts(8,29): error TS2305: Module '"@prisma/client"' has no exported member 'ComboServiceItem'.
+20:28:54.388 src/modules/services/combos.service.ts(8,47): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:54.388 src/modules/services/combos.service.ts(118,46): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:54.389 src/modules/services/combos.service.ts(124,39): error TS2339: Property 'basePrice' does not exist on type '{}'.
+20:28:54.389 src/modules/services/combos.service.ts(125,32): error TS2339: Property 'durationMinutes' does not exist on type '{}'.
+20:28:54.389 src/modules/services/combos.service.ts(243,48): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:54.390 src/modules/services/combos.service.ts(249,41): error TS2339: Property 'basePrice' does not exist on type '{}'.
+20:28:54.390 src/modules/services/combos.service.ts(250,34): error TS2339: Property 'durationMinutes' does not exist on type '{}'.
+20:28:54.428 src/modules/services/services.service.ts(8,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:54.428 src/modules/services/services.service.ts(8,23): error TS2305: Module '"@prisma/client"' has no exported member 'Service'.
+20:28:54.428 src/modules/services/services.service.ts(348,38): error TS7006: Parameter 'v' implicitly has an 'any' type.
+20:28:54.428 src/modules/services/services.service.ts(435,30): error TS7006: Parameter 'category' implicitly has an 'any' type.
+20:28:54.428 src/modules/services/services.service.ts(437,42): error TS7006: Parameter 'service' implicitly has an 'any' type.
+20:28:54.428 src/modules/services/services.service.ts(445,53): error TS7006: Parameter 'subCat' implicitly has an 'any' type.
+20:28:54.428 src/modules/services/services.service.ts(447,42): error TS7006: Parameter 'service' implicitly has an 'any' type.
+20:28:54.438 src/modules/services/variants.service.ts(8,15): error TS2305: Module '"@prisma/client"' has no exported member 'ServiceVariant'.
+20:28:55.015 src/modules/appointments/appointments.service.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'PrismaClient'.
+20:28:55.015 src/modules/appointments/appointments.service.ts(1,24): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:55.015 src/modules/appointments/appointments.service.ts(197,52): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(201,27): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(208,35): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(251,44): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(251,49): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(316,47): error TS7006: Parameter 'service' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(370,63): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(615,44): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(678,44): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(768,44): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(831,37): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(912,44): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:55.015 src/modules/appointments/appointments.service.ts(964,44): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:55.058 src/modules/appointments/availability.service.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'PrismaClient'.
+20:28:55.058 src/modules/appointments/availability.service.ts(237,29): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.058 src/modules/appointments/availability.service.ts(237,34): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:55.087 src/modules/appointments/walk-in-queue.service.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'PrismaClient'.
+20:28:55.088 src/modules/appointments/walk-in-queue.service.ts(93,47): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:55.088 src/modules/appointments/walk-in-queue.service.ts(164,41): error TS7006: Parameter 'id' implicitly has an 'any' type.
+20:28:55.088 src/modules/appointments/walk-in-queue.service.ts(290,28): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.088 src/modules/appointments/walk-in-queue.service.ts(290,33): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:55.088 src/modules/appointments/walk-in-queue.service.ts(344,50): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.088 src/modules/appointments/walk-in-queue.service.ts(344,55): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+20:28:55.105 src/modules/appointments/stylist-schedule.service.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'PrismaClient'.
+20:28:55.105 src/modules/appointments/stylist-schedule.service.ts(78,39): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:55.105 src/modules/appointments/stylist-schedule.service.ts(84,37): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:55.141 src/modules/appointments/appointments.controller.ts(71,44): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.141 src/modules/appointments/appointments.controller.ts(71,49): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:55.565 src/modules/billing/billing.service.ts(6,10): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:55.566 src/modules/billing/billing.service.ts(636,65): error TS7006: Parameter 'i' implicitly has an 'any' type.
+20:28:55.566 src/modules/billing/billing.service.ts(700,38): error TS7006: Parameter 'i' implicitly has an 'any' type.
+20:28:55.567 src/modules/billing/billing.service.ts(756,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:55.568 src/modules/billing/billing.service.ts(866,48): error TS7006: Parameter 'item' implicitly has an 'any' type.
+20:28:55.568 src/modules/billing/billing.service.ts(885,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:55.569 src/modules/billing/billing.service.ts(1214,56): error TS7006: Parameter 'i' implicitly has an 'any' type.
+20:28:55.569 src/modules/billing/billing.service.ts(1255,57): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:55.569 src/modules/billing/billing.service.ts(1532,8): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.570 src/modules/billing/billing.service.ts(1532,13): error TS7006: Parameter 't' implicitly has an 'any' type.
+20:28:55.570 src/modules/billing/billing.service.ts(1550,43): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.571 src/modules/billing/billing.service.ts(1550,48): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+20:28:55.571 src/modules/billing/billing.service.ts(1551,39): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.571 src/modules/billing/billing.service.ts(1551,44): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+20:28:55.572 src/modules/billing/billing.service.ts(1552,45): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.572 src/modules/billing/billing.service.ts(1552,50): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+20:28:55.572 src/modules/billing/billing.service.ts(1566,16): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.573 src/modules/billing/billing.service.ts(1567,16): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.579 src/modules/billing/billing.service.ts(1567,21): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.580 src/modules/billing/billing.service.ts(1569,16): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.580 src/modules/billing/billing.service.ts(1570,16): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.581 src/modules/billing/billing.service.ts(1570,21): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.581 src/modules/billing/billing.service.ts(1572,16): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.581 src/modules/billing/billing.service.ts(1573,16): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.582 src/modules/billing/billing.service.ts(1573,21): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.582 src/modules/billing/billing.service.ts(1575,16): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.583 src/modules/billing/billing.service.ts(1576,16): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.583 src/modules/billing/billing.service.ts(1576,21): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.583 src/modules/billing/billing.service.ts(1578,16): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.584 src/modules/billing/billing.service.ts(1579,16): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.584 src/modules/billing/billing.service.ts(1579,21): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.733 src/modules/checkout/checkout.service.ts(556,52): error TS7006: Parameter 'item' implicitly has an 'any' type.
+20:28:55.733 src/modules/checkout/checkout.service.ts(564,65): error TS7006: Parameter 'd' implicitly has an 'any' type.
+20:28:55.733 src/modules/checkout/checkout.service.ts(605,50): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:55.733 src/modules/checkout/checkout.service.ts(605,55): error TS7006: Parameter 'item' implicitly has an 'any' type.
+20:28:55.733 src/modules/checkout/checkout.service.ts(612,44): error TS7006: Parameter 'i' implicitly has an 'any' type.
+20:28:55.733 src/modules/checkout/checkout.service.ts(669,63): error TS7006: Parameter 'd' implicitly has an 'any' type.
+20:28:55.733 src/modules/checkout/checkout.service.ts(768,49): error TS7006: Parameter 'item' implicitly has an 'any' type.
+20:28:55.733 src/modules/checkout/checkout.service.ts(778,51): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.734 src/modules/checkout/checkout.service.ts(830,29): error TS7006: Parameter 'm' implicitly has an 'any' type.
+20:28:55.734 src/modules/checkout/checkout.service.ts(835,38): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:55.734 src/modules/checkout/checkout.service.ts(863,42): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.734 src/modules/checkout/checkout.service.ts(863,63): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:55.734 src/modules/checkout/checkout.service.ts(874,46): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:55.734 src/modules/checkout/checkout.service.ts(876,26): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:55.734 src/modules/checkout/checkout.service.ts(882,31): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.121 src/modules/staff/staff.service.ts(7,10): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:56.122 src/modules/staff/staff.service.ts(76,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:56.123 src/modules/staff/staff.service.ts(286,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:56.123 src/modules/staff/staff.service.ts(375,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:56.124 src/modules/staff/staff.service.ts(881,36): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:56.124 src/modules/staff/staff.service.ts(882,35): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:56.124 src/modules/staff/staff.service.ts(883,33): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:56.125 src/modules/staff/staff.service.ts(884,34): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:56.127 src/modules/staff/staff.service.ts(885,33): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:56.128 src/modules/staff/staff.service.ts(886,33): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:56.128 src/modules/staff/staff.service.ts(887,43): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:56.131 src/modules/staff/staff.service.ts(887,48): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:56.132 src/modules/staff/staff.service.ts(888,41): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:56.132 src/modules/staff/staff.service.ts(888,46): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:56.133 src/modules/staff/staff.service.ts(980,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:56.133 src/modules/staff/staff.service.ts(1087,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:56.133 src/modules/staff/staff.service.ts(1267,8): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+20:28:56.134 src/modules/staff/staff.service.ts(1267,13): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.137 src/modules/staff/staff.service.ts(1275,8): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+20:28:56.138 src/modules/staff/staff.service.ts(1275,13): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.139 src/modules/staff/staff.service.ts(1283,40): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:56.140 src/modules/staff/staff.service.ts(1283,45): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.140 src/modules/staff/staff.service.ts(1468,54): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:56.141 src/modules/staff/staff.service.ts(1577,50): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:56.141 src/modules/staff/staff.service.ts(1577,55): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.141 src/modules/staff/staff.service.ts(1675,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:56.142 src/modules/staff/staff.service.ts(1721,53): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:56.346 src/modules/memberships/membership-plan.service.ts(9,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:56.402 src/modules/memberships/package.service.ts(9,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:56.402 src/modules/memberships/package.service.ts(69,44): error TS7006: Parameter 'ds' implicitly has an 'any' type.
+20:28:56.402 src/modules/memberships/package.service.ts(78,52): error TS7006: Parameter 'v' implicitly has an 'any' type.
+20:28:56.402 src/modules/memberships/package.service.ts(267,44): error TS7006: Parameter 'ds' implicitly has an 'any' type.
+20:28:56.403 src/modules/memberships/package.service.ts(274,52): error TS7006: Parameter 'v' implicitly has an 'any' type.
+20:28:56.455 src/modules/memberships/customer-membership.service.ts(10,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:56.455 src/modules/memberships/customer-membership.service.ts(90,49): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:56.519 src/modules/memberships/customer-package.service.ts(10,15): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:56.519 src/modules/memberships/customer-package.service.ts(92,48): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:56.520 src/modules/memberships/customer-package.service.ts(145,41): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:56.520 src/modules/memberships/customer-package.service.ts(288,50): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.520 src/modules/memberships/customer-package.service.ts(299,44): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:56.521 src/modules/memberships/customer-package.service.ts(299,49): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.521 src/modules/memberships/customer-package.service.ts(300,46): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:56.521 src/modules/memberships/customer-package.service.ts(300,51): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.580 src/modules/memberships/redemption.service.ts(102,51): error TS7006: Parameter 'm' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(104,36): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(127,45): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(129,39): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(149,49): error TS7006: Parameter 'm' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(156,43): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(164,30): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(441,52): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(502,50): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(541,51): error TS7006: Parameter 'm' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(543,36): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(563,45): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(565,39): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:56.581 src/modules/memberships/redemption.service.ts(569,43): error TS7006: Parameter 'm' implicitly has an 'any' type.
+20:28:56.582 src/modules/memberships/redemption.service.ts(578,37): error TS7006: Parameter 'p' implicitly has an 'any' type.
+20:28:56.582 src/modules/memberships/redemption.service.ts(588,30): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(70,8): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(70,13): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(91,8): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(91,13): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(109,56): error TS7006: Parameter 'a' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(110,56): error TS7006: Parameter 'a' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(113,42): error TS7006: Parameter 'a' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(125,43): error TS7006: Parameter 'w' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(128,27): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(128,32): error TS7006: Parameter 'w' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(184,40): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(201,40): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:57.176 src/modules/dashboard/dashboard.service.ts(207,47): error TS7006: Parameter 'stylist' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(207,56): error TS7006: Parameter 'index' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(209,53): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(219,41): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(303,50): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(311,46): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(313,75): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(322,37): error TS7006: Parameter 'as' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(341,48): error TS7006: Parameter 'wi' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(350,50): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(352,53): error TS7006: Parameter 'wi' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(360,38): error TS7006: Parameter 'sid' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(525,40): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(546,26): error TS7006: Parameter 'stylist' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(548,18): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:57.177 src/modules/dashboard/dashboard.service.ts(549,15): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:57.363 src/modules/calendar/calendar.service.ts(6,10): error TS2305: Module '"@prisma/client"' has no exported member 'PrismaClient'.
+20:28:57.364 src/modules/calendar/calendar.service.ts(6,24): error TS2305: Module '"@prisma/client"' has no exported member 'Prisma'.
+20:28:57.364 src/modules/calendar/calendar.service.ts(150,42): error TS7006: Parameter 'ub' implicitly has an 'any' type.
+20:28:57.365 src/modules/calendar/calendar.service.ts(173,59): error TS7006: Parameter 'ub' implicitly has an 'any' type.
+20:28:57.365 src/modules/calendar/calendar.service.ts(173,63): error TS7006: Parameter 'index' implicitly has an 'any' type.
+20:28:57.365 src/modules/calendar/calendar.service.ts(175,18): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:57.366 src/modules/calendar/calendar.service.ts(176,15): error TS7006: Parameter 'b' implicitly has an 'any' type.
+20:28:57.366 src/modules/calendar/calendar.service.ts(184,18): error TS7006: Parameter 'bs' implicitly has an 'any' type.
+20:28:57.366 src/modules/calendar/calendar.service.ts(185,15): error TS7006: Parameter 'bs' implicitly has an 'any' type.
+20:28:57.367 src/modules/calendar/calendar.service.ts(195,10): error TS7006: Parameter 'bs' implicitly has an 'any' type.
+20:28:57.367 src/modules/calendar/calendar.service.ts(233,75): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:57.367 src/modules/calendar/calendar.service.ts(241,35): error TS7006: Parameter 's' implicitly has an 'any' type.
+20:28:57.367 src/modules/calendar/calendar.service.ts(327,44): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:57.368 src/modules/calendar/calendar.service.ts(414,41): error TS7006: Parameter 'apt' implicitly has an 'any' type.
+20:28:57.368 src/modules/calendar/calendar.service.ts(439,31): error TS7006: Parameter 'slot' implicitly has an 'any' type.
+20:28:57.451 src/modules/search/search.service.ts(75,27): error TS7006: Parameter 'customer' implicitly has an 'any' type.
+20:28:57.452 src/modules/search/search.service.ts(125,30): error TS7006: Parameter 'appointment' implicitly has an 'any' type.
+20:28:57.456 src/modules/search/search.service.ts(173,26): error TS7006: Parameter 'invoice' implicitly has an 'any' type.
+20:28:57.499 src/modules/inventory/fifo-engine.ts(106,38): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+20:28:57.679 src/modules/staff/performance.service.ts(146,41): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:57.680 src/modules/staff/performance.service.ts(147,40): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:57.680 src/modules/staff/performance.service.ts(148,38): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:57.681 src/modules/staff/performance.service.ts(149,39): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:57.681 src/modules/staff/performance.service.ts(150,42): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:57.682 src/modules/staff/performance.service.ts(151,46): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.682 src/modules/staff/performance.service.ts(151,51): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:57.682 src/modules/staff/performance.service.ts(152,43): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.682 src/modules/staff/performance.service.ts(152,48): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:57.682 src/modules/staff/performance.service.ts(159,23): error TS7006: Parameter 'r' implicitly has an 'any' type.
+20:28:57.683 src/modules/staff/performance.service.ts(195,45): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.683 src/modules/staff/performance.service.ts(195,50): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:57.683 src/modules/staff/performance.service.ts(197,16): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:57.683 src/modules/staff/performance.service.ts(198,16): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.684 src/modules/staff/performance.service.ts(198,21): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:57.684 src/modules/staff/performance.service.ts(200,16): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:57.684 src/modules/staff/performance.service.ts(201,16): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.684 src/modules/staff/performance.service.ts(201,21): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:57.684 src/modules/staff/performance.service.ts(203,16): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:57.684 src/modules/staff/performance.service.ts(204,16): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(204,21): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(207,8): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(207,13): error TS7006: Parameter 'c' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(253,56): error TS7006: Parameter 'a' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(254,56): error TS7006: Parameter 'a' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(255,53): error TS7006: Parameter 'a' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(262,56): error TS7006: Parameter 'a' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(264,8): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(264,13): error TS7006: Parameter 'a' implicitly has an 'any' type.
+20:28:57.685 src/modules/staff/performance.service.ts(271,61): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+20:28:57.686 src/modules/staff/performance.service.ts(271,66): error TS7006: Parameter 'a' implicitly has an 'any' type.
+20:28:57.686 
+20:29:05.461 
+Build Completed in /vercel/output [27s]
+20:29:05.943 
+Deploying outputs...
+20:29:11.998 
+Deployment completed
+20:29:12.977 
+Creating build cache...
+20:29:44.058 
+Created build cache: 31s
+20:29:44.059 
+Uploading build cache [237.99 MB]
+20:29:48.416 
+Build cache uploaded: 4.365s
