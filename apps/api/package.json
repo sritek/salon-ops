@@ -42,6 +42,7 @@
     "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
+    "@vercel/node": "^3.0.0",
     "@salon-ops/config": "workspace:*",
     "@types/bcrypt": "^5.0.2",
     "@types/node": "^22.0.0",

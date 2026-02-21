@@ -2,12 +2,20 @@
   "extends": "@salon-ops/config/tsconfig.node.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*",
+    "api/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

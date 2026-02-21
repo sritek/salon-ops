@@ -298,6 +298,14 @@ pnpm db:seed
 pnpm dev
 ```
 
+### Shared Files
+
+- `packages/shared/`
+- `packages/config/`
+
+- Run `pnpm --filter @salon-ops/shared build` from the root to build the shared files.  
+- Run `pnpm --filter @salon-ops/shared dev` from the root to watch for changes automatically.
+
 ## License
 
 Private - All rights reserved.
