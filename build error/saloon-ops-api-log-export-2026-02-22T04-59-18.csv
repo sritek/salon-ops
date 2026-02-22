@@ -1,0 +1,117 @@
+TimeUTC,timestampInMs,requestPath,requestMethod,requestQueryString,responseStatusCode,requestId,requestUserAgent,level,environment,branch,vercelCache,type,function,host,deploymentDomain,deploymentId,durationMs,region,maxMemoryUsed,memorySize,message,projectId,traceId,sessionId,invocationId,instanceId,concurrency
+2026-02-22 04:56:07,1771736167407,saloon-ops-api.vercel.app/favicon.ico,GET,,500,qnkjk-1771736166420-bf40bb0ffcc6,"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",error,production,main,MISS,function,/favicon.ico,saloon-ops-api.vercel.app,saloon-ops-api.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,,,,,"Error: @prisma/client did not initialize yet. Please run ""prisma generate"" and try to import it again.
+    at new PrismaClient (/var/task/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/var/task/apps/api/src/lib/prisma.js:16:5)
+    at Module.<anonymous> (/opt/rust/bytecode.js:2:1435)
+    at A.d._compile (/opt/rust/bytecode.js:2:3186)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1300:12)
+    at /opt/rust/nodejs.js:2:13531
+    at Module.un (/opt/rust/nodejs.js:2:13909)
+    at Xe.e.<computed>.Ye._load (/opt/rust/nodejs.js:2:13501)
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 04:56:06,1771736166420,saloon-ops-api.vercel.app/favicon.ico,GET,,500,qnkjk-1771736166420-bf40bb0ffcc6,"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",,production,main,MISS,function,/api/index.ts,saloon-ops-api.vercel.app,saloon-ops-api.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,866,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1V8W3WHX9QMD1D1ZPK0CMC,,-1
+2026-02-22 04:56:06,1771736166231,saloon-ops-api.vercel.app/health,GET,,500,m2jz2-1771736164953-536e59aec275,"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",error,production,main,MISS,function,/health,saloon-ops-api.vercel.app,saloon-ops-api.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,,,,,"Error: @prisma/client did not initialize yet. Please run ""prisma generate"" and try to import it again.
+    at new PrismaClient (/var/task/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/var/task/apps/api/src/lib/prisma.js:16:5)
+    at Module.<anonymous> (/opt/rust/bytecode.js:2:1435)
+    at A.d._compile (/opt/rust/bytecode.js:2:3186)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1300:12)
+    at /opt/rust/nodejs.js:2:13531
+    at Module.un (/opt/rust/nodejs.js:2:13909)
+    at Xe.e.<computed>.Ye._load (/opt/rust/nodejs.js:2:13501)
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 04:56:04,1771736164953,saloon-ops-api.vercel.app/health,GET,,500,m2jz2-1771736164953-536e59aec275,"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",,production,main,MISS,function,/api/index.ts,saloon-ops-api.vercel.app,saloon-ops-api.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,857,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1V8TZH1CYZSR53ARVN2R5W,,-1
+2026-02-22 04:55:49,1771736149187,saloon-ops-api.vercel.app/favicon.ico,GET,,500,6wnmc-1771736148214-141c894b415b,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",error,production,main,MISS,function,/favicon.ico,saloon-ops-api.vercel.app,saloon-ops-api.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,,,,,"Error: @prisma/client did not initialize yet. Please run ""prisma generate"" and try to import it again.
+    at new PrismaClient (/var/task/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/var/task/apps/api/src/lib/prisma.js:16:5)
+    at Module.<anonymous> (/opt/rust/bytecode.js:2:1435)
+    at A.d._compile (/opt/rust/bytecode.js:2:3186)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1300:12)
+    at /opt/rust/nodejs.js:2:13531
+    at Module.un (/opt/rust/nodejs.js:2:13909)
+    at Xe.e.<computed>.Ye._load (/opt/rust/nodejs.js:2:13501)
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 04:55:48,1771736148214,saloon-ops-api.vercel.app/favicon.ico,GET,,500,6wnmc-1771736148214-141c894b415b,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,MISS,function,/api/index.ts,saloon-ops-api.vercel.app,saloon-ops-api.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,854,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1V8AAXWJEZ0P31JMBFGAMA,,-1
+2026-02-22 04:55:48,1771736148051,saloon-ops-api.vercel.app/health,GET,,500,dd8hx-1771736146861-65205b24e860,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",error,production,main,MISS,function,/health,saloon-ops-api.vercel.app,saloon-ops-api.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,,,,,"Error: @prisma/client did not initialize yet. Please run ""prisma generate"" and try to import it again.
+    at new PrismaClient (/var/task/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/var/task/apps/api/src/lib/prisma.js:16:5)
+    at Module.<anonymous> (/opt/rust/bytecode.js:2:1435)
+    at A.d._compile (/opt/rust/bytecode.js:2:3186)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1300:12)
+    at /opt/rust/nodejs.js:2:13531
+    at Module.un (/opt/rust/nodejs.js:2:13909)
+    at Xe.e.<computed>.Ye._load (/opt/rust/nodejs.js:2:13501)
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 04:55:46,1771736146861,saloon-ops-api.vercel.app/health,GET,,500,dd8hx-1771736146861-65205b24e860,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,MISS,function,/api/index.ts,saloon-ops-api.vercel.app,saloon-ops-api.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,851,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1V8979G57XQY325D779STV,,-1
+2026-02-22 04:55:33,1771736133499,saloon-ops-api.vercel.app/favicon.ico,GET,,500,pzdtg-1771736132321-05f9ab062052,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",error,production,main,MISS,function,/favicon.ico,saloon-ops-api.vercel.app,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,,,,,"Error: @prisma/client did not initialize yet. Please run ""prisma generate"" and try to import it again.
+    at new PrismaClient (/var/task/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/var/task/apps/api/src/lib/prisma.js:16:5)
+    at Module.<anonymous> (/opt/rust/bytecode.js:2:1435)
+    at A.d._compile (/opt/rust/bytecode.js:2:3186)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1300:12)
+    at /opt/rust/nodejs.js:2:13531
+    at Module.un (/opt/rust/nodejs.js:2:13909)
+    at Xe.e.<computed>.Ye._load (/opt/rust/nodejs.js:2:13501)
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 04:55:32,1771736132321,saloon-ops-api.vercel.app/favicon.ico,GET,,500,pzdtg-1771736132321-05f9ab062052,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,MISS,function,/api/index.ts,saloon-ops-api.vercel.app,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,839,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1V7V1535ATZCFZWTACY0DP,,-1
+2026-02-22 04:55:32,1771736132123,saloon-ops-api.vercel.app/,GET,,500,96z5k-1771736130497-398e227d7f1e,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",error,production,main,MISS,function,/,saloon-ops-api.vercel.app,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,,,,,"Error: @prisma/client did not initialize yet. Please run ""prisma generate"" and try to import it again.
+    at new PrismaClient (/var/task/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/var/task/apps/api/src/lib/prisma.js:16:5)
+    at Module.<anonymous> (/opt/rust/bytecode.js:2:1435)
+    at A.d._compile (/opt/rust/bytecode.js:2:3186)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1300:12)
+    at /opt/rust/nodejs.js:2:13531
+    at Module.un (/opt/rust/nodejs.js:2:13909)
+    at Xe.e.<computed>.Ye._load (/opt/rust/nodejs.js:2:13501)
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 04:55:30,1771736130497,saloon-ops-api.vercel.app/,GET,,500,96z5k-1771736130497-398e227d7f1e,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,MISS,function,/api/index.ts,saloon-ops-api.vercel.app,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,876,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1V7SMSBVFK9RBC22P5YE2N,,-1
+2026-02-22 04:51:32,1771735892301,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app/,GET,,500,v44dd-1771735891379-a94225c1142d,vercel-favicon/1.0,error,production,main,MISS,function,/,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,,,,,"Error: @prisma/client did not initialize yet. Please run ""prisma generate"" and try to import it again.
+    at new PrismaClient (/var/task/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/var/task/apps/api/src/lib/prisma.js:16:5)
+    at Module.<anonymous> (/opt/rust/bytecode.js:2:1435)
+    at A.d._compile (/opt/rust/bytecode.js:2:3186)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1300:12)
+    at /opt/rust/nodejs.js:2:13531
+    at Module.un (/opt/rust/nodejs.js:2:13909)
+    at Xe.e.<computed>.Ye._load (/opt/rust/nodejs.js:2:13501)
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 04:51:31,1771735891379,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app/,GET,,500,v44dd-1771735891379-a94225c1142d,vercel-favicon/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,849,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1V0FF8GZYVT2EB9XXMKQSZ,,-1
+2026-02-22 04:51:30,1771735890398,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app/,GET,,500,zm5lz-1771735888008-9d1fd784d677,vercel-favicon/1.0,error,production,main,MISS,function,/,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,,,,,"Error: @prisma/client did not initialize yet. Please run ""prisma generate"" and try to import it again.
+    at new PrismaClient (/var/task/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/var/task/apps/api/src/lib/prisma.js:16:5)
+    at Module.<anonymous> (/opt/rust/bytecode.js:2:1435)
+    at A.d._compile (/opt/rust/bytecode.js:2:3186)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1300:12)
+    at /opt/rust/nodejs.js:2:13531
+    at Module.un (/opt/rust/nodejs.js:2:13909)
+    at Xe.e.<computed>.Ye._load (/opt/rust/nodejs.js:2:13501)
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
+Error: @prisma/client did not initialize yet. Please run ""prisma generate"" and try to import it again.
+    at new PrismaClient (/var/task/node_modules/.pnpm/@prisma+client@5.22.0_prisma@5.22.0/node_modules/.prisma/client/default.js:43:11)
+    at Object.<anonymous> (/var/task/apps/api/src/lib/prisma.js:16:5)
+    at Module.<anonymous> (/opt/rust/bytecode.js:2:1435)
+    at A.d._compile (/opt/rust/bytecode.js:2:3186)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1300:12)
+    at /opt/rust/nodejs.js:2:13531
+    at Module.un (/opt/rust/nodejs.js:2:13909)
+    at Xe.e.<computed>.Ye._load (/opt/rust/nodejs.js:2:13501)
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 04:51:28,1771735888008,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app/,GET,,500,zm5lz-1771735888008-9d1fd784d677,vercel-favicon/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,saloon-ops-hsc6fa4zc-shreyanshs-projects-57730faf.vercel.app,dpl_5SF949JLhq2TgEYcdsWjrDnXLjPV,856,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1V0CAKMTM8CPSWRRMVJBWT,,-1

@@ -7,14 +7,10 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@prisma/client": [
-        "./node_modules/.prisma/client"
       ]
     },
     "noImplicitAny": false,
-    "skipLibCheck": true,
-    "preserveSymlinks": true
+    "skipLibCheck": true
   },
   "include": [
     "src/**/*",
