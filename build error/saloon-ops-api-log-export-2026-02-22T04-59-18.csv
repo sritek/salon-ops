@@ -19,6 +19,7 @@ Node.js process exited with exit status: 1. The logs above can help with debuggi
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
+
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
