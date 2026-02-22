@@ -1,61 +1,151 @@
 TimeUTC,timestampInMs,requestPath,requestMethod,requestQueryString,responseStatusCode,requestId,requestUserAgent,level,environment,branch,vercelCache,type,function,host,deploymentDomain,deploymentId,durationMs,region,maxMemoryUsed,memorySize,message,projectId,traceId,sessionId,invocationId,instanceId,concurrency
-2026-02-22 05:28:14,1771738094125,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,88fmf-1771738093091-4a58c6b47303,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.png,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
+2026-02-22 06:14:28,1771740868961,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,rktjt-1771740867870-496e832b40cb,"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",error,production,main,MISS,function,/favicon.ico,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:28:13,1771738093091,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,88fmf-1771738093091-4a58c6b47303,vercel-favicon/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,975,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1X3NJFX7X0WCTNM98XA3YT,,-1
-2026-02-22 05:28:11,1771738091019,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,b8dmj-1771738089925-cbe1a6dee549,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.png,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
+2026-02-22 06:14:27,1771740867870,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,rktjt-1771740867870-496e832b40cb,"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",,production,main,MISS,function,/api/index,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,968,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZRBC7XN74A35RVGX240S3,,-1
+2026-02-22 06:14:27,1771740867675,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/health,GET,,500,n8nqz-1771740866584-901c2859c8f0,"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",error,production,main,MISS,function,/health,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:28:09,1771738089925,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,b8dmj-1771738089925-cbe1a6dee549,vercel-favicon/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,1011,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1X3JGC8NN0J6E97BVSZT3Y,,-1
-2026-02-22 05:28:08,1771738088860,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,,dgtmp-1771738087831-5c1de19adb67,vercel-favicon/1.0,error,production,main,,function,,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
+2026-02-22 06:14:26,1771740866584,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/health,GET,,500,n8nqz-1771740866584-901c2859c8f0,"Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",,production,main,MISS,function,/api/index,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,970,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZRA41PKZB1HRKRQ77W9JZ,,-1
+2026-02-22 06:11:33,1771740693908,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,rldld-1771740692799-e031950890c1,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",error,production,main,MISS,function,/favicon.ico,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:28:07,1771738087831,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,,dgtmp-1771738087831-5c1de19adb67,vercel-favicon/1.0,,production,main,,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,972,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1X3GE4NDTA3WWPMNAE139E,,-1
-2026-02-22 05:28:07,1771738087788,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,tt5cg-1771738086742-3817f1309687,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.ico,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
+2026-02-22 06:11:32,1771740692799,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,rldld-1771740692799-e031950890c1,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,MISS,function,/api/index,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,995,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZK0D4EBXM2A4JK8J0V5S2,,-1
+2026-02-22 06:11:32,1771740692409,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/health,GET,,500,t6t2l-1771740690722-33106bda1ab7,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",error,production,main,MISS,function,/health,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:28:06,1771738086742,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,tt5cg-1771738086742-3817f1309687,vercel-favicon/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,985,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1X3FC6VCDNMCQT3QYBZY98,,-1
-2026-02-22 05:28:04,1771738084601,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,6qhbf-1771738083539-b0c6cc550c8f,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.ico,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
+2026-02-22 06:11:30,1771740690722,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/health,GET,,500,t6t2l-1771740690722-33106bda1ab7,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,MISS,function,/api/index,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,983,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZJYYD9A0QZGKA69AZT6TH,,-1
+2026-02-22 06:11:26,1771740686792,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,xtgxf-1771740685669-d1fe24586766,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",error,production,main,MISS,function,/favicon.ico,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:28:03,1771738083539,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,6qhbf-1771738083539-b0c6cc550c8f,vercel-favicon/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,995,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1X3C7Z8FDA37W39W5WSJ49,,-1
-2026-02-22 05:28:02,1771738082408,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,wfq2t-1771738081342-462af736e01d,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.ico,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
+2026-02-22 06:11:25,1771740685669,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,xtgxf-1771740685669-d1fe24586766,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,MISS,function,/api/index,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,997,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZJSEJDCHYEMNKF7JC0DZ9,,-1
+2026-02-22 06:11:25,1771740685391,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/,GET,,500,wx8jb-1771740684039-3747637551db,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",error,production,main,MISS,function,/,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:28:01,1771738081342,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,wfq2t-1771738081342-462af736e01d,vercel-favicon/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,1001,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1X3A3D8GHMRVPW7J9YWGDJ,,-1
-2026-02-22 05:28:01,1771738081186,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,gd98n-1771738080132-c3696cf86e1f,vercel-favicon/1.0,error,production,main,MISS,function,/,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
+2026-02-22 06:11:24,1771740684039,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/,GET,,500,wx8jb-1771740684039-3747637551db,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,MISS,function,/api/index,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,971,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZJR3M0RJ53KV4SG9CX9HJ,,-1
+2026-02-22 06:11:23,1771740683742,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/,GET,_vercel_jwt=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzc28tcHJvdGVjdGlvbi1jYWxsYmFjayIsImF1ZCI6InNhbG9vbi1vcHMtYXBpLWdpdC1tYWluLXNocmV5YW5zaHMtcHJvamVjdHMtNTc3MzBmYWYudmVyY2VsLmFwcCIsImlhdCI6MTc3MTc0MDY4MywiZXhwIjoxNzcxNzQwNjkzLCJ1c2VySWQiOiI3NUFRUFNkWWVhMnlkTkxWSTRNWEdHa3kiLCJ1c2VybmFtZSI6InNocmV5YW5zaHNvbmkiLCJub25jZSI6IjBmNGU2ZTdjOTJlYmMwN2Y2ZDY1OWEwNzI0ZTQ3ZmIxY2UwM2Q2MjBkYTYxNDczY2NkNTE3NTU2MzBmYWRhYTUifQ.o-J4vFZdYNX0JWy9Bf8-EO8M6tmxOMJVWwvWvzalLFc&_vercel_jwe=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..y2htQzYNb_Nm-u72.g-gvX6ltJ2iEG_Ukf0cAPdgxFr_No7ItKDLsbv7pDuL6dp961dQ_NgGb2JGLak69PtPIdFcpsIrpxahT-n5ZNPijVmQSVSj2v07axdSLRpoXcfdIsqJ0vEXZkmy0CQEVFTPMhL9b4iL5G4OsgIfGSGzxjsHfXzMn6_0-vpxlM6kL6krAjAckAMhO5ZpQa3kDh5hOQK21XKFj5w_f3AAjB1WQTV3XuLHivbTAKBHkUrOfzcJDLWDKW6xaOkAh97p_0lgapisyEKMSPy7dSq9UipFwq1Alqibihd1rEfBHEnWBXErjy9sHB3wX8vtXKtEvWEoNFtpHOpexUF_IvSq6o8f3MY0LOiGXa3lCf__W2UTH.4N_ge5p1pgbWl1x9q1HLTQ,307,j96fj-1771740683742-2a79f9619822,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,,static,/,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,256,bom1,,,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:11:22,1771740682842,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app/,GET,,401,mdzp6-1771740682842-df61a8b6f9aa,"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",,production,main,,static,/,saloon-ops-api-git-main-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,270,bom1,,,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:09:16,1771740556936,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,jc7g4-1771740555870-a93e0f158284,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.png,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:28:00,1771738080132,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,gd98n-1771738080132-c3696cf86e1f,vercel-favicon/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,996,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1X38XGXKR4MS4TKGXXNB61,,-1
-2026-02-22 05:27:59,1771738079107,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,,pqrh4-1771738076737-ed37bced1baa,vercel-favicon/1.0,error,production,main,,function,,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
+2026-02-22 06:09:15,1771740555870,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,jc7g4-1771740555870-a93e0f158284,vercel-favicon/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1010,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZETM9S72AC1TFQR3A8ZJ4,,-1
+2026-02-22 06:09:13,1771740553798,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,z9d5t-1771740552712-3fd6ac96ac8a,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.png,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:09:12,1771740552712,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,z9d5t-1771740552712-3fd6ac96ac8a,vercel-favicon/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1027,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZEQHP3FYYSW0FC6ZJA5V9,,-1
+2026-02-22 06:09:11,1771740551669,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,fkp5l-1771740550545-8cfa925deaeb,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.png,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:09:10,1771740550545,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.png,GET,,500,fkp5l-1771740550545-8cfa925deaeb,vercel-favicon/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1058,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZENDYGC6X0WDS5DYXZ8T0,,-1
+2026-02-22 06:09:10,1771740550496,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,sm8fx-1771740549231-bd02f38947ab,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.ico,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:09:09,1771740549231,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,sm8fx-1771740549231-bd02f38947ab,vercel-favicon/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1187,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZEM5CGB4772JSDG6KFCBH,,-1
+2026-02-22 06:09:07,1771740547125,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,xwfv4-1771740546035-67448f337be8,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.ico,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:09:06,1771740546035,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,xwfv4-1771740546035-67448f337be8,vercel-favicon/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1029,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZEH0Y899D1MHNM6VT350A,,-1
+2026-02-22 06:09:04,1771740544960,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,q8bz2-1771740543857-1a50d3807a21,vercel-favicon/1.0,error,production,main,MISS,function,/favicon.ico,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:09:03,1771740543857,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,q8bz2-1771740543857-1a50d3807a21,vercel-favicon/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1041,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZEEWZT89QN34K06TBM7HH,,-1
+2026-02-22 06:09:03,1771740543719,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,w82gb-1771740542614-2a6a503c1c53,vercel-favicon/1.0,error,production,main,MISS,function,/,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:09:02,1771740542614,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,w82gb-1771740542614-2a6a503c1c53,vercel-favicon/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1039,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZEDP6FYJFW4VVTHGT8Z7A,,-1
+2026-02-22 06:09:01,1771740541559,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,cg7jw-1771740540386-4427c79cc9ab,vercel-favicon/1.0,error,production,main,MISS,function,/,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:09:00,1771740540386,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,cg7jw-1771740540386-4427c79cc9ab,vercel-favicon/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1090,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1ZEBGWY2RD3QHBMHZWGNTY,,-1
+2026-02-22 06:05:31,1771740331054,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,,xq58w-1771740329759-5243a12baea3,vercel-screenshot/1.0,error,production,main,,function,,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:05:29,1771740329759,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,,xq58w-1771740329759-5243a12baea3,vercel-screenshot/1.0,,production,main,,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1097,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1Z7XYRVV2V9G3WB48H1GF7,,-1
+2026-02-22 06:05:30,1771740330907,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,,tfnf4-1771740329736-de8e4259156c,vercel-screenshot/1.0,error,production,main,,function,,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:05:29,1771740329736,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,,tfnf4-1771740329736-de8e4259156c,vercel-screenshot/1.0,,production,main,,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,999,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1Z7XX4HQM834SBZ40D150S,,-1
+2026-02-22 06:05:29,1771740329674,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,9fbgh-1771740328523-c48af51abef5,vercel-screenshot/1.0,error,production,main,MISS,function,/,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:05:28,1771740328523,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,9fbgh-1771740328523-c48af51abef5,vercel-screenshot/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,985,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1Z7WQ1HH0YKCTVEC5BK8SB,,-1
+2026-02-22 06:05:29,1771740329661,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,mgxpg-1771740328449-bb7097cf8290,vercel-screenshot/1.0,error,production,main,MISS,function,/,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
+Require stack:
+- /var/task/apps/api/src/modules/services/addons.controller.js
+- /var/task/apps/api/src/modules/services/services.routes.js
+- /var/task/apps/api/api/index.js
+Did you forget to add it to ""dependencies"" in `package.json`?
+Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
+2026-02-22 06:05:28,1771740328449,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,mgxpg-1771740328449-bb7097cf8290,vercel-screenshot/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1042,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1Z7WMZMSD9B2F8YHANPKXQ,,-1
+2026-02-22 06:05:28,1771740328324,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,v44dd-1771740325803-e118c83b1c73,vercel-screenshot/1.0,error,production,main,MISS,function,/,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
@@ -69,40 +159,8 @@ Require stack:
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:27:56,1771738076737,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,,pqrh4-1771738076737-ed37bced1baa,vercel-favicon/1.0,,production,main,,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,967,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1X35KKESE4HM21Y27YF8RW,,-1
-2026-02-22 05:17:16,1771737436308,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,p28tm-1771737435303-84c1d62cbbba,vercel-screenshot/1.0,error,production,main,MISS,function,/favicon.ico,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
-Require stack:
-- /var/task/apps/api/src/modules/services/addons.controller.js
-- /var/task/apps/api/src/modules/services/services.routes.js
-- /var/task/apps/api/api/index.js
-Did you forget to add it to ""dependencies"" in `package.json`?
-Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:17:15,1771737435303,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,p28tm-1771737435303-84c1d62cbbba,vercel-screenshot/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,944,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1WFK6KRAHRH2CA1FKQMWAZ,,-1
-2026-02-22 05:17:16,1771737436211,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,fkzlm-1771737435218-1345f148ba95,vercel-screenshot/1.0,error,production,main,MISS,function,/favicon.ico,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
-Require stack:
-- /var/task/apps/api/src/modules/services/addons.controller.js
-- /var/task/apps/api/src/modules/services/services.routes.js
-- /var/task/apps/api/api/index.js
-Did you forget to add it to ""dependencies"" in `package.json`?
-Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:17:15,1771737435218,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/favicon.ico,GET,,500,fkzlm-1771737435218-1345f148ba95,vercel-screenshot/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,931,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1WFK3X85ZDDSA37DA2C1ZA,,-1
-2026-02-22 05:17:15,1771737435179,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,tr4b9-1771737434102-fed22e2eeffd,vercel-screenshot/1.0,error,production,main,MISS,function,/,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
-Require stack:
-- /var/task/apps/api/src/modules/services/addons.controller.js
-- /var/task/apps/api/src/modules/services/services.routes.js
-- /var/task/apps/api/api/index.js
-Did you forget to add it to ""dependencies"" in `package.json`?
-Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:17:14,1771737434102,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,tr4b9-1771737434102-fed22e2eeffd,vercel-screenshot/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,908,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1WFJ4HZSB7GKHQ84KA52DB,,-1
-2026-02-22 05:17:15,1771737435146,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,tdl5d-1771737434020-06890bb9d112,vercel-screenshot/1.0,error,production,main,MISS,function,/,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
-Require stack:
-- /var/task/apps/api/src/modules/services/addons.controller.js
-- /var/task/apps/api/src/modules/services/services.routes.js
-- /var/task/apps/api/api/index.js
-Did you forget to add it to ""dependencies"" in `package.json`?
-Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:17:14,1771737434020,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,tdl5d-1771737434020-06890bb9d112,vercel-screenshot/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,955,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1WFJ236ZE7ZS1S0NX1TV44,,-1
-2026-02-22 05:17:13,1771737433907,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,62mw4-1771737431474-22e0f7046a04,vercel-screenshot/1.0,error,production,main,MISS,function,/,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
+2026-02-22 06:05:25,1771740325803,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,500,v44dd-1771740325803-e118c83b1c73,vercel-screenshot/1.0,,production,main,MISS,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1000,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1Z7T42KY92N8M91NYFZPPV,,-1
+2026-02-22 06:05:28,1771740328352,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,,xxzb2-1771740325612-fe7546a93794,vercel-screenshot/1.0,error,production,main,,function,,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,,,,,"Cannot find module '@/lib/response'
 Require stack:
 - /var/task/apps/api/src/modules/services/addons.controller.js
 - /var/task/apps/api/src/modules/services/services.routes.js
@@ -116,19 +174,4 @@ Require stack:
 - /var/task/apps/api/api/index.js
 Did you forget to add it to ""dependencies"" in `package.json`?
 Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:17:11,1771737431474,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,62mw4-1771737431474-22e0f7046a04,vercel-screenshot/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,951,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1WFFKTY6G8ZR59C8QF8FCM,,-1
-2026-02-22 05:17:13,1771737433996,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,nc47m-1771737431395-cd419b72007d,vercel-screenshot/1.0,error,production,main,MISS,function,/,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,,,,,"Cannot find module '@/lib/response'
-Require stack:
-- /var/task/apps/api/src/modules/services/addons.controller.js
-- /var/task/apps/api/src/modules/services/services.routes.js
-- /var/task/apps/api/api/index.js
-Did you forget to add it to ""dependencies"" in `package.json`?
-Node.js process exited with exit status: 1. The logs above can help with debugging the issue.
-Cannot find module '@/lib/response'
-Require stack:
-- /var/task/apps/api/src/modules/services/addons.controller.js
-- /var/task/apps/api/src/modules/services/services.routes.js
-- /var/task/apps/api/api/index.js
-Did you forget to add it to ""dependencies"" in `package.json`?
-Node.js process exited with exit status: 1. The logs above can help with debugging the issue.",prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,,,
-2026-02-22 05:17:11,1771737431395,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app/,GET,,500,nc47m-1771737431395-cd419b72007d,vercel-screenshot/1.0,,production,main,MISS,function,/api/index.ts,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,saloon-ops-2kztpv8ii-shreyanshs-projects-57730faf.vercel.app,dpl_84pEZYtwsZSt4ZsvTy7z19GepzDN,957,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1WFFKVFBARY90BXV6BEKGP,,-1
+2026-02-22 06:05:25,1771740325612,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app/,GET,,,xxzb2-1771740325612-fe7546a93794,vercel-screenshot/1.0,,production,main,,function,/api/index,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,saloon-ops-pqnmntug2-shreyanshs-projects-57730faf.vercel.app,dpl_HrbuojimJPESvdw9m4yGVqrJ8jdH,1009,iad1,-1,2048,,prj_DHjPYf4D0VsQ84oeWDNTIVVXKug6,,,01KJ1Z7T1NGGER19Z4F0AVR8WB,,-1

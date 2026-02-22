@@ -45,7 +45,9 @@
     "typescript": "^5.4.0",
     "@types/node": "^22.0.0",
     "@types/bcrypt": "^5.0.2",
-    "@vercel/node": "^3.0.0"
+    "@vercel/node": "^3.0.0",
+    "module-alias": "^2.2.3",
+    "@types/module-alias": "^2.0.4"
   },
   "devDependencies": {
     "tsx": "^4.7.1",

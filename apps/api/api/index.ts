@@ -6,6 +6,9 @@
  * a handler instead of calling fastify.listen().
  */
 
+// MUST be first: registers @/ path alias for runtime resolution
+import './register';
+
 import 'dotenv/config';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
