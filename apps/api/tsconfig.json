@@ -1,6 +1,26 @@
 {
-  "extends": "@salon-ops/config/tsconfig.node.json",
   "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022"
+    ],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": false,
+    "strictNullChecks": true,
+    "skipLibCheck": true,
+    "noEmitOnError": false,
+    "declaration": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
     "outDir": "./dist",
     "rootDir": ".",
     "baseUrl": ".",
@@ -9,8 +29,9 @@
         "./src/*"
       ]
     },
-    "noImplicitAny": false,
-    "skipLibCheck": true
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "src/**/*",

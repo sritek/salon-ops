@@ -38,6 +38,12 @@ importers:
       '@salon-ops/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@types/bcrypt':
+        specifier: ^5.0.2
+        version: 5.0.2
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.7
       bcrypt:
         specifier: ^5.1.1
         version: 5.1.1
@@ -68,6 +74,9 @@ importers:
       prisma:
         specifier: ^5.22.0
         version: 5.22.0
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -75,15 +84,6 @@ importers:
         specifier: ^3.25.1
         version: 3.25.1(zod@3.25.76)
     devDependencies:
-      '@salon-ops/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@types/bcrypt':
-        specifier: ^5.0.2
-        version: 5.0.2
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.7
       '@vercel/node':
         specifier: ^3.0.0
         version: 3.2.29(@swc/core@1.15.11)
@@ -93,9 +93,6 @@ importers:
       tsx:
         specifier: ^4.7.1
         version: 4.21.0
-      typescript:
-        specifier: ^5.4.0
-        version: 5.9.3
       vitest:
         specifier: ^1.4.0
         version: 1.6.1(@edge-runtime/vm@3.2.0)(@types/node@22.19.7)
