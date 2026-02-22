@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "postinstall": "prisma generate",
     "start": "node dist/server.js",
     "clean": "rm -rf dist",
@@ -49,6 +49,7 @@
     "@types/node": "^22.0.0",
     "prisma": "^5.11.0",
     "tsx": "^4.7.1",
+    "tsc-alias": "^1.8.10",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   },
