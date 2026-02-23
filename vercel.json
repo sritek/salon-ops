@@ -1,5 +1,5 @@
 {
     "installCommand": "pnpm install",
-    "buildCommand": "cd ../.. && pnpm turbo build",
+    "buildCommand": "cd ../.. && pnpm --filter @salon-ops/shared build && pnpm --filter @salon-ops/web build",
     "framework": "nextjs"
 }
