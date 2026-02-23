@@ -1,7 +1,7 @@
 {
     "version": 2,
     "installCommand": "cd ../.. && pnpm install",
-    "buildCommand": "cd ../.. && pnpm --filter @salon-ops/shared build && pnpm --filter @salon-ops/api db:generate",
+    "buildCommand": "cd ../.. && pnpm turbo build --filter=@salon-ops/api",
     "functions": {
         "api/index.ts": {
             "memory": 1024,

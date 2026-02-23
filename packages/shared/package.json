@@ -34,19 +34,18 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
-    "postinstall": "tsup src/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "clean": "rm -rf dist",
     "type-check": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
+    "@salon-ops/config": "workspace:*",
     "date-fns": "^3.6.0",
     "tsup": "^8.0.2",
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@salon-ops/config": "workspace:*",
     "typescript": "^5.4.0"
   }
 }
