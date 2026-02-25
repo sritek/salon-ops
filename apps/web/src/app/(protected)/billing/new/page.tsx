@@ -23,7 +23,7 @@ import { useCustomers } from '@/hooks/queries/use-customers';
 import { useProductsForBilling, type ProductForBilling } from '@/hooks/queries/use-inventory';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency } from '@/lib/format';
 
 import {
@@ -108,8 +108,7 @@ export default function NewInvoicePage() {
   const t = useTranslations('billing');
   const { hasPermission } = usePermissions();
   const canWrite = hasPermission(PERMISSIONS.BILLS_WRITE);
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   // Customer state
   const [customerSearch, setCustomerSearch] = useState('');
@@ -156,7 +155,7 @@ export default function NewInvoicePage() {
   });
 
   const { data: productsData, isLoading: productsLoading } = useProductsForBilling(
-    branchId,
+    branchId || '',
     debouncedProductSearch || undefined
   );
 

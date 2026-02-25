@@ -20,7 +20,7 @@ import {
   useConsumeStock,
   useAdjustStock,
 } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency, formatDate } from '@/lib/format';
 
 import { EmptyState, PageContainer, PageContent, PageHeader } from '@/components/common';
@@ -62,8 +62,8 @@ export default function StockDetailPage({ params }: { params: { productId: strin
   const { productId } = params;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId: contextBranchId } = useBranchContext();
+  const branchId = contextBranchId || '';
 
   const [consumeDialogOpen, setConsumeDialogOpen] = useState(false);
   const [adjustDialogOpen, setAdjustDialogOpen] = useState(false);

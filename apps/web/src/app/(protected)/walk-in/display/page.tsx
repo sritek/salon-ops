@@ -6,15 +6,14 @@ import { Clock, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { useWalkInQueue } from '@/hooks/queries/use-appointments';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 export default function QueueDisplayPage() {
   const t = useTranslations('walkIn');
-  const user = useAuthStore((state) => state.user);
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const { data: queueData, refetch } = useWalkInQueue({
-    branchId,
+    branchId: branchId || '',
     date: format(new Date(), 'yyyy-MM-dd'),
   });
 

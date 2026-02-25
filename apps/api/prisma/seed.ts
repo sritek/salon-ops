@@ -68,6 +68,10 @@ async function main() {
     // 9. Loyalty & Tags
     await seedLoyaltyAndTags(tenant.id);
     console.log(`✅ Created loyalty config and tags`);
+
+    // 10. Waitlist Entries
+    const waitlistCount = await seedWaitlist(tenant.id, branches[0].id, customers, services, users);
+    console.log(`✅ Created ${waitlistCount} waitlist entries`);
   }
 
   console.log('🎉 Seed completed successfully!');
@@ -117,6 +121,7 @@ async function clearDatabase() {
   await safeTruncate('staff_profiles');
   await safeTruncate('appointment_status_history, appointment_services, appointments');
   await safeTruncate('walk_in_queue');
+  await safeTruncate('waitlist_entries');
   await safeTruncate('stylist_blocked_slots, stylist_breaks');
   await safeTruncate('wallet_transactions, loyalty_transactions');
   await safeTruncate('customer_notes, customers');
@@ -2124,6 +2129,105 @@ async function seedLoyaltyAndTags(tenantId: string) {
   await prisma.customTag.createMany({
     data: tagsData.map((t) => ({ tenantId, ...t })),
   });
+}
+
+// ============================================
+// Waitlist Entries
+// ============================================
+
+async function seedWaitlist(
+  tenantId: string,
+  branchId: string,
+  customers: { id: string; name: string; phone: string }[],
+  services: { id: string }[],
+  users: { id: string; role: string }[]
+) {
+  const stylists = users.filter((u) => u.role === 'stylist');
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const nextWeek = new Date(today);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  const twoWeeks = new Date(today);
+  twoWeeks.setDate(twoWeeks.getDate() + 14);
+
+  const waitlistData = [
+    {
+      tenantId,
+      branchId,
+      customerId: customers[0]?.id,
+      customerName: customers[0]?.name || 'Priya Sharma',
+      customerPhone: customers[0]?.phone || '9876500001',
+      serviceIds: [services[0]?.id, services[1]?.id].filter(Boolean),
+      preferredStylistId: stylists[0]?.id,
+      preferredStartDate: tomorrow,
+      preferredEndDate: nextWeek,
+      timePreferences: ['morning', 'afternoon'],
+      status: 'active',
+      notes: 'Prefers morning slots if possible',
+    },
+    {
+      tenantId,
+      branchId,
+      customerId: customers[1]?.id,
+      customerName: customers[1]?.name || 'Rahul Verma',
+      customerPhone: customers[1]?.phone || '9876500002',
+      serviceIds: [services[2]?.id].filter(Boolean),
+      preferredStylistId: null,
+      preferredStartDate: today,
+      preferredEndDate: twoWeeks,
+      timePreferences: ['evening'],
+      status: 'active',
+      notes: 'Available only after 5 PM',
+    },
+    {
+      tenantId,
+      branchId,
+      customerId: customers[2]?.id,
+      customerName: customers[2]?.name || 'Anita Patel',
+      customerPhone: customers[2]?.phone || '9876500003',
+      serviceIds: [services[3]?.id, services[4]?.id].filter(Boolean),
+      preferredStylistId: stylists[1]?.id,
+      preferredStartDate: tomorrow,
+      preferredEndDate: nextWeek,
+      timePreferences: ['morning', 'afternoon', 'evening'],
+      status: 'active',
+      notes: 'Flexible with timing',
+    },
+    {
+      tenantId,
+      branchId,
+      customerName: 'Guest Customer',
+      customerPhone: '9876500099',
+      serviceIds: [services[0]?.id].filter(Boolean),
+      preferredStylistId: null,
+      preferredStartDate: today,
+      preferredEndDate: nextWeek,
+      timePreferences: ['afternoon'],
+      status: 'active',
+      notes: 'New customer, first visit',
+    },
+    {
+      tenantId,
+      branchId,
+      customerId: customers[4]?.id,
+      customerName: customers[4]?.name || 'Meera Reddy',
+      customerPhone: customers[4]?.phone || '9876500005',
+      serviceIds: [services[5]?.id].filter(Boolean),
+      preferredStylistId: stylists[0]?.id,
+      preferredStartDate: new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+      preferredEndDate: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000), // yesterday
+      timePreferences: ['morning'],
+      status: 'expired',
+      notes: 'Expired entry - date range passed',
+    },
+  ];
+
+  await prisma.waitlistEntry.createMany({
+    data: waitlistData.filter((w) => w.serviceIds.length > 0),
+  });
+
+  return waitlistData.length;
 }
 
 // ============================================

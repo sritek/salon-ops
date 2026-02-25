@@ -4,7 +4,7 @@
  * Handles staff profiles, attendance, leaves, commissions, and payroll
  */
 
-import { Prisma } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import {
   format,
@@ -203,7 +203,7 @@ export const staffService = {
       ...(employmentType && { employmentType }),
       user: {
         deletedAt: null,
-        ...(role && { role }),
+        ...(role && { role: role as UserRole }),
         ...(search && {
           OR: [
             { name: { contains: search, mode: 'insensitive' } },

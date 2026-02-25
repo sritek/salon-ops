@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 import { useStockAlerts } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatDate } from '@/lib/format';
 
 import { EmptyState, PageContainer, PageContent, PageHeader } from '@/components/common';
@@ -33,10 +33,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { StockAlert } from '@/types/inventory';
 
 export default function StockAlertsPage() {
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
-  const { data: alerts, isLoading, error } = useStockAlerts(branchId);
+  const { data: alerts, isLoading, error } = useStockAlerts(branchId || '');
 
   // Group alerts by type
   const lowStockAlerts = alerts?.filter((a) => a.type === 'low_stock') || [];

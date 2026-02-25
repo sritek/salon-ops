@@ -37,6 +37,7 @@ export type MovementType =
   | 'adjustment'
   | 'wastage'
   | 'sale'
+  | 'return_stock'
   | 'return'
   | 'audit';
 

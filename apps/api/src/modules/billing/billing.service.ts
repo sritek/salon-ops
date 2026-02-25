@@ -3,7 +3,7 @@
  * Core business logic for invoice management, payments, and billing operations
  */
 
-import { Prisma } from '@prisma/client';
+import { Prisma, PaymentStatus as PrismaPaymentStatus } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { BadRequestError, NotFoundError } from '../../lib/errors';
 import { fifoEngine } from '../inventory/fifo-engine';
@@ -745,11 +745,11 @@ export const billingService = {
     }
 
     // Determine new payment status
-    let newPaymentStatus: string = PaymentStatus.PARTIAL;
+    let newPaymentStatus: PrismaPaymentStatus = PrismaPaymentStatus.partial;
     if (newAmountDue <= 0.01) {
-      newPaymentStatus = PaymentStatus.PAID;
+      newPaymentStatus = PrismaPaymentStatus.paid;
     } else if (newAmountPaid === 0) {
-      newPaymentStatus = PaymentStatus.PENDING;
+      newPaymentStatus = PrismaPaymentStatus.pending;
     }
 
     // Create payments and update invoice

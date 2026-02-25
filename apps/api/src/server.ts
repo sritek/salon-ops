@@ -44,6 +44,10 @@ import { dashboardRoutes } from './modules/dashboard';
 import { calendarRoutes } from './modules/calendar';
 import { realTimeRoutes } from './modules/real-time';
 import { searchRoutes } from './modules/search';
+import { branchRoutes } from './modules/branches';
+import { waitlistRoutes } from './modules/waitlist';
+import { tenantRoutes } from './modules/tenant';
+import { usersRoutes } from './modules/users';
 
 // Create Fastify instance with Zod type provider
 const fastify = Fastify({
@@ -236,6 +240,18 @@ async function registerRoutes() {
 
   // Search routes
   fastify.register(searchRoutes, { prefix: '/api/v1' });
+
+  // Branch routes
+  fastify.register(branchRoutes, { prefix: '/api/v1/branches' });
+
+  // Tenant routes
+  fastify.register(tenantRoutes, { prefix: '/api/v1/tenant' });
+
+  // Users routes
+  fastify.register(usersRoutes, { prefix: '/api/v1/users' });
+
+  // Waitlist routes
+  fastify.register(waitlistRoutes, { prefix: '/api/v1/waitlist' });
 }
 
 // Start server

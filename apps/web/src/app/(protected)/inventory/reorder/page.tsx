@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, Package, ShoppingCart } from 'lucide-react';
 
 import { useReorderSuggestions, useCreatePurchaseOrder } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency } from '@/lib/format';
 
 import { EmptyState, PageContainer, PageContent, PageHeader } from '@/components/common';
@@ -33,10 +33,9 @@ interface SelectedItem extends ReorderSuggestion {
 
 export default function ReorderSuggestionsPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
-  const { data: suggestions, isLoading } = useReorderSuggestions(branchId);
+  const { data: suggestions, isLoading } = useReorderSuggestions(branchId || '');
   const createPO = useCreatePurchaseOrder();
 
   const [selectedItems, setSelectedItems] = useState<Map<string, SelectedItem>>(new Map());
@@ -89,7 +88,7 @@ export default function ReorderSuggestionsPage() {
 
     try {
       await createPO.mutateAsync({
-        branchId,
+        branchId: branchId || '',
         data: {
           vendorId,
           items: itemsForVendor.map((item) => ({

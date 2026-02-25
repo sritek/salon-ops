@@ -8,6 +8,7 @@
 import Cookies from 'js-cookie';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useBranchStore } from './branch-store';
 
 interface User {
   id: string;
@@ -86,14 +87,17 @@ export const useAuthStore = create<AuthState>()(
 
       setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
 
-      logout: () =>
+      logout: () => {
+        // Clear branch selection when logging out
+        useBranchStore.getState().clearSelectedBranch();
         set({
           user: null,
           tenant: null,
           accessToken: null,
           refreshToken: null,
           isAuthenticated: false,
-        }),
+        });
+      },
     }),
     {
       name: 'auth-storage',

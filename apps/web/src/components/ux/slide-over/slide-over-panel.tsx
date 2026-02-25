@@ -24,7 +24,7 @@ import { useIsMobile } from '@/hooks/use-media-query';
 import {
   useSlideOverStore,
   type SlideOverPanel as SlideOverPanelType,
-  PANEL_WIDTHS,
+  PANEL_WIDTH_VALUES,
   NESTED_PANEL_OFFSET,
 } from '@/stores/slide-over-store';
 import {
@@ -138,6 +138,9 @@ export function SlideOverPanel({ panel, index, getComponent }: SlideOverPanelPro
 
   if (!mounted) return null;
 
+  // Get width value for inline style (Tailwind JIT can't detect dynamic class names)
+  const panelWidth = PANEL_WIDTH_VALUES[panel.width];
+
   const panelContent = (
     <>
       {/* Backdrop - only for first panel */}
@@ -160,15 +163,12 @@ export function SlideOverPanel({ panel, index, getComponent }: SlideOverPanelPro
           'fixed z-50 flex flex-col bg-background shadow-xl',
           isMobile
             ? 'inset-0' // Full screen on mobile
-            : cn(
-                'inset-y-0 right-0 border-l',
-                PANEL_WIDTHS[panel.width],
-                'max-w-[calc(100vw-2rem)]'
-              )
+            : 'inset-y-0 right-0 border-l max-w-[calc(100vw-2rem)]'
         )}
         style={
           !isMobile
             ? {
+                width: `${panelWidth}px`,
                 transform: `translateX(-${offset}px)`,
               }
             : undefined
@@ -234,7 +234,6 @@ export function SlideOverPanel({ panel, index, getComponent }: SlideOverPanelPro
           <div className="absolute left-0 top-0 h-1 w-full bg-yellow-500" />
         )}
       </motion.div>
-
       {/* Unsaved changes confirmation dialog */}
       <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
         <AlertDialogContent>

@@ -12,7 +12,7 @@
  * Includes tip selector, outstanding balance warning, and completion flow.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSlideOver } from '@/components/ux/slide-over';
 import { SlideOverContent } from '@/components/ux/slide-over/slide-over-content';
 import { SlideOverFooter } from '@/components/ux/slide-over/slide-over-footer';
@@ -33,7 +33,7 @@ import {
   useProcessCheckoutPayment,
   useCompleteCheckout,
 } from '@/hooks/queries/use-checkout';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { toast } from 'sonner';
 import {
   User,
@@ -242,8 +242,7 @@ export function CheckoutPanel({
   onComplete,
 }: CheckoutPanelProps) {
   const { closePanel, setUnsavedChanges } = useSlideOver();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   // Session state
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -254,6 +253,9 @@ export function CheckoutPanel({
   const [tipAmount, setTipAmount] = useState<number>(0);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
 
+  // Ref to track if session has been initialized (prevents re-render loop)
+  const sessionInitialized = useRef(false);
+
   // Queries and mutations
   const startCheckout = useStartCheckout();
   const { data: session, isLoading: isLoadingSession } = useCheckoutSession(sessionId);
@@ -262,28 +264,52 @@ export function CheckoutPanel({
   const processPayment = useProcessCheckoutPayment();
   const completeCheckout = useCompleteCheckout();
 
-  // Initialize checkout session
+  // Store mutation functions in refs to avoid re-render loops
+  // These refs are updated on each render but don't cause re-renders themselves
+  const removeItemRef = useRef(removeItem);
+  const addItemRef = useRef(addItem);
+  const processPaymentRef = useRef(processPayment);
+  const completeCheckoutRef = useRef(completeCheckout);
+
+  // Keep refs up to date
   useEffect(() => {
-    if (!sessionId && branchId) {
-      startCheckout.mutate(
-        {
-          appointmentId,
-          customerId,
-          branchId,
+    removeItemRef.current = removeItem;
+    addItemRef.current = addItem;
+    processPaymentRef.current = processPayment;
+    completeCheckoutRef.current = completeCheckout;
+  });
+
+  // Initialize checkout session ONLY ONCE
+  // Uses ref to prevent re-initialization on re-renders
+  // The startCheckout mutation is NOT in deps to avoid infinite loop
+  useEffect(() => {
+    // Guard: only run once
+    if (sessionInitialized.current) return;
+    if (!branchId) return;
+
+    sessionInitialized.current = true;
+
+    startCheckout.mutate(
+      {
+        appointmentId,
+        customerId,
+        branchId,
+      },
+      {
+        onSuccess: (newSession) => {
+          setSessionId(newSession.id);
         },
-        {
-          onSuccess: (newSession) => {
-            setSessionId(newSession.id);
-          },
-          onError: (error) => {
-            toast.error('Failed to start checkout', {
-              description: error.message,
-            });
-          },
-        }
-      );
-    }
-  }, [appointmentId, customerId, branchId, sessionId, startCheckout]);
+        onError: (error) => {
+          // Reset flag on error to allow retry
+          sessionInitialized.current = false;
+          toast.error('Failed to start checkout', {
+            description: error.message,
+          });
+        },
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointmentId, customerId, branchId]); // Intentionally exclude startCheckout to prevent re-render loop
 
   // Track unsaved changes
   useEffect(() => {
@@ -292,11 +318,11 @@ export function CheckoutPanel({
     }
   }, [session, setUnsavedChanges]);
 
-  // Handle remove item
+  // Handle remove item - uses ref to avoid re-render on mutation change
   const handleRemoveItem = useCallback(
     (itemId: string) => {
       if (!sessionId) return;
-      removeItem.mutate(
+      removeItemRef.current.mutate(
         { sessionId, itemId },
         {
           onError: (error) => {
@@ -307,14 +333,14 @@ export function CheckoutPanel({
         }
       );
     },
-    [sessionId, removeItem]
+    [sessionId]
   );
 
-  // Handle add product
+  // Handle add product - uses ref to avoid re-render on mutation change
   const handleAddProduct = useCallback(
-    async (productId: string, quantity: number = 1) => {
+    (productId: string, quantity: number = 1) => {
       if (!sessionId) return;
-      addItem.mutate(
+      addItemRef.current.mutate(
         {
           sessionId,
           itemType: 'product',
@@ -333,10 +359,10 @@ export function CheckoutPanel({
         }
       );
     },
-    [sessionId, addItem]
+    [sessionId]
   );
 
-  // Handle payment
+  // Handle payment - uses ref to avoid re-render on mutation change
   const handleAddPayment = useCallback(() => {
     if (!sessionId || !selectedPaymentMethod || !paymentAmount) return;
 
@@ -346,7 +372,7 @@ export function CheckoutPanel({
       return;
     }
 
-    processPayment.mutate(
+    processPaymentRef.current.mutate(
       {
         sessionId,
         payments: [
@@ -368,7 +394,7 @@ export function CheckoutPanel({
         },
       }
     );
-  }, [sessionId, selectedPaymentMethod, paymentAmount, processPayment]);
+  }, [sessionId, selectedPaymentMethod, paymentAmount]);
 
   // Handle complete checkout
   const handleComplete = useCallback(() => {
@@ -376,7 +402,7 @@ export function CheckoutPanel({
     setShowCompletionDialog(true);
   }, [sessionId]);
 
-  // Handle completion with receipt options
+  // Handle completion with receipt options - uses ref to avoid re-render on mutation change
   const handleCompleteWithReceipt = useCallback(
     async (options: {
       sendReceipt: boolean;
@@ -384,7 +410,7 @@ export function CheckoutPanel({
     }) => {
       if (!sessionId) return;
 
-      completeCheckout.mutate(
+      completeCheckoutRef.current.mutate(
         {
           sessionId,
           sendReceipt: options.sendReceipt,
@@ -409,7 +435,7 @@ export function CheckoutPanel({
         }
       );
     },
-    [sessionId, tipAmount, completeCheckout, onComplete, closePanel, panelId, setUnsavedChanges]
+    [sessionId, tipAmount, onComplete, closePanel, panelId, setUnsavedChanges]
   );
 
   // Quick amount buttons

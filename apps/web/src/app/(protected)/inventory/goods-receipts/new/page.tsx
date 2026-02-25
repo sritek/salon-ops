@@ -11,7 +11,7 @@ import {
   usePurchaseOrder,
   useCreateGoodsReceipt,
 } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency } from '@/lib/format';
 
 import { PageContainer, PageContent, PageHeader } from '@/components/common';
@@ -49,8 +49,7 @@ export default function NewGoodsReceiptPage() {
   const searchParams = useSearchParams();
   const poId = searchParams.get('poId');
 
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [vendorId, setVendorId] = useState('');
   const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split('T')[0]);
@@ -67,7 +66,7 @@ export default function NewGoodsReceiptPage() {
 
   const { data: vendorsData } = useVendors({ limit: 100, isActive: true });
   const { data: productsData } = useProducts({ limit: 200, isActive: true });
-  const { data: purchaseOrder } = usePurchaseOrder(branchId, poId || '');
+  const { data: purchaseOrder } = usePurchaseOrder(branchId || '', poId || '');
   const createGRN = useCreateGoodsReceipt();
 
   const products = productsData?.data || [];
@@ -172,7 +171,7 @@ export default function NewGoodsReceiptPage() {
 
     try {
       await createGRN.mutateAsync({
-        branchId,
+        branchId: branchId || '',
         data: {
           purchaseOrderId: poId || null,
           vendorId,

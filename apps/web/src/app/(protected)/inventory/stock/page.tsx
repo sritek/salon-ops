@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 
 import { useStockSummary, useProductCategories } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 import { PageContainer, PageContent, PageHeader, SearchInput } from '@/components/common';
 import { Button } from '@/components/ui/button';
@@ -22,8 +22,7 @@ import { StockTable } from './components/stock-table';
 import type { StockFilters, ProductType } from '@/types/inventory';
 
 export default function StockSummaryPage() {
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -44,7 +43,7 @@ export default function StockSummaryPage() {
     sortOrder: 'asc',
   };
 
-  const { data: stockData, isLoading, error } = useStockSummary(branchId, filters);
+  const { data: stockData, isLoading, error } = useStockSummary(branchId || '', filters);
   const { data: categoriesData } = useProductCategories({ isActive: true });
 
   const hasFilters =

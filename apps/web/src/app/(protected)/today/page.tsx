@@ -25,6 +25,7 @@ import { PANEL_IDS } from '@/components/ux/slide-over/slide-over-registry';
 import { cn } from '@/lib/utils';
 import type { AttentionItem } from '@/types/dashboard';
 import { useAuthStore } from '@/stores';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 // Role-based dashboard components
 import { OperationalDashboard } from './components/operational-dashboard';
@@ -130,17 +131,17 @@ function RoleDashboard({
 export default function TodayPage() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { branchId } = useBranchContext();
   const { openPanel } = useSlideOver();
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Get the first branch ID from user's assigned branches
-  const branchId = user?.branchIds?.[0] || '';
+  // Get user role for dashboard type
   const userRole = user?.role || 'receptionist';
   const dashboardType = getRoleDashboardType(userRole);
 
   // Only fetch command center data for operational dashboard
   const { data, isLoading, refetch, isRefetching } = useCommandCenter({
-    branchId,
+    branchId: branchId || '',
     enabled: !!branchId && dashboardType === 'operational',
   });
 
@@ -284,7 +285,7 @@ export default function TodayPage() {
         {/* Role-Based Dashboard Content */}
         <RoleDashboard
           dashboardType={dashboardType}
-          branchId={branchId}
+          branchId={branchId || ''}
           commandCenterData={data}
           isLoading={isLoading}
           currentTime={currentTime}

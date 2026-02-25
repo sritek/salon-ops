@@ -483,3 +483,58 @@ export function useDeleteBlockedSlot() {
     },
   });
 }
+
+// ============================================
+// Unassigned Appointments Hooks
+// ============================================
+
+export const unassignedKeys = {
+  all: ['unassignedAppointments'] as const,
+  list: (branchId: string, date?: string) =>
+    [...unassignedKeys.all, 'list', branchId, date] as const,
+  count: (branchId: string) => [...unassignedKeys.all, 'count', branchId] as const,
+};
+
+/**
+ * Get unassigned appointments for a branch
+ */
+export function useUnassignedAppointments(branchId: string, date?: string) {
+  return useQuery({
+    queryKey: unassignedKeys.list(branchId, date),
+    queryFn: () =>
+      api.get<Appointment[]>('/appointments/unassigned', {
+        branchId,
+        date,
+      }),
+    enabled: !!branchId,
+  });
+}
+
+/**
+ * Get count of unassigned appointments for today
+ */
+export function useUnassignedCount(branchId: string) {
+  return useQuery({
+    queryKey: unassignedKeys.count(branchId),
+    queryFn: () => api.get<{ count: number }>('/appointments/unassigned/count', { branchId }),
+    enabled: !!branchId,
+  });
+}
+
+/**
+ * Assign stylist to an unassigned appointment
+ */
+export function useAssignStylist() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, stylistId }: { id: string; stylistId: string }) =>
+      api.post<Appointment>(`/appointments/${id}/assign`, { stylistId }),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: unassignedKeys.all });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
+    },
+  });
+}

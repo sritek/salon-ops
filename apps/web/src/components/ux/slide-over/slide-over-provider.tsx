@@ -80,7 +80,9 @@ export function SlideOverProvider({ children }: SlideOverProviderProps) {
         title: options.title,
       };
 
-      if (options.replace) {
+      // If explicitly requesting replace, or if at max depth, use replace
+      // This ensures we never exceed maxDepth (Requirement 5.2)
+      if (options.replace || !store.canPush()) {
         return store.replace(panelConfig);
       }
       return store.push(panelConfig);
@@ -106,13 +108,16 @@ export function SlideOverProvider({ children }: SlideOverProviderProps) {
   }, [store]);
 
   // Set unsaved changes for current panel
+  // Use a stable callback that doesn't depend on topPanel to prevent re-render loops
   const setUnsavedChanges = useCallback(
     (hasChanges: boolean) => {
-      if (topPanel) {
-        store.setUnsavedChanges(topPanel.id, hasChanges);
+      // Get the current top panel at call time, not at callback creation time
+      const currentTopPanel = store.getTopPanel();
+      if (currentTopPanel) {
+        store.setUnsavedChanges(currentTopPanel.id, hasChanges);
       }
     },
-    [store, topPanel]
+    [store]
   );
 
   // Handle escape key to close panels

@@ -99,7 +99,7 @@ export const useCalendarStore = create<CalendarState>()(
     (set, get) => ({
       view: 'day',
       selectedDate: format(startOfDay(new Date()), 'yyyy-MM-dd'),
-      timeSlotInterval: 30,
+      timeSlotInterval: 60,
       workingHours: { start: '09:00', end: '21:00' },
       dragState: initialDragState,
       filters: initialFilters,

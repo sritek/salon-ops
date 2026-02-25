@@ -11,16 +11,13 @@ import {
   PageHeader,
   PermissionGuard,
 } from '@/components/common';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 import { StaffForm } from '../components/staff-form';
 
 export default function NewStaffPage() {
   const t = useTranslations('staff.form');
-  const { user } = useAuthStore();
-
-  // Get the current branch ID from the user's primary branch
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   return (
     <PermissionGuard permission={PERMISSIONS.USERS_WRITE} fallback={<AccessDenied />}>
@@ -28,7 +25,7 @@ export default function NewStaffPage() {
         <PageHeader title={t('addTitle')} description={t('addDescription')} />
         <PageContent>
           <div className="max-w-3xl">
-            <StaffForm branchId={branchId} />
+            <StaffForm branchId={branchId || ''} />
           </div>
         </PageContent>
       </PageContainer>

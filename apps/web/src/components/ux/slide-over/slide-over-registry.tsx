@@ -9,8 +9,9 @@
  * This component registers all panel types so they can be dynamically rendered.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useSlideOver } from './slide-over-provider';
+import { useSlideOverStore } from '@/stores/slide-over-store';
 
 // Panel component IDs - use these constants when opening panels
 export const PANEL_IDS = {
@@ -22,6 +23,7 @@ export const PANEL_IDS = {
   CUSTOMER_EDIT: 'customer-edit',
   SERVICE_DETAILS: 'service-details',
   INVOICE_DETAILS: 'invoice-details',
+  UNASSIGNED_APPOINTMENTS: 'unassigned-appointments',
 } as const;
 
 export type PanelId = (typeof PANEL_IDS)[keyof typeof PANEL_IDS];
@@ -35,6 +37,10 @@ const CustomerPeekPanel = () =>
   import('@/components/ux/panels/customer-peek-panel').then((m) => m.CustomerPeekPanel);
 const CheckoutPanel = () =>
   import('@/components/ux/checkout/checkout-panel').then((m) => m.CheckoutPanel);
+const UnassignedAppointmentsPanel = () =>
+  import('@/components/ux/panels/unassigned-appointments-panel').then(
+    (m) => m.UnassignedAppointmentsPanel
+  );
 
 /**
  * SlideOverRegistry Component
@@ -80,6 +86,14 @@ export function SlideOverRegistry() {
         Component as unknown as React.ComponentType<Record<string, unknown>>
       );
     });
+
+    // Unassigned Appointments Panel
+    UnassignedAppointmentsPanel().then((Component) => {
+      registerComponent(
+        PANEL_IDS.UNASSIGNED_APPOINTMENTS,
+        Component as unknown as React.ComponentType<Record<string, unknown>>
+      );
+    });
   }, [registerComponent]);
 
   // This component doesn't render anything - it just registers components
@@ -89,13 +103,35 @@ export function SlideOverRegistry() {
 // Helper hook to open specific panels with type safety
 export function useOpenPanel() {
   const { openPanel } = useSlideOver();
+  const panels = useSlideOverStore((state) => state.panels);
+
+  // Check if a panel with specific componentId and props is already open
+  const findExistingPanel = useCallback(
+    (componentId: string, propKey: string, propValue: string) => {
+      return panels.find(
+        (panel) => panel.componentId === componentId && panel.props[propKey] === propValue
+      );
+    },
+    [panels]
+  );
 
   return {
     openAppointmentDetails: (appointmentId: string) => {
+      // Check if appointment details panel for this appointment is already open
+      const existing = findExistingPanel(
+        PANEL_IDS.APPOINTMENT_DETAILS,
+        'appointmentId',
+        appointmentId
+      );
+      if (existing) {
+        // Panel already open, return existing panel ID
+        return existing.id;
+      }
+
       return openPanel(
         PANEL_IDS.APPOINTMENT_DETAILS,
         { appointmentId },
-        { title: 'Appointment Details', width: 'medium' }
+        { title: 'Appointment Details', width: 'wide' }
       );
     },
 
@@ -112,6 +148,12 @@ export function useOpenPanel() {
     },
 
     openCustomerPeek: (customerId: string) => {
+      // Check if customer peek panel for this customer is already open
+      const existing = findExistingPanel(PANEL_IDS.CUSTOMER_PEEK, 'customerId', customerId);
+      if (existing) {
+        return existing.id;
+      }
+
       return openPanel(
         PANEL_IDS.CUSTOMER_PEEK,
         { customerId },
@@ -120,7 +162,31 @@ export function useOpenPanel() {
     },
 
     openCheckout: (appointmentId: string) => {
+      // Check if checkout panel for this appointment is already open
+      // This prevents duplicate checkout panels and infinite re-render loops
+      const existing = findExistingPanel(PANEL_IDS.CHECKOUT, 'appointmentId', appointmentId);
+      if (existing) {
+        // Panel already open, return existing panel ID instead of opening new one
+        return existing.id;
+      }
+
       return openPanel(PANEL_IDS.CHECKOUT, { appointmentId }, { title: 'Checkout', width: 'wide' });
+    },
+
+    openUnassignedAppointments: () => {
+      // Check if unassigned appointments panel is already open
+      const existingPanel = panels.find(
+        (panel) => panel.componentId === PANEL_IDS.UNASSIGNED_APPOINTMENTS
+      );
+      if (existingPanel) {
+        return existingPanel.id;
+      }
+
+      return openPanel(
+        PANEL_IDS.UNASSIGNED_APPOINTMENTS,
+        {},
+        { title: 'Unassigned Appointments', width: 'medium' }
+      );
     },
   };
 }

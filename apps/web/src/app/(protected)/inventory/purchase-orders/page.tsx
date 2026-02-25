@@ -11,7 +11,7 @@ import {
   useSendPurchaseOrder,
   useCancelPurchaseOrder,
 } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency, formatDate } from '@/lib/format';
 
 import {
@@ -72,8 +72,7 @@ const statusVariants: Record<POStatus, 'default' | 'secondary' | 'destructive' |
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -95,7 +94,7 @@ export default function PurchaseOrdersPage() {
     sortOrder: 'desc',
   };
 
-  const { data: poData, isLoading, error } = usePurchaseOrders(branchId, filters);
+  const { data: poData, isLoading, error } = usePurchaseOrders(branchId || '', filters);
   const { data: vendorsData } = useVendors({ limit: 100, isActive: true });
   const sendPO = useSendPurchaseOrder();
   const cancelPO = useCancelPurchaseOrder();
@@ -106,7 +105,7 @@ export default function PurchaseOrdersPage() {
 
   const confirmSend = async () => {
     if (sendPOId) {
-      await sendPO.mutateAsync({ branchId, id: sendPOId });
+      await sendPO.mutateAsync({ branchId: branchId || '', id: sendPOId });
       setSendPOId(null);
     }
   };
@@ -119,7 +118,11 @@ export default function PurchaseOrdersPage() {
 
   const handleCancel = async () => {
     if (cancellingPOId && cancelReason.trim()) {
-      await cancelPO.mutateAsync({ branchId, id: cancellingPOId, reason: cancelReason });
+      await cancelPO.mutateAsync({
+        branchId: branchId || '',
+        id: cancellingPOId,
+        reason: cancelReason,
+      });
       setCancelDialogOpen(false);
       setCancellingPOId(null);
     }

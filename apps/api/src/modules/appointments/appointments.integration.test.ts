@@ -206,6 +206,7 @@ describe('Appointments Integration Tests', () => {
           services: [{ serviceId: 'service-1', quantity: 1 }],
           stylistId,
           bookingType: 'phone',
+          assignLater: false,
         },
         userId
       );
@@ -282,6 +283,7 @@ describe('Appointments Integration Tests', () => {
             scheduledTime: '10:00',
             services: [{ serviceId: 'service-1', quantity: 1 }],
             bookingType: 'online',
+            assignLater: false,
           },
           userId
         )

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle, Eye, FileText, Plus } from 'lucide-react';
 
 import { useGoodsReceipts, useVendors } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency, formatDate } from '@/lib/format';
 
 import {
@@ -50,8 +50,7 @@ const statusVariants: Record<GRNStatus, 'default' | 'secondary'> = {
 
 export default function GoodsReceiptsPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -69,7 +68,7 @@ export default function GoodsReceiptsPage() {
     sortOrder: 'desc',
   };
 
-  const { data: grnData, isLoading, error } = useGoodsReceipts(branchId, filters);
+  const { data: grnData, isLoading, error } = useGoodsReceipts(branchId || '', filters);
   const { data: vendorsData } = useVendors({ limit: 100, isActive: true });
 
   return (

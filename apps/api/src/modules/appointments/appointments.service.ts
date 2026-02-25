@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma, AppointmentStatus } from '@prisma/client';
 import { AppError } from '../../lib/errors';
 import type {
   CreateAppointmentInput,
@@ -81,6 +81,11 @@ export class AppointmentsService {
       this.prisma.appointment.findMany({
         where,
         include: {
+          stylist: {
+            select: {
+              name: true,
+            },
+          },
           customer: {
             select: { id: true, name: true, phone: true, email: true },
           },
@@ -514,6 +519,34 @@ export class AppointmentsService {
           },
         },
       });
+
+      // Mark waitlist entry as converted if provided
+      if (input.waitlistEntryId) {
+        await tx.waitlistEntry.update({
+          where: { id: input.waitlistEntryId },
+          data: {
+            status: 'converted',
+            appointmentId: apt.id,
+            convertedAt: new Date(),
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            tenantId,
+            branchId: input.branchId,
+            userId,
+            action: 'WAITLIST_CONVERTED',
+            entityType: 'waitlist_entry',
+            entityId: input.waitlistEntryId,
+            newValues: {
+              appointmentId: apt.id,
+              scheduledDate: input.scheduledDate,
+              scheduledTime: input.scheduledTime,
+            },
+          },
+        });
+      }
 
       return { apt, processedConflicts };
     });
@@ -953,7 +986,7 @@ export class AppointmentsService {
   private async updateStatus(
     tenantId: string,
     appointmentId: string,
-    newStatus: string,
+    newStatus: AppointmentStatus,
     userId: string
   ) {
     const appointment = await this.prisma.appointment.findUnique({
@@ -996,5 +1029,146 @@ export class AppointmentsService {
     const endHours = Math.floor(totalMinutes / 60) % 24;
     const endMinutes = totalMinutes % 60;
     return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+  }
+
+  // =====================================================
+  // UNASSIGNED APPOINTMENTS
+  // =====================================================
+
+  /**
+   * Get unassigned appointments for a branch
+   * Defaults to today's date if not specified
+   */
+  async getUnassignedAppointments(tenantId: string, branchId: string, date?: string) {
+    const targetDate = date ? new Date(date) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        tenantId,
+        branchId,
+        stylistId: null,
+        scheduledDate: targetDate,
+        status: { notIn: ['cancelled', 'no_show', 'rescheduled', 'completed'] },
+        deletedAt: null,
+      },
+      include: {
+        customer: {
+          select: { id: true, name: true, phone: true },
+        },
+        services: {
+          include: {
+            service: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+      orderBy: { scheduledTime: 'asc' },
+    });
+
+    return appointments;
+  }
+
+  /**
+   * Get count of unassigned appointments for a branch (today)
+   */
+  async getUnassignedCount(tenantId: string, branchId: string): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return this.prisma.appointment.count({
+      where: {
+        tenantId,
+        branchId,
+        stylistId: null,
+        scheduledDate: today,
+        status: { notIn: ['cancelled', 'no_show', 'rescheduled', 'completed'] },
+        deletedAt: null,
+      },
+    });
+  }
+
+  /**
+   * Assign a stylist to an unassigned appointment
+   */
+  async assignStylist(tenantId: string, appointmentId: string, stylistId: string, userId: string) {
+    const appointment = await this.getAppointmentById(tenantId, appointmentId);
+
+    // Check if appointment already has a stylist
+    if (appointment.stylistId) {
+      throw new AppError('Appointment already has a stylist assigned', 400, 'APT_ALREADY_ASSIGNED');
+    }
+
+    // Check if appointment is in a valid status for assignment
+    if (['completed', 'cancelled', 'no_show', 'rescheduled'].includes(appointment.status)) {
+      throw new AppError('Cannot assign stylist to appointment in current status', 400, 'APT_030');
+    }
+
+    // Check stylist availability
+    const conflicts = await this.checkConflicts(
+      tenantId,
+      appointment.branchId,
+      appointment.scheduledDate.toISOString().split('T')[0],
+      appointment.scheduledTime,
+      appointment.totalDuration,
+      stylistId,
+      appointmentId
+    );
+
+    if (conflicts.length > 0) {
+      throw new AppError(
+        'Stylist is not available for this time slot',
+        409,
+        'STYLIST_NOT_AVAILABLE',
+        {
+          conflicts,
+        }
+      );
+    }
+
+    // Update appointment with stylist
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const apt = await tx.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          stylistId,
+          updatedAt: new Date(),
+        },
+        include: {
+          services: true,
+          customer: {
+            select: { id: true, name: true, phone: true },
+          },
+          stylist: {
+            select: { id: true, name: true },
+          },
+        },
+      });
+
+      // Update services with stylist
+      await tx.appointmentService.updateMany({
+        where: { appointmentId },
+        data: { stylistId },
+      });
+
+      // Create audit log
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          branchId: appointment.branchId,
+          userId,
+          action: 'STYLIST_ASSIGNED',
+          entityType: 'appointment',
+          entityId: appointmentId,
+          oldValues: { stylistId: null },
+          newValues: { stylistId },
+        },
+      });
+
+      return apt;
+    });
+
+    return updated;
   }
 }

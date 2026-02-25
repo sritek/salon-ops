@@ -440,6 +440,7 @@ export class CustomerMembershipService {
 
   /**
    * Get membership usage history
+   * Uses new Service and Branch relations for richer data
    */
   async getUsage(
     tenantId: string,
@@ -462,6 +463,24 @@ export class CustomerMembershipService {
         orderBy: { usageDate: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          // Leverage new Service relation for service details
+          service: {
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+              basePrice: true,
+            },
+          },
+          // Leverage new Branch relation for branch details
+          usageBranch: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       }),
       prisma.membershipUsage.count({ where }),
     ]);

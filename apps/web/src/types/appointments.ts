@@ -153,6 +153,8 @@ export interface CreateAppointmentInput {
   bookingSource?: string;
   customerNotes?: string;
   internalNotes?: string;
+  assignLater?: boolean;
+  waitlistEntryId?: string;
 }
 
 export interface UpdateAppointmentInput {

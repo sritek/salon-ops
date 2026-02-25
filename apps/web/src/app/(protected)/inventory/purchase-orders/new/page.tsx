@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
 import { useVendors, useProducts, useCreatePurchaseOrder } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency } from '@/lib/format';
 
 import { PageContainer, PageContent, PageHeader } from '@/components/common';
@@ -41,8 +41,7 @@ interface POLineItem extends CreatePOItemInput {
 
 export default function NewPurchaseOrderPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [vendorId, setVendorId] = useState('');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
@@ -116,7 +115,7 @@ export default function NewPurchaseOrderPage() {
 
     try {
       await createPO.mutateAsync({
-        branchId,
+        branchId: branchId || '',
         data: {
           vendorId,
           expectedDeliveryDate: expectedDeliveryDate || null,

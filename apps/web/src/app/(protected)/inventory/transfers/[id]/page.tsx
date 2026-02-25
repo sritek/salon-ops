@@ -12,7 +12,7 @@ import {
   useDispatchTransfer,
   useReceiveTransfer,
 } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency, formatDate } from '@/lib/format';
 
 import { EmptyState, PageContainer, PageContent, PageHeader } from '@/components/common';
@@ -66,8 +66,7 @@ const statusIcons: Record<TransferStatus, React.ReactNode> = {
 export default function TransferDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -76,7 +75,7 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [receiveItems, setReceiveItems] = useState<ReceiveItemInput[]>([]);
 
-  const { data: transfer, isLoading, error } = useTransfer(branchId, id);
+  const { data: transfer, isLoading, error } = useTransfer(branchId || '', id);
 
   const approveMutation = useApproveTransfer();
   const rejectMutation = useRejectTransfer();
@@ -88,7 +87,7 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
 
   const handleApprove = async () => {
     try {
-      await approveMutation.mutateAsync({ branchId, id });
+      await approveMutation.mutateAsync({ branchId: branchId || '', id });
     } catch (err) {
       console.error('Failed to approve transfer:', err);
     }
@@ -97,7 +96,7 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
   const handleReject = async () => {
     if (!rejectReason.trim()) return;
     try {
-      await rejectMutation.mutateAsync({ branchId, id, reason: rejectReason });
+      await rejectMutation.mutateAsync({ branchId: branchId || '', id, reason: rejectReason });
       setRejectDialogOpen(false);
       setRejectReason('');
     } catch (err) {
@@ -119,7 +118,7 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
 
   const handleDispatch = async () => {
     try {
-      await dispatchMutation.mutateAsync({ branchId, id, items: dispatchItems });
+      await dispatchMutation.mutateAsync({ branchId: branchId || '', id, items: dispatchItems });
       setDispatchDialogOpen(false);
     } catch (err) {
       console.error('Failed to dispatch transfer:', err);
@@ -140,7 +139,7 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
 
   const handleReceive = async () => {
     try {
-      await receiveMutation.mutateAsync({ branchId, id, items: receiveItems });
+      await receiveMutation.mutateAsync({ branchId: branchId || '', id, items: receiveItems });
       setReceiveDialogOpen(false);
     } catch (err) {
       console.error('Failed to receive transfer:', err);

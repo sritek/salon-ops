@@ -844,6 +844,7 @@ export const checkoutService = {
 
   /**
    * Get customer packages
+   * Uses new Service relation on PackageCredit for direct service details
    */
   async getCustomerPackages(tenantId: string, customerId: string): Promise<PackageInfo[]> {
     const packages = await prisma.customerPackage.findMany({
@@ -854,24 +855,17 @@ export const checkoutService = {
       },
       include: {
         package: { select: { id: true, name: true, packageType: true } },
-        credits: true,
+        credits: {
+          include: {
+            // Leverage new Service relation for direct service details
+            service: {
+              select: { id: true, name: true },
+            },
+          },
+        },
       },
       orderBy: { expiryDate: 'asc' },
     });
-
-    // Get all service IDs from credits
-    const serviceIds = packages.flatMap((p) => p.credits.map((c) => c.serviceId));
-    const uniqueServiceIds = [...new Set(serviceIds)];
-
-    // Fetch service names
-    const services =
-      uniqueServiceIds.length > 0
-        ? await prisma.service.findMany({
-            where: { id: { in: uniqueServiceIds } },
-            select: { id: true, name: true },
-          })
-        : [];
-    const serviceMap = new Map(services.map((s) => [s.id, s.name]));
 
     return packages.map((p) => ({
       id: p.id,
@@ -882,7 +876,7 @@ export const checkoutService = {
       credits: p.credits.map((c) => ({
         id: c.id,
         serviceId: c.serviceId || undefined,
-        serviceName: serviceMap.get(c.serviceId),
+        serviceName: c.service?.name,
         totalCredits: c.initialCredits,
         usedCredits: c.initialCredits - c.remainingCredits,
         remainingCredits: c.remainingCredits,

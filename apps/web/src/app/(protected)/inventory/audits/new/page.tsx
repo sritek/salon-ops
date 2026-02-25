@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
 import { useCreateAudit, useProducts, useProductCategories } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 import { PageContainer, PageContent, PageHeader } from '@/components/common';
 import { Button } from '@/components/ui/button';
@@ -36,8 +36,7 @@ import { AUDIT_TYPE_LABELS } from '@/types/inventory';
 
 export default function NewAuditPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [auditType, setAuditType] = useState<AuditType>('full');
   const [categoryId, setCategoryId] = useState('');
@@ -65,7 +64,7 @@ export default function NewAuditPage() {
   const handleSubmit = async () => {
     try {
       await createMutation.mutateAsync({
-        branchId,
+        branchId: branchId || '',
         data: {
           auditType,
           categoryId: auditType === 'category' ? categoryId : undefined,

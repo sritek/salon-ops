@@ -11,7 +11,7 @@ import {
   useBranchProductSettings,
   useUpdateBranchProductSettings,
 } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency } from '@/lib/format';
 
 import { EmptyState, PageContainer, PageContent, PageHeader } from '@/components/common';
@@ -61,8 +61,8 @@ const unitLabels = {
 export default function ProductDetailPage() {
   const params = useParams();
   const productId = params.id as string;
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId: contextBranchId } = useBranchContext();
+  const branchId = contextBranchId || '';
 
   const { data: product, isLoading: productLoading } = useProduct(productId);
   const { data: vendors, isLoading: vendorsLoading } = useProductVendors(productId);

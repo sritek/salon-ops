@@ -20,6 +20,7 @@ import {
 } from '@/hooks/queries/use-appointments';
 import { useServices } from '@/hooks/queries/use-services';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { useAuthStore } from '@/stores/auth-store';
 
 import {
@@ -72,14 +73,13 @@ export default function WalkInQueuePage() {
   const t = useTranslations('walkIn');
   const { hasPermission } = usePermissions();
   const canWrite = hasPermission(PERMISSIONS.APPOINTMENTS_WRITE);
-
-  const user = useAuthStore((state) => state.user);
-  const branchId = user?.branchIds?.[0] || '';
+  const { user } = useAuthStore();
+  const { branchId } = useBranchContext();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   const { data: queueData } = useWalkInQueue({
-    branchId,
+    branchId: branchId || '',
     date: format(new Date(), 'yyyy-MM-dd'),
   });
 
@@ -101,6 +101,7 @@ export default function WalkInQueuePage() {
   });
 
   const onSubmit = async (data: AddToQueueFormData) => {
+    if (!branchId) return;
     try {
       await addToQueue.mutateAsync({
         branchId,

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
 import { useCreateTransfer, useProducts, useStockSummary } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 import { PageContainer, PageContent, PageHeader } from '@/components/common';
 import { Button } from '@/components/ui/button';
@@ -46,8 +46,8 @@ interface TransferLineItem extends TransferItemInput {
 
 export default function NewTransferPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const sourceBranchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
+  const sourceBranchId = branchId || '';
 
   const [destinationBranchId, setDestinationBranchId] = useState('');
   const [notes, setNotes] = useState('');

@@ -169,43 +169,46 @@ export class CalendarService {
       }),
     ]);
 
-    // Build stylists array with availability info
-    const stylists: CalendarStylist[] = userBranches.map((ub, index) => {
-      const stylistBreaks = breaks
-        .filter((b) => b.stylistId === ub.user.id)
-        .map((b) => ({
-          id: b.id,
-          start: b.startTime,
-          end: b.endTime,
-          name: b.name,
-        }));
+    // Build stylists array with availability info, sorted alphabetically by name
+    const stylists: CalendarStylist[] = userBranches
+      .slice() // Create a copy to avoid mutating original
+      .sort((a, b) => a.user.name.localeCompare(b.user.name))
+      .map((ub, index) => {
+        const stylistBreaks = breaks
+          .filter((b) => b.stylistId === ub.user.id)
+          .map((b) => ({
+            id: b.id,
+            start: b.startTime,
+            end: b.endTime,
+            name: b.name,
+          }));
 
-      const stylistBlocked = blockedSlots
-        .filter((bs) => bs.stylistId === ub.user.id)
-        .map((bs) => ({
-          id: bs.id,
-          start: bs.startTime || '00:00',
-          end: bs.endTime || '23:59',
-          reason: bs.reason,
-          isFullDay: bs.isFullDay,
-        }));
+        const stylistBlocked = blockedSlots
+          .filter((bs) => bs.stylistId === ub.user.id)
+          .map((bs) => ({
+            id: bs.id,
+            start: bs.startTime || '00:00',
+            end: bs.endTime || '23:59',
+            reason: bs.reason,
+            isFullDay: bs.isFullDay,
+          }));
 
-      // Check if stylist has full day blocked for the requested date
-      const isFullDayBlocked = stylistBlocked.some(
-        (bs) => bs.isFullDay && format(parseISO(date), 'yyyy-MM-dd') === date
-      );
+        // Check if stylist has full day blocked for the requested date
+        const isFullDayBlocked = stylistBlocked.some(
+          (bs) => bs.isFullDay && format(parseISO(date), 'yyyy-MM-dd') === date
+        );
 
-      return {
-        id: ub.user.id,
-        name: ub.user.name,
-        avatar: ub.user.avatarUrl,
-        color: STYLIST_COLORS[index % STYLIST_COLORS.length],
-        isAvailable: !isFullDayBlocked,
-        workingHours: workingHours,
-        breaks: stylistBreaks,
-        blockedSlots: stylistBlocked,
-      };
-    });
+        return {
+          id: ub.user.id,
+          name: ub.user.name,
+          avatar: ub.user.avatarUrl,
+          color: STYLIST_COLORS[index % STYLIST_COLORS.length],
+          isAvailable: !isFullDayBlocked,
+          workingHours: workingHours,
+          breaks: stylistBreaks,
+          blockedSlots: stylistBlocked,
+        };
+      });
 
     // Get appointments for the date range
     const appointments = await this.prisma.appointment.findMany({
@@ -281,13 +284,33 @@ export class CalendarService {
       throw new AppError('Appointment not found', 404, 'CAL_002');
     }
 
-    // Check if appointment can be moved
-    if (['completed', 'cancelled', 'no_show', 'rescheduled'].includes(appointment.status)) {
-      throw new AppError('Cannot move appointment in current status', 400, 'CAL_003');
+    // Check if appointment can be moved (only allow booked, confirmed, checked_in statuses)
+    const movableStatuses = ['booked', 'confirmed', 'checked_in'];
+    if (!movableStatuses.includes(appointment.status)) {
+      throw new AppError(
+        `Cannot move appointment with status "${appointment.status}". Only booked, confirmed, or checked-in appointments can be moved.`,
+        400,
+        'CAL_003'
+      );
+    }
+
+    // Get duration from appointment or calculate from existing times
+    let duration = appointment.totalDuration;
+    if (!duration || duration <= 0) {
+      // Calculate duration from existing start and end times
+      const [startHours, startMins] = appointment.scheduledTime.split(':').map(Number);
+      const [endHours, endMins] = appointment.endTime.split(':').map(Number);
+      const startTotalMins = startHours * 60 + startMins;
+      const endTotalMins = endHours * 60 + endMins;
+      duration = endTotalMins - startTotalMins;
+      // Handle overnight appointments (rare but possible)
+      if (duration <= 0) {
+        duration = 60; // Default to 1 hour if calculation fails
+      }
     }
 
     // Calculate new end time
-    const newEndTime = this.calculateEndTime(newTime, appointment.totalDuration);
+    const newEndTime = this.calculateEndTime(newTime, duration);
 
     // Check for conflicts at new time/stylist
     const targetStylistId = newStylistId || appointment.stylistId;
@@ -298,7 +321,7 @@ export class CalendarService {
         appointment.branchId,
         newDate,
         newTime,
-        appointment.totalDuration,
+        duration,
         targetStylistId,
         appointmentId
       );
@@ -336,6 +359,8 @@ export class CalendarService {
           scheduledTime: newTime,
           endTime: newEndTime,
           stylistId: targetStylistId,
+          // Also update totalDuration if it was missing/incorrect
+          totalDuration: duration,
           updatedAt: new Date(),
         },
         include: {

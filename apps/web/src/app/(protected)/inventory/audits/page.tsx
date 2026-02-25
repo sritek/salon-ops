@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, CheckCircle, ClipboardList, Clock, Eye, Plus } from 'lucide-react';
 
 import { useAudits } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency, formatDate } from '@/lib/format';
 
 import {
@@ -53,8 +53,7 @@ const statusIcons: Record<AuditStatus, React.ReactNode> = {
 
 export default function AuditsPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -71,7 +70,7 @@ export default function AuditsPage() {
     sortOrder: 'desc',
   };
 
-  const { data: auditsData, isLoading, error } = useAudits(branchId, filters);
+  const { data: auditsData, isLoading, error } = useAudits(branchId || '', filters);
 
   return (
     <PageContainer>

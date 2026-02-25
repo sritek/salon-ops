@@ -31,6 +31,8 @@ import {
   createBlockedSlotSchema,
   getStylistScheduleSchema,
   serveQueueBodySchema,
+  listUnassignedQuerySchema,
+  assignStylistSchema,
   // Response schemas
   successResponseSchema,
   paginatedResponseSchema,
@@ -414,6 +416,87 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       const { tenantId, sub: userId } = (request as any).user!;
       const { id } = request.params;
       const result = await appointmentsService.resolveConflict(tenantId, id, userId);
+      return reply.send({ success: true, data: result });
+    }
+  );
+
+  // =====================================================
+  // UNASSIGNED APPOINTMENTS
+  // =====================================================
+
+  app.get(
+    '/unassigned',
+    {
+      preHandler: [requirePermission('appointments:read')],
+      schema: {
+        tags: ['Unassigned Appointments'],
+        summary: 'Get unassigned appointments',
+        description: 'Get appointments without a stylist assigned for a branch. Defaults to today.',
+        querystring: listUnassignedQuerySchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      const { tenantId } = (request as any).user!;
+      const { branchId, date } = request.query;
+      const result = await appointmentsService.getUnassignedAppointments(tenantId, branchId, date);
+      return reply.send({ success: true, data: result });
+    }
+  );
+
+  app.get(
+    '/unassigned/count',
+    {
+      preHandler: [requirePermission('appointments:read')],
+      schema: {
+        tags: ['Unassigned Appointments'],
+        summary: 'Get unassigned appointments count',
+        description: 'Get count of unassigned appointments for today.',
+        querystring: listUnassignedQuerySchema.pick({ branchId: true }),
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      const { tenantId } = (request as any).user!;
+      const { branchId } = request.query as { branchId: string };
+      const count = await appointmentsService.getUnassignedCount(tenantId, branchId);
+      return reply.send({ success: true, data: { count } });
+    }
+  );
+
+  app.post(
+    '/:id/assign',
+    {
+      preHandler: [requirePermission('appointments:write')],
+      schema: {
+        tags: ['Unassigned Appointments'],
+        summary: 'Assign stylist to appointment',
+        description:
+          'Assign a stylist to an unassigned appointment. Validates stylist availability.',
+        params: idParamSchema,
+        body: assignStylistSchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+          409: errorResponseSchema,
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      const { tenantId, sub: userId } = (request as any).user!;
+      const { id } = request.params;
+      const { stylistId } = request.body;
+      const result = await appointmentsService.assignStylist(tenantId, id, stylistId, userId);
       return reply.send({ success: true, data: result });
     }
   );

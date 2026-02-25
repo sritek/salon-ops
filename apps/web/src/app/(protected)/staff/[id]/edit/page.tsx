@@ -17,7 +17,7 @@ import {
   EmptyState,
 } from '@/components/common';
 import { useStaffDetail } from '@/hooks/queries/use-staff';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 import { StaffForm } from '../../components/staff-form';
 
@@ -26,13 +26,10 @@ export default function EditStaffPage() {
   const router = useRouter();
   const t = useTranslations('staff.form');
   const tCommon = useTranslations('common');
-  const { user } = useAuthStore();
+  const { branchId } = useBranchContext();
 
   const staffId = params.id as string;
   const { data: staff, isLoading, error } = useStaffDetail(staffId);
-
-  // Get the current branch ID from the user's primary branch
-  const branchId = user?.branchIds?.[0] || '';
 
   if (isLoading) {
     return (
@@ -78,7 +75,7 @@ export default function EditStaffPage() {
         />
         <PageContent>
           <div className="max-w-3xl">
-            <StaffForm staff={staff} branchId={branchId} />
+            <StaffForm staff={staff} branchId={branchId || ''} />
           </div>
         </PageContent>
       </PageContainer>

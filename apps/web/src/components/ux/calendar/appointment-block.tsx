@@ -1,16 +1,18 @@
 /**
  * Appointment Block Component
  * Visual representation of an appointment in the calendar
- * Supports drag-and-drop for rescheduling
+ * Supports drag-and-drop for rescheduling via explicit drag handle
  */
 
 'use client';
 
+import { useCallback } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { useAuthStore } from '@/stores/auth-store';
 import { maskPhoneNumber, shouldMaskPhoneForRole } from '@/lib/phone-masking';
+import { DragHandle } from './drag-handle';
 import type { CalendarAppointment } from '@/hooks/queries/use-resource-calendar';
 
 interface AppointmentBlockProps {
@@ -21,42 +23,42 @@ interface AppointmentBlockProps {
   onClick?: () => void;
 }
 
-// Status color mapping
-const STATUS_STYLES: Record<string, { bg: string; border: string; text: string }> = {
+// Beautiful status color mapping with solid backgrounds
+const STATUS_STYLES: Record<string, { bg: string; text: string; accent: string }> = {
   booked: {
-    bg: 'bg-blue-50 dark:bg-blue-950/30',
-    border: 'border-blue-400',
-    text: 'text-blue-700 dark:text-blue-300',
+    bg: 'bg-sky-100 dark:bg-sky-900/60',
+    text: 'text-sky-900 dark:text-sky-100',
+    accent: 'bg-sky-500',
   },
   confirmed: {
-    bg: 'bg-green-50 dark:bg-green-950/30',
-    border: 'border-green-400',
-    text: 'text-green-700 dark:text-green-300',
+    bg: 'bg-emerald-100 dark:bg-emerald-900/60',
+    text: 'text-emerald-900 dark:text-emerald-100',
+    accent: 'bg-emerald-500',
   },
   checked_in: {
-    bg: 'bg-purple-100 dark:bg-purple-950/40',
-    border: 'border-purple-500',
-    text: 'text-purple-700 dark:text-purple-300',
+    bg: 'bg-violet-100 dark:bg-violet-900/60',
+    text: 'text-violet-900 dark:text-violet-100',
+    accent: 'bg-violet-500',
   },
   in_progress: {
-    bg: 'bg-purple-200 dark:bg-purple-900/50',
-    border: 'border-purple-600',
-    text: 'text-purple-800 dark:text-purple-200',
+    bg: 'bg-amber-100 dark:bg-amber-900/60',
+    text: 'text-amber-900 dark:text-amber-100',
+    accent: 'bg-amber-500',
   },
   completed: {
-    bg: 'bg-gray-100 dark:bg-gray-800/50',
-    border: 'border-gray-400',
-    text: 'text-gray-600 dark:text-gray-400',
+    bg: 'bg-slate-100 dark:bg-slate-800/60',
+    text: 'text-slate-600 dark:text-slate-300',
+    accent: 'bg-slate-400',
   },
   cancelled: {
-    bg: 'bg-red-50 dark:bg-red-950/30',
-    border: 'border-red-400',
-    text: 'text-red-600 dark:text-red-400 line-through',
+    bg: 'bg-red-100 dark:bg-red-900/60',
+    text: 'text-red-700 dark:text-red-200 line-through opacity-70',
+    accent: 'bg-red-500',
   },
   no_show: {
-    bg: 'bg-orange-50 dark:bg-orange-950/30',
-    border: 'border-orange-400',
-    text: 'text-orange-600 dark:text-orange-400',
+    bg: 'bg-orange-100 dark:bg-orange-900/60',
+    text: 'text-orange-800 dark:text-orange-200',
+    accent: 'bg-orange-500',
   },
 };
 
@@ -81,60 +83,61 @@ const BOOKING_TYPE_LABELS: Record<string, string> = {
 function AppointmentTooltip({ appointment }: { appointment: CalendarAppointment }) {
   const { user } = useAuthStore();
   const shouldMask = user?.role ? shouldMaskPhoneForRole(user.role) : false;
-
-  // Safe access to services array
   const services = appointment.services || [];
 
   return (
-    <div className="space-y-2 text-sm">
+    <div className="space-y-2 text-sm text-gray-900">
       <div className="font-semibold">{appointment.customerName || 'Unknown Customer'}</div>
       {appointment.customerPhone && (
-        <div className="text-muted-foreground">
+        <div className="text-gray-600">
           {shouldMask ? maskPhoneNumber(appointment.customerPhone) : appointment.customerPhone}
         </div>
       )}
       {services.length > 0 && (
-        <div className="border-t pt-2">
+        <div className="border-t border-gray-200 pt-2">
           <div className="font-medium">Services:</div>
-          <ul className="list-disc list-inside">
+          <ul className="list-disc list-inside text-gray-700">
             {services.map((service, idx) => (
               <li key={idx}>{service}</li>
             ))}
           </ul>
         </div>
       )}
-      <div className="flex justify-between border-t pt-2">
-        <span>Time:</span>
+      <div className="flex justify-between border-t border-gray-200 pt-2">
+        <span className="text-gray-600">Time:</span>
         <span className="font-medium">
           {appointment.startTime || '--:--'} - {appointment.endTime || '--:--'}
         </span>
       </div>
       <div className="flex justify-between">
-        <span>Status:</span>
+        <span className="text-gray-600">Status:</span>
         <span className="font-medium">
           {STATUS_LABELS[appointment.status] || appointment.status || 'Unknown'}
         </span>
       </div>
       <div className="flex justify-between">
-        <span>Type:</span>
+        <span className="text-gray-600">Type:</span>
         <span className="font-medium">
           {BOOKING_TYPE_LABELS[appointment.bookingType] || appointment.bookingType || 'Unknown'}
         </span>
       </div>
       {appointment.totalAmount != null && appointment.totalAmount > 0 && (
-        <div className="flex justify-between border-t pt-2">
-          <span>Total:</span>
+        <div className="flex justify-between border-t border-gray-200 pt-2">
+          <span className="text-gray-600">Total:</span>
           <span className="font-medium">₹{appointment.totalAmount.toLocaleString('en-IN')}</span>
         </div>
       )}
       {appointment.hasConflict && (
-        <div className="text-red-500 font-medium border-t pt-2">
+        <div className="text-red-600 font-medium border-t border-gray-200 pt-2">
           ⚠️ This appointment has a conflict
         </div>
       )}
     </div>
   );
 }
+
+// Statuses that allow drag-and-drop rescheduling
+const MOVABLE_STATUSES = ['booked', 'confirmed', 'checked_in'];
 
 export function AppointmentBlock({
   appointment,
@@ -143,16 +146,27 @@ export function AppointmentBlock({
   isDragging = false,
   onClick,
 }: AppointmentBlockProps) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+  // Check if appointment can be moved
+  const canMove = MOVABLE_STATUSES.includes(appointment.status);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    isDragging: isCurrentlyDragging,
+  } = useDraggable({
     id: appointment.id,
     data: {
       appointment,
     },
+    disabled: !canMove,
   });
 
   const style = transform
     ? {
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: 50,
       }
     : undefined;
 
@@ -161,73 +175,134 @@ export function AppointmentBlock({
   const showServices = height >= 50;
   const services = appointment.services || [];
 
+  // Handle click on the appointment body (not drag handle)
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      // Don't trigger click if we're dragging
+      if (isCurrentlyDragging || isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      onClick?.();
+    },
+    [isCurrentlyDragging, isDragging, onClick]
+  );
+
   const blockContent = (
     <div
       ref={setNodeRef}
       style={{
         ...style,
         height: `${height}px`,
-        borderLeftColor: stylistColor,
       }}
-      {...listeners}
-      {...attributes}
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
-        'rounded-r-md border-l-4 px-2 py-1 overflow-hidden cursor-pointer relative',
-        'transition-shadow hover:shadow-md',
+        'rounded-lg overflow-hidden relative group',
+        'transition-all duration-150',
+        'shadow-sm hover:shadow-md',
+        'border border-black/5 dark:border-white/10',
         statusStyle.bg,
-        statusStyle.border,
-        isDragging && 'shadow-lg ring-2 ring-primary opacity-80',
-        appointment.hasConflict && 'ring-2 ring-red-500'
+        // Cursor: pointer for clicking to open details
+        'cursor-pointer',
+        (isDragging || isCurrentlyDragging) &&
+          'shadow-xl ring-2 ring-primary/50 opacity-90 scale-[1.02]',
+        appointment.hasConflict && 'ring-2 ring-red-500',
+        // Unassigned appointment indicator - dashed border
+        !appointment.stylistId && 'border-2 border-dashed border-orange-400 dark:border-orange-500'
       )}
     >
-      {/* Customer Name */}
+      {/* Drag Handle - only for movable appointments */}
+      {canMove && <DragHandle listeners={listeners} attributes={attributes} disabled={!canMove} />}
+
+      {/* Left accent bar using stylist color */}
       <div
-        className={cn('font-medium truncate', statusStyle.text, isCompact ? 'text-xs' : 'text-sm')}
-      >
-        {appointment.customerName || 'Unknown Customer'}
+        className={cn('absolute top-0 bottom-0 w-1 rounded-l-lg', canMove ? 'left-5' : 'left-0')}
+        style={{ backgroundColor: stylistColor }}
+      />
+
+      {/* Content - shifted right to make room for drag handle */}
+      <div className={cn('pr-2 py-1 h-full flex flex-col', canMove ? 'pl-7' : 'pl-2.5')}>
+        {/* Customer Name */}
+        <div
+          className={cn(
+            'font-semibold truncate leading-tight',
+            statusStyle.text,
+            isCompact ? 'text-xs' : 'text-sm'
+          )}
+        >
+          {appointment.customerName || 'Unknown Customer'}
+        </div>
+
+        {/* Services */}
+        {showServices && services.length > 0 && (
+          <div className={cn('text-xs truncate opacity-75', statusStyle.text)}>
+            {services.join(', ')}
+          </div>
+        )}
+
+        {/* Time (only if enough space) */}
+        {height >= 60 && (
+          <div className={cn('text-xs mt-auto opacity-60', statusStyle.text)}>
+            {appointment.startTime} - {appointment.endTime}
+          </div>
+        )}
       </div>
 
-      {/* Services */}
-      {showServices && services.length > 0 && (
-        <div className="text-xs text-muted-foreground truncate">{services.join(', ')}</div>
-      )}
-
-      {/* Time (only if enough space) */}
-      {height >= 60 && (
-        <div className="text-xs text-muted-foreground mt-0.5">
-          {appointment.startTime} - {appointment.endTime}
-        </div>
-      )}
+      {/* Status indicator dot */}
+      <div className={cn('absolute top-1.5 right-1.5 w-2 h-2 rounded-full', statusStyle.accent)} />
 
       {/* Booking type indicator */}
       {appointment.bookingType === 'walk_in' && (
-        <span className="absolute top-1 right-1 text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1 rounded">
+        <span className="absolute bottom-1 right-1 text-[10px] font-medium bg-amber-500 text-white px-1 rounded">
           W
         </span>
       )}
 
       {/* Conflict indicator */}
       {appointment.hasConflict && (
-        <span className="absolute top-1 right-1 text-xs bg-red-500 text-white px-1 rounded">!</span>
+        <span className="absolute top-1 right-4 text-xs bg-red-500 text-white px-1 rounded font-bold">
+          !
+        </span>
+      )}
+
+      {/* Unassigned indicator */}
+      {!appointment.stylistId && (
+        <span className="absolute top-1 right-4 text-[10px] font-medium bg-orange-500 text-white px-1 rounded">
+          Unassigned
+        </span>
       )}
 
       {/* In-progress animation */}
       {appointment.status === 'in_progress' && (
-        <div className="absolute inset-0 bg-purple-400/10 animate-pulse pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-amber-400/20 to-transparent animate-pulse pointer-events-none rounded-lg" />
       )}
+
+      {/* Hover overlay */}
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-white/5 transition-colors pointer-events-none rounded-lg" />
     </div>
   );
 
   // Wrap with tooltip for hover details
   return (
-    <TooltipProvider>
-      <Tooltip delayDuration={300}>
-        <TooltipTrigger asChild>{blockContent}</TooltipTrigger>
-        <TooltipContent side="right" className="max-w-xs">
-          <AppointmentTooltip appointment={appointment} />
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <TooltipPrimitive.Provider>
+      <TooltipPrimitive.Root delayDuration={500}>
+        <TooltipPrimitive.Trigger asChild>{blockContent}</TooltipPrimitive.Trigger>
+        <TooltipPrimitive.Portal>
+          <TooltipPrimitive.Content
+            side="right"
+            sideOffset={8}
+            className="z-[9999] max-w-xs rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-xl"
+          >
+            <AppointmentTooltip appointment={appointment} />
+            <TooltipPrimitive.Arrow className="fill-white" />
+          </TooltipPrimitive.Content>
+        </TooltipPrimitive.Portal>
+      </TooltipPrimitive.Root>
+    </TooltipPrimitive.Provider>
   );
 }
+
+// Export status colors for legend
+export const APPOINTMENT_STATUS_COLORS = STATUS_STYLES;
+export const APPOINTMENT_STATUS_LABELS = STATUS_LABELS;

@@ -6,18 +6,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, isToday, parseISO } from 'date-fns';
 
 interface CurrentTimeIndicatorProps {
   workingHours: { start: string; end: string };
   timeSlotInterval: number;
   slotHeight: number;
+  selectedDate?: string;
 }
 
 export function CurrentTimeIndicator({
   workingHours,
   timeSlotInterval,
   slotHeight,
+  selectedDate,
 }: CurrentTimeIndicatorProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -29,6 +31,18 @@ export function CurrentTimeIndicator({
 
     return () => clearInterval(interval);
   }, []);
+
+  // Only show on today's date
+  if (selectedDate) {
+    try {
+      const selectedDateObj = parseISO(selectedDate);
+      if (!isToday(selectedDateObj)) {
+        return null;
+      }
+    } catch {
+      // If parsing fails, continue with the check
+    }
+  }
 
   // Calculate position
   const now = currentTime;
@@ -55,13 +69,13 @@ export function CurrentTimeIndicator({
       style={{ top: `${topPosition}px` }}
     >
       {/* Time label */}
-      <div className="absolute -left-1 -top-2.5 bg-red-500 text-white text-xs px-1 py-0.5 rounded">
+      <div className="absolute -left-1 -top-2.5 bg-red-500 text-white text-[10px] px-1 py-0.5 rounded font-medium">
         {currentTimeStr}
       </div>
       {/* Line */}
-      <div className="h-0.5 bg-red-500 w-full" />
+      <div className="h-0.5 bg-red-500 w-full shadow-sm" />
       {/* Circle indicator */}
-      <div className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
+      <div className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 shadow-sm" />
     </div>
   );
 }

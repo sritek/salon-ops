@@ -12,7 +12,7 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
-import { Calendar, List, Plus } from 'lucide-react';
+import { Calendar, List, Plus, UserPlus, ClipboardList, UserX } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { PERMISSIONS } from '@salon-ops/shared';
@@ -24,15 +24,16 @@ import {
   useCompleteAppointment,
   useCancelAppointment,
   useMarkNoShow,
+  useUnassignedCount,
 } from '@/hooks/queries/use-appointments';
 import { useResourceCalendar, useMoveAppointment } from '@/hooks/queries/use-resource-calendar';
+import { useWaitlistCount } from '@/hooks/queries/use-waitlist';
 import { useDebounce } from '@/hooks/use-debounce';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { useAppointmentsUIStore } from '@/stores/appointments-ui-store';
-import { useAuthStore } from '@/stores/auth-store';
 import { useCalendarStore } from '@/stores/calendar-store';
-import { useSlideOver } from '@/components/ux/slide-over';
-import { PANEL_IDS } from '@/components/ux/slide-over/slide-over-registry';
+import { useOpenPanel } from '@/components/ux/slide-over/slide-over-registry';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 import {
@@ -44,6 +45,7 @@ import {
   PermissionGuard,
 } from '@/components/common';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ResourceCalendar, CalendarFilters, MobileCalendar } from '@/components/ux/calendar';
 
@@ -66,7 +68,8 @@ export default function AppointmentsPage() {
   const searchParams = useSearchParams();
   const { hasPermission } = usePermissions();
   const canWrite = hasPermission(PERMISSIONS.APPOINTMENTS_WRITE);
-  const { openPanel } = useSlideOver();
+  const { openAppointmentDetails, openNewAppointment, openCheckout, openUnassignedAppointments } =
+    useOpenPanel();
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   // View mode state - default to calendar
@@ -79,12 +82,8 @@ export default function AppointmentsPage() {
     if (urlView === 'calendar' || urlView === 'list') {
       setViewMode(urlView);
       localStorage.setItem(VIEW_PREFERENCE_KEY, urlView);
-    } else {
-      const savedView = localStorage.getItem(VIEW_PREFERENCE_KEY) as ViewMode | null;
-      if (savedView === 'calendar' || savedView === 'list') {
-        setViewMode(savedView);
-      }
     }
+
     setViewLoaded(true);
   }, [searchParams]);
 
@@ -133,9 +132,8 @@ export default function AppointmentsPage() {
   // Calendar state from store
   const { selectedDate, filters: calendarFilters } = useCalendarStore();
 
-  // Get branch from auth store
-  const user = useAuthStore((state) => state.user);
-  const branchId = user?.branchIds?.[0] || '';
+  // Get branch from branch context (handles multi-branch selection)
+  const { branchId } = useBranchContext();
 
   // Convert stored date string to Date object for list view
   const selectedListDate = useMemo(() => {
@@ -164,6 +162,7 @@ export default function AppointmentsPage() {
   const queryFilters: AppointmentFiltersType = {
     page: listPage,
     limit: listLimit,
+    branchId: branchId || undefined, // Filter by current branch
     search: debouncedSearch || undefined,
     dateFrom: format(selectedListDate, 'yyyy-MM-dd'),
     dateTo: format(selectedListDate, 'yyyy-MM-dd'),
@@ -182,12 +181,18 @@ export default function AppointmentsPage() {
   });
   const { data: calendarData, isLoading: isLoadingCalendar } = useResourceCalendar(
     {
-      branchId,
+      branchId: branchId || '',
       date: selectedDate,
       view: 'day',
     },
-    { enabled: viewMode === 'calendar' }
+    { enabled: viewMode === 'calendar' && !!branchId }
   );
+
+  // Badge count queries
+  const { data: unassignedCountData } = useUnassignedCount(branchId || '');
+  const { data: waitlistCountData } = useWaitlistCount(branchId || '');
+  const unassignedCount = unassignedCountData?.count || 0;
+  const waitlistCount = waitlistCountData?.count || 0;
 
   // Mutations
   const checkIn = useCheckIn();
@@ -200,20 +205,16 @@ export default function AppointmentsPage() {
   // List view handlers - open SlideOver for viewing
   const handleView = useCallback(
     (id: string) => {
-      openPanel(
-        PANEL_IDS.APPOINTMENT_DETAILS,
-        { appointmentId: id },
-        { title: 'Appointment Details', width: 'medium' }
-      );
+      openAppointmentDetails(id);
     },
-    [openPanel]
+    [openAppointmentDetails]
   );
 
   const handleCheckout = useCallback(
     (id: string) => {
-      openPanel(PANEL_IDS.CHECKOUT, { appointmentId: id }, { title: 'Checkout', width: 'wide' });
+      openCheckout(id);
     },
-    [openPanel]
+    [openCheckout]
   );
 
   const handleFiltersChange = useCallback(
@@ -291,25 +292,17 @@ export default function AppointmentsPage() {
   // Calendar view handlers
   const handleAppointmentClick = useCallback(
     (appointmentId: string) => {
-      openPanel(
-        PANEL_IDS.APPOINTMENT_DETAILS,
-        { appointmentId },
-        { title: 'Appointment Details', width: 'medium' }
-      );
+      openAppointmentDetails(appointmentId);
     },
-    [openPanel]
+    [openAppointmentDetails]
   );
 
   const handleSlotClick = useCallback(
     (stylistId: string, date: string, time: string) => {
       if (!canWrite) return;
-      openPanel(
-        PANEL_IDS.NEW_APPOINTMENT,
-        { stylistId, date, time },
-        { title: 'New Appointment', width: 'wide' }
-      );
+      openNewAppointment({ stylistId, date, time });
     },
-    [canWrite, openPanel]
+    [canWrite, openNewAppointment]
   );
 
   const handleAppointmentMove = useCallback(
@@ -346,8 +339,8 @@ export default function AppointmentsPage() {
   }, [confirmMove, moveAppointment]);
 
   const handleNewAppointment = useCallback(() => {
-    openPanel(PANEL_IDS.NEW_APPOINTMENT, {}, { title: 'New Appointment', width: 'wide' });
-  }, [openPanel]);
+    openNewAppointment();
+  }, [openNewAppointment]);
 
   const hasListFilters =
     listFilters.search !== '' ||
@@ -373,6 +366,50 @@ export default function AppointmentsPage() {
           description={t('list.description')}
           actions={
             <div className="flex items-center gap-2">
+              {/* Badge Counters */}
+              <div className="flex items-center gap-1.5 mr-2">
+                {/* Walk-in Queue Badge */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={() => router.push('/walk-in')}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Walk-in</span>
+                </Button>
+
+                {/* Unassigned Badge */}
+                {unassignedCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    onClick={() => openUnassignedAppointments()}
+                  >
+                    <UserX className="h-4 w-4" />
+                    <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                      {unassignedCount}
+                    </Badge>
+                  </Button>
+                )}
+
+                {/* Waitlist Badge */}
+                {waitlistCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    onClick={() => router.push('/waitlist')}
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                      {waitlistCount}
+                    </Badge>
+                  </Button>
+                )}
+              </div>
+
               {/* View Toggle */}
               <ToggleGroup type="single" value={viewMode} onValueChange={handleViewChange}>
                 <ToggleGroupItem value="calendar" aria-label="Calendar view">
@@ -384,7 +421,7 @@ export default function AppointmentsPage() {
               </ToggleGroup>
 
               {/* New Appointment button - only show in list view (calendar has its own) */}
-              {viewMode === 'list' && canWrite && (
+              {canWrite && (
                 <Button onClick={handleNewAppointment}>
                   <Plus className="mr-2 h-4 w-4" />
                   {t('list.newAppointment')}
@@ -411,7 +448,6 @@ export default function AppointmentsPage() {
                 onAppointmentClick={handleAppointmentClick}
                 onSlotClick={handleSlotClick}
                 onAppointmentMove={handleAppointmentMove}
-                onNewAppointment={canWrite ? handleNewAppointment : undefined}
                 onFilterClick={() => setFilterOpen(true)}
                 hasActiveFilters={hasCalendarFilters}
               />

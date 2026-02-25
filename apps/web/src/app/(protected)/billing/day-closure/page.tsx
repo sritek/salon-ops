@@ -27,7 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import {
   useCurrentDay,
   useDayClosures,
@@ -49,8 +49,7 @@ function StatusBadge({ status }: { status: DayClosureStatus }) {
 
 export default function DayClosurePage() {
   const t = useTranslations('billing');
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [openDayDialog, setOpenDayDialog] = useState(false);
   const [closeDayDialog, setCloseDayDialog] = useState(false);
@@ -58,15 +57,18 @@ export default function DayClosurePage() {
   const [actualCash, setActualCash] = useState('');
   const [closureNotes, setClosureNotes] = useState('');
 
-  const { data: currentDay } = useCurrentDay(branchId);
-  const { data: dayClosures, isLoading: loadingHistory } = useDayClosures({ branchId, limit: 10 });
-  const { data: cashBalance } = useCashDrawerBalance(branchId);
+  const { data: currentDay } = useCurrentDay(branchId || '');
+  const { data: dayClosures, isLoading: loadingHistory } = useDayClosures({
+    branchId: branchId || '',
+    limit: 10,
+  });
+  const { data: cashBalance } = useCashDrawerBalance(branchId || '');
   const openDayMutation = useOpenDay();
   const closeDayMutation = useCloseDay();
 
   const handleOpenDay = async () => {
     await openDayMutation.mutateAsync({
-      branchId,
+      branchId: branchId || '',
       openingCash: openingCash ? parseFloat(openingCash) : undefined,
     });
     setOpenDayDialog(false);

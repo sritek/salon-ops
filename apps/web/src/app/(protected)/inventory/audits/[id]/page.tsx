@@ -19,7 +19,7 @@ import {
   useCompleteAudit,
   usePostAuditAdjustments,
 } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency, formatDate } from '@/lib/format';
 
 import { EmptyState, PageContainer, PageContent, PageHeader } from '@/components/common';
@@ -66,8 +66,7 @@ const statusIcons: Record<AuditStatus, React.ReactNode> = {
 export default function AuditDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [editingItem, setEditingItem] = useState<StockAuditItem | null>(null);
   const [physicalCount, setPhysicalCount] = useState<string>('');
@@ -75,7 +74,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
   const [confirmCompleteOpen, setConfirmCompleteOpen] = useState(false);
   const [confirmPostOpen, setConfirmPostOpen] = useState(false);
 
-  const { data: audit, isLoading, error } = useAudit(branchId, id);
+  const { data: audit, isLoading, error } = useAudit(branchId || '', id);
 
   const updateCountMutation = useUpdateAuditCount();
   const completeMutation = useCompleteAudit();
@@ -91,7 +90,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
     if (!editingItem) return;
     try {
       await updateCountMutation.mutateAsync({
-        branchId,
+        branchId: branchId || '',
         auditId: id,
         itemId: editingItem.id,
         data: {
@@ -109,7 +108,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleComplete = async () => {
     try {
-      await completeMutation.mutateAsync({ branchId, id });
+      await completeMutation.mutateAsync({ branchId: branchId || '', id });
       setConfirmCompleteOpen(false);
     } catch (err) {
       console.error('Failed to complete audit:', err);
@@ -118,7 +117,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
 
   const handlePost = async () => {
     try {
-      await postMutation.mutateAsync({ branchId, id });
+      await postMutation.mutateAsync({ branchId: branchId || '', id });
       setConfirmPostOpen(false);
     } catch (err) {
       console.error('Failed to post adjustments:', err);

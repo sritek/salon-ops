@@ -164,6 +164,7 @@ export class WalkInQueueService {
         services: entry.serviceIds.map((id) => ({ serviceId: id, quantity: 1 })),
         stylistId,
         bookingType: 'walk_in',
+        assignLater: false,
       },
       userId
     );

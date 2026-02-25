@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AlertCircle, ArrowLeft, CheckCircle, Clock, Package, XCircle } from 'lucide-react';
 
 import { useGoodsReceipt, useConfirmGoodsReceipt } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency, formatDate } from '@/lib/format';
 
 import { EmptyState, PageContainer, PageContent, PageHeader } from '@/components/common';
@@ -62,15 +62,14 @@ const qualityStatusVariants: Record<QualityCheckStatus, 'default' | 'secondary' 
 export default function GoodsReceiptDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
-  const { data: grn, isLoading, error } = useGoodsReceipt(branchId, id);
+  const { data: grn, isLoading, error } = useGoodsReceipt(branchId || '', id);
   const confirmMutation = useConfirmGoodsReceipt();
 
   const handleConfirm = async () => {
     try {
-      await confirmMutation.mutateAsync({ branchId, id });
+      await confirmMutation.mutateAsync({ branchId: branchId || '', id });
     } catch (err) {
       console.error('Failed to confirm GRN:', err);
     }

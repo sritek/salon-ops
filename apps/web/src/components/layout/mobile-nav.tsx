@@ -36,6 +36,7 @@ import {
   Crown,
   ChevronDown,
   Gauge,
+  ClipboardList,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -69,6 +70,12 @@ const mainNavItems: NavItem[] = [
     href: '/walk-in',
     icon: UserPlus,
     permission: PERMISSIONS.APPOINTMENTS_WRITE,
+  },
+  {
+    titleKey: 'waitlist',
+    href: '/waitlist',
+    icon: ClipboardList,
+    permission: PERMISSIONS.APPOINTMENTS_READ,
   },
   {
     titleKey: 'customers',
@@ -243,7 +250,7 @@ const bottomNavItems: NavItem[] = [
     titleKey: 'settings',
     href: '/settings',
     icon: Settings,
-    permission: PERMISSIONS.SETTINGS_MANAGE,
+    // No permission required - all users can access settings (tabs are role-filtered)
   },
   { titleKey: 'help', href: '/help', icon: HelpCircle },
 ];

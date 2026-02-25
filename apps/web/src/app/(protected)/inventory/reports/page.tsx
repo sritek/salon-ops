@@ -11,7 +11,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import {
   useStockSummary,
   useStockMovements,
@@ -39,25 +39,24 @@ import { MOVEMENT_TYPE_LABELS } from '@/types/inventory';
 type ReportType = 'valuation' | 'movements' | 'purchases' | 'expiry';
 
 export default function InventoryReportsPage() {
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [activeReport, setActiveReport] = useState<ReportType>('valuation');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
   // Fetch data based on active report
-  const { data: stockData, isLoading: stockLoading } = useStockSummary(branchId, {
+  const { data: stockData, isLoading: stockLoading } = useStockSummary(branchId || '', {
     limit: 100,
   });
 
-  const { data: movementsData, isLoading: movementsLoading } = useStockMovements(branchId, {
+  const { data: movementsData, isLoading: movementsLoading } = useStockMovements(branchId || '', {
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     limit: 100,
   });
 
-  const { data: purchasesData, isLoading: purchasesLoading } = usePurchaseOrders(branchId, {
+  const { data: purchasesData, isLoading: purchasesLoading } = usePurchaseOrders(branchId || '', {
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     status: ['fully_received', 'partially_received'],

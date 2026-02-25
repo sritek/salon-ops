@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 import { useStockMovements, useProducts } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatDate } from '@/lib/format';
 
 import {
@@ -68,8 +68,7 @@ const movementVariants: Record<MovementType, 'default' | 'secondary' | 'destruct
   };
 
 export default function StockMovementsPage() {
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [search, setSearch] = useState('');
   const [productFilter, setProductFilter] = useState<string>('all');
@@ -86,7 +85,7 @@ export default function StockMovementsPage() {
     sortOrder: 'desc',
   };
 
-  const { data: movementsData, isLoading, error } = useStockMovements(branchId, filters);
+  const { data: movementsData, isLoading, error } = useStockMovements(branchId || '', filters);
   const { data: productsData } = useProducts({ limit: 100, isActive: true });
 
   // Filter products by search

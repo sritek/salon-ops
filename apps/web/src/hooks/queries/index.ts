@@ -14,3 +14,4 @@ export * from './use-checkout';
 export * from './use-staff';
 export * from './use-inventory';
 export * from './use-memberships';
+export * from './use-waitlist';

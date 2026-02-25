@@ -19,7 +19,7 @@ import {
 } from '@/hooks/queries/use-appointments';
 import { useCustomerSearch } from '@/hooks/queries/use-customers';
 import { useServices } from '@/hooks/queries/use-services';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency } from '@/lib/format';
 
 import {
@@ -100,8 +100,8 @@ export default function NewAppointmentPage() {
   const t = useTranslations('appointments');
   const router = useRouter();
 
-  const user = useAuthStore((state) => state.user);
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId: contextBranchId } = useBranchContext();
+  const branchId = contextBranchId || '';
 
   const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<{

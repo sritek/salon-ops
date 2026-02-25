@@ -58,6 +58,9 @@ const createAppointmentBaseSchema = z.object({
   stylistId: z.string().uuid().optional(),
   stylistGenderPreference: genderPreferenceEnum.optional(),
 
+  // Assign later - allows creating appointment without stylist assignment
+  assignLater: z.boolean().default(false),
+
   // Type
   bookingType: bookingTypeEnum,
   bookingSource: z.string().max(50).optional(),
@@ -65,14 +68,25 @@ const createAppointmentBaseSchema = z.object({
   // Notes
   customerNotes: z.string().max(1000).optional(),
   internalNotes: z.string().max(1000).optional(),
+
+  // Waitlist conversion tracking
+  waitlistEntryId: z.string().uuid().optional(),
 });
 
-export const createAppointmentSchema = createAppointmentBaseSchema.refine(
-  (data) => data.customerId || data.customerName,
-  {
+export const createAppointmentSchema = createAppointmentBaseSchema
+  .refine((data) => data.customerId || data.customerName, {
     message: 'Either customerId or customerName is required',
-  }
-);
+  })
+  .refine(
+    (data) => {
+      // Walk-ins cannot be unassigned (assignLater)
+      if (data.bookingType === 'walk_in' && data.assignLater) {
+        return false;
+      }
+      return true;
+    },
+    { message: 'Walk-in appointments cannot be unassigned' }
+  );
 
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 
@@ -133,7 +147,17 @@ export const createWithConflictsSchema = createAppointmentBaseSchema
   })
   .refine((data) => data.customerId || data.customerName, {
     message: 'Either customerId or customerName is required',
-  });
+  })
+  .refine(
+    (data) => {
+      // Walk-ins cannot be unassigned (assignLater)
+      if (data.bookingType === 'walk_in' && data.assignLater) {
+        return false;
+      }
+      return true;
+    },
+    { message: 'Walk-in appointments cannot be unassigned' }
+  );
 
 export type CreateWithConflictsInput = z.infer<typeof createWithConflictsSchema>;
 
@@ -366,3 +390,23 @@ export const serveQueueBodySchema = z.object({
 });
 
 export type ServeQueueBody = z.infer<typeof serveQueueBodySchema>;
+
+// =====================================================
+// UNASSIGNED APPOINTMENTS
+// =====================================================
+
+export const listUnassignedQuerySchema = z.object({
+  branchId: z.string().uuid(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
+
+export type ListUnassignedQueryInput = z.infer<typeof listUnassignedQuerySchema>;
+
+export const assignStylistSchema = z.object({
+  stylistId: z.string().uuid(),
+});
+
+export type AssignStylistInput = z.infer<typeof assignStylistSchema>;

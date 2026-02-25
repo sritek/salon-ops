@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowDownLeft, ArrowUpRight, Plus } from 'lucide-react';
 
 import { useTransfers } from '@/hooks/queries/use-inventory';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 import { PageContainer, PageContent, PageHeader, SearchInput } from '@/components/common';
 import { Button } from '@/components/ui/button';
@@ -26,8 +26,7 @@ import { TRANSFER_STATUS_LABELS } from '@/types/inventory';
 
 export default function TransfersPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId } = useBranchContext();
 
   const [activeTab, setActiveTab] = useState<'outgoing' | 'incoming'>('outgoing');
   const [search, setSearch] = useState('');
@@ -45,7 +44,7 @@ export default function TransfersPage() {
     sortOrder: 'desc',
   };
 
-  const { data: transfersData, isLoading, error } = useTransfers(branchId, filters);
+  const { data: transfersData, isLoading, error } = useTransfers(branchId || '', filters);
 
   const hasFilters = !!search || statusFilter !== 'all';
 

@@ -8,8 +8,13 @@ export { ResourceCalendar } from './resource-calendar';
 export { CalendarHeader } from './calendar-header';
 export { StylistColumnHeader, StylistColumn } from './stylist-column';
 export { TimeSlot } from './time-slot';
-export { AppointmentBlock } from './appointment-block';
+export {
+  AppointmentBlock,
+  APPOINTMENT_STATUS_COLORS,
+  APPOINTMENT_STATUS_LABELS,
+} from './appointment-block';
 export { CurrentTimeIndicator } from './current-time-indicator';
 export { DragOverlay } from './drag-overlay';
 export { CalendarFilters } from './calendar-filters';
 export { MobileCalendar } from './mobile-calendar';
+export { DroppableSlot } from './droppable-slot';

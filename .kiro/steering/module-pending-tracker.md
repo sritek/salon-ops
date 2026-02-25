@@ -661,6 +661,69 @@ This document tracks the implementation status of all 12 modules in the Salon Ma
 
 ---
 
+## Schema Optimizations (Completed)
+
+The Prisma schema has been optimized with the following improvements:
+
+### New Prisma Enums
+
+Type-safe enums replace string fields for better validation:
+
+- `UserRole` - super_owner, regional_manager, branch_manager, receptionist, stylist, accountant
+- `AppointmentStatus` - booked, confirmed, checked_in, in_progress, completed, cancelled, no_show, scheduled, rescheduled
+- `AppointmentType` - online, phone, walk_in
+- `InvoiceStatus` - draft, finalized, refunded
+- `PaymentStatus` - unpaid, partial, paid
+- `PaymentMethod` - cash, card, upi, wallet, loyalty, package, membership, bank_transfer, cheque
+- `LeaveType` - casual, sick, earned, unpaid, emergency
+- `LeaveStatus` - pending, approved, rejected, cancelled
+- `MovementType` - receipt, consumption, transfer_out, transfer_in, adjustment, wastage, sale, return_stock, audit
+- `ProductType` - consumable, retail, both
+- `MembershipStatus` - active, frozen, expired, cancelled, transferred, pending
+- `PackageStatus` - active, depleted, expired, cancelled, transferred, exhausted, pending
+
+### New Relations Available
+
+Services can now use these relations for eager loading:
+
+**Service Model:**
+
+- `consumables` → ServiceConsumableMapping[]
+- `membershipBenefits` → MembershipBenefit[]
+- `packageServices` → PackageService[]
+- `packageCredits` → PackageCredit[]
+- `packageRedemptions` → PackageRedemption[]
+- `membershipUsages` → MembershipUsage[]
+
+**Branch Model:**
+
+- `stockTransfersOut/In` → StockTransfer[] (named relations)
+- `membershipPlanBranches` → MembershipPlanBranch[]
+- `packageBranches` → PackageBranch[]
+- `customerMembershipPurchases` → CustomerMembership[]
+- `customerPackagePurchases` → CustomerPackage[]
+- `membershipUsages` → MembershipUsage[]
+- `packageRedemptions` → PackageRedemption[]
+
+**User Model:**
+
+- `packageRedemptions` → PackageRedemption[] (RedemptionStylist relation)
+
+### New Indexes
+
+Performance indexes added for common queries:
+
+- `Appointment` - `[tenantId, scheduledDate, branchId]`, `[customerId, scheduledDate]`
+- `Invoice` - `[customerId, createdAt]`
+- `Commission` - `[userId, createdAt]`
+- `StockBatch` - `[productId, branchId, isDepleted]` for FIFO lookup
+
+### Soft Delete
+
+- `Attendance` model now has `deletedAt` field for soft deletes
+
+---
+
 ## Notes
 
 - When implementing a new module, update this tracker before and after

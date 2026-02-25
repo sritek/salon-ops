@@ -117,9 +117,8 @@ export function AppointmentDetailsPanel({ appointmentId, panelId }: AppointmentD
 
   // Handle reschedule click
   const handleReschedule = useCallback(() => {
-    // TODO: Implement reschedule panel
-    console.log('Reschedule:', appointmentId);
-  }, [appointmentId]);
+    // TODO: Implement reschedule panel - will open a reschedule panel when implemented
+  }, []);
 
   // Loading state
   if (isLoading) {

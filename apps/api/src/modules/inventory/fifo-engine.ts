@@ -4,14 +4,10 @@
  * Requirements: 12.5, 15.4, 16.4, 17.4, 24.2, 25.2
  */
 
+import { MovementType as PrismaMovementType } from '@prisma/client';
 import { prisma, serializeDecimals } from '../../lib/prisma';
 
-import type {
-  StockBatch,
-  StockMovement,
-  MovementType,
-  FIFOConsumptionResult,
-} from './inventory.types';
+import type { StockBatch, StockMovement, FIFOConsumptionResult } from './inventory.types';
 
 export class FIFOEngine {
   /**
@@ -75,7 +71,7 @@ export class FIFOEngine {
     branchId: string,
     productId: string,
     quantity: number,
-    movementType: MovementType,
+    movementType: PrismaMovementType,
     referenceType?: string,
     referenceId?: string,
     userId?: string,

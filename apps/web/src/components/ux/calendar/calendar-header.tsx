@@ -5,11 +5,12 @@
 
 'use client';
 
-import { ChevronLeft, ChevronRight, Plus, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { TimeSlotInterval } from '@/stores/calendar-store';
 
 interface CalendarHeaderProps {
@@ -17,9 +18,53 @@ interface CalendarHeaderProps {
   timeSlotInterval: TimeSlotInterval;
   onDateChange: (direction: 'prev' | 'next' | 'today') => void;
   onIntervalChange: (interval: TimeSlotInterval) => void;
-  onNewAppointment?: () => void;
   onFilterClick?: () => void;
   hasActiveFilters?: boolean;
+}
+
+// Status legend items
+const STATUS_LEGEND = [
+  { key: 'booked', label: 'Booked', color: 'bg-sky-500' },
+  { key: 'confirmed', label: 'Confirmed', color: 'bg-emerald-500' },
+  { key: 'checked_in', label: 'Checked In', color: 'bg-violet-500' },
+  { key: 'in_progress', label: 'In Progress', color: 'bg-amber-500' },
+  { key: 'completed', label: 'Completed', color: 'bg-slate-400' },
+  { key: 'cancelled', label: 'Cancelled', color: 'bg-red-500' },
+  { key: 'no_show', label: 'No Show', color: 'bg-orange-500' },
+];
+
+function StatusLegend() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <div className="flex -space-x-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-sky-500" />
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+          </div>
+          <span className="hidden sm:inline text-xs">Legend</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-2" align="end">
+        <div className="text-xs font-medium text-muted-foreground mb-2">Status Colors</div>
+        <div className="space-y-1.5">
+          {STATUS_LEGEND.map((item) => (
+            <div key={item.key} className="flex items-center gap-2">
+              <div className={cn('w-3 h-3 rounded-full', item.color)} />
+              <span className="text-sm">{item.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="border-t mt-2 pt-2">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-sm bg-amber-200 dark:bg-amber-800" />
+            <span className="text-sm">Break Time</span>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function CalendarHeader({
@@ -27,7 +72,6 @@ export function CalendarHeader({
   timeSlotInterval,
   onDateChange,
   onIntervalChange,
-  onNewAppointment,
   onFilterClick,
   hasActiveFilters = false,
 }: CalendarHeaderProps) {
@@ -86,6 +130,9 @@ export function CalendarHeader({
           ))}
         </div>
 
+        {/* Status Legend */}
+        <StatusLegend />
+
         {/* Filter Button */}
         {onFilterClick && (
           <Button
@@ -97,14 +144,6 @@ export function CalendarHeader({
             <Filter className="h-4 w-4 mr-1" />
             {t('filter')}
             {hasActiveFilters && <span className="ml-1 h-2 w-2 rounded-full bg-primary" />}
-          </Button>
-        )}
-
-        {/* New Appointment Button */}
-        {onNewAppointment && (
-          <Button size="sm" onClick={onNewAppointment}>
-            <Plus className="h-4 w-4 mr-1" />
-            {t('newAppointment')}
           </Button>
         )}
       </div>

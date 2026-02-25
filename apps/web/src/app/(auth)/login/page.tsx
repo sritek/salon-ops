@@ -6,7 +6,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -39,6 +39,7 @@ interface LoginResponse {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -62,7 +63,11 @@ export default function LoginPage() {
       // This prevents race condition with middleware reading old cookie
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      router.push('/today');
+      // Redirect to the original page or default to /today
+      const redirectUrl = searchParams.get('redirect') || '/today';
+      // Ensure redirect URL is a relative path (security: prevent open redirect)
+      const safeRedirectUrl = redirectUrl.startsWith('/') ? redirectUrl : '/today';
+      router.push(safeRedirectUrl);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Invalid email or password');
     } finally {

@@ -13,7 +13,7 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
 
-export type SlideOverWidth = 'narrow' | 'medium' | 'wide';
+export type SlideOverWidth = 'narrow' | 'medium' | 'wide' | 'extra-wide';
 
 export interface SlideOverPanel {
   id: string;
@@ -42,17 +42,21 @@ interface SlideOverState {
 }
 
 // Width mappings for CSS classes
+// NOTE: These are kept for reference but we use inline styles for dynamic widths
+// because Tailwind JIT can't detect dynamically computed class names
 export const PANEL_WIDTHS: Record<SlideOverWidth, string> = {
   narrow: 'w-[400px]',
   medium: 'w-[600px]',
   wide: 'w-[800px]',
+  'extra-wide': 'w-[1000px]',
 } as const;
 
-// Width values in pixels for calculations
+// Width values in pixels for calculations and inline styles
 export const PANEL_WIDTH_VALUES: Record<SlideOverWidth, number> = {
   narrow: 400,
   medium: 600,
   wide: 800,
+  'extra-wide': 1000,
 } as const;
 
 // Offset for nested panels
@@ -65,12 +69,11 @@ export const useSlideOverStore = create<SlideOverState>((set, get) => ({
   push: (panel) => {
     const state = get();
 
-    // Enforce max depth
+    // Enforce max depth - automatically replace top panel if at max depth
+    // This ensures we never exceed maxDepth (Requirement 5.2)
     if (state.panels.length >= state.maxDepth) {
-      console.warn(
-        `Cannot push panel: max depth (${state.maxDepth}) reached. Use replace() instead.`
-      );
-      return '';
+      // Auto-replace instead of failing
+      return get().replace(panel);
     }
 
     const id = nanoid();

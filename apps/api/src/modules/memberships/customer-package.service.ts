@@ -252,6 +252,7 @@ export class CustomerPackageService {
 
   /**
    * Get credit balance for a customer package
+   * Uses new Service relation for direct service details
    */
   async getCredits(tenantId: string, id: string) {
     const customerPackage = await prisma.customerPackage.findFirst({
@@ -260,8 +261,14 @@ export class CustomerPackageService {
         package: { select: { packageType: true } },
         credits: {
           include: {
-            packageService: {
-              select: { serviceId: true },
+            // Use new direct Service relation instead of going through packageService
+            service: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                basePrice: true,
+              },
             },
           },
         },
@@ -284,9 +291,11 @@ export class CustomerPackageService {
       });
     }
 
-    // For service packages, return per-service credits
+    // For service packages, return per-service credits with service details
     const credits = customerPackage.credits.map((c) => ({
       serviceId: c.serviceId,
+      serviceName: c.service?.name,
+      serviceSku: c.service?.sku,
       initialCredits: c.initialCredits,
       remainingCredits: c.remainingCredits,
       usedCredits: c.initialCredits - c.remainingCredits,
@@ -368,6 +377,7 @@ export class CustomerPackageService {
 
   /**
    * Get redemption history for a customer package
+   * Uses new Service, User (stylist), and Branch relations for richer data
    */
   async getRedemptions(
     tenantId: string,
@@ -390,6 +400,31 @@ export class CustomerPackageService {
         orderBy: { redemptionDate: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          // Leverage new Service relation for service details
+          service: {
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+              basePrice: true,
+            },
+          },
+          // Leverage new User relation for stylist details
+          stylist: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          // Leverage new Branch relation for branch details
+          redemptionBranch: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
       }),
       prisma.packageRedemption.count({ where }),
     ]);

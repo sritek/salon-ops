@@ -11,7 +11,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Menu, Search, LogOut, User, Settings, ChevronDown } from 'lucide-react';
+import { Menu, Search, LogOut, User, ChevronDown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -29,6 +29,7 @@ import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
 import { useCommandPalette } from '@/hooks/use-command-palette';
 import { ViewSwitcher } from './view-switcher';
+import { BranchSelector } from './branch-selector';
 import { ConnectionStatus } from '@/components/ux/real-time';
 
 interface HeaderProps {
@@ -87,6 +88,9 @@ export function Header({ className }: HeaderProps) {
         <div className="hidden sm:block">
           <p className="text-sm font-medium">{tenant?.name}</p>
         </div>
+
+        {/* Branch Selector - for multi-branch users */}
+        <BranchSelector className="hidden sm:flex" />
       </div>
 
       {/* Right side - Connection Status + View Switcher + Search + User */}
@@ -144,17 +148,13 @@ export function Header({ className }: HeaderProps) {
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium">{user?.name}</p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <p className="text-xs text-muted-foreground">{user?.email || user?.phone}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push('/settings/profile')}>
+            <DropdownMenuItem onClick={() => router.push('/settings/account')}>
               <User className="mr-2 h-4 w-4" />
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push('/settings')}>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
+              My Account
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">

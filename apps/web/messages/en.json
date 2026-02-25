@@ -85,6 +85,7 @@
     "customers": "Customers",
     "appointments": "Appointments",
     "walkIn": "Walk-in Queue",
+    "waitlist": "Waitlist",
     "services": "Services",
     "staff": "Staff",
     "staffList": "Staff List",
@@ -372,7 +373,9 @@
       "noAppointmentsEmpty": "No appointments scheduled for this date.",
       "searchPlaceholder": "Search by customer name or phone...",
       "cancelReason": "Please enter a reason for cancellation:",
-      "confirmNoShow": "Are you sure you want to mark this appointment as no-show?"
+      "confirmNoShow": "Are you sure you want to mark this appointment as no-show?",
+      "confirmNoShowTitle": "Mark as No-Show",
+      "confirmNoShowDescription": "Are you sure you want to mark this appointment as no-show? This action will update the customer's no-show count."
     },
     "status": {
       "booked": "Booked",
@@ -518,6 +521,70 @@
       "complete": "Complete",
       "left": "Left"
     }
+  },
+  "waitlist": {
+    "title": "Waitlist",
+    "description": "Manage customers waiting for appointment slots",
+    "addToWaitlist": "Add to Waitlist",
+    "noEntries": "No waitlist entries",
+    "noEntriesFiltered": "No waitlist entries match your filters.",
+    "noEntriesEmpty": "Add customers to the waitlist when slots are unavailable.",
+    "searchPlaceholder": "Search by name or phone...",
+    "confirmRemove": "Remove from Waitlist",
+    "confirmRemoveDescription": "Are you sure you want to remove this customer from the waitlist? This action cannot be undone.",
+    "status": {
+      "active": "Active",
+      "converted": "Converted",
+      "expired": "Expired",
+      "removed": "Removed"
+    },
+    "timePeriod": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "morningRange": "9:00 AM - 12:00 PM",
+      "afternoonRange": "12:00 PM - 5:00 PM",
+      "eveningRange": "5:00 PM - 9:00 PM"
+    },
+    "form": {
+      "title": "Add to Waitlist",
+      "description": "Add a customer to the waitlist. They will be contacted when a slot opens.",
+      "customer": "Customer",
+      "services": "Services",
+      "preferredDates": "Preferred Date Range",
+      "from": "From",
+      "to": "To",
+      "timePreferences": "Time Preferences",
+      "stylistPreference": "Stylist Preference",
+      "any": "Any",
+      "notes": "Notes",
+      "add": "Add to Waitlist",
+      "adding": "Adding..."
+    },
+    "actions": {
+      "createAppointment": "Create Appointment",
+      "contact": "Contact Customer",
+      "remove": "Remove"
+    },
+    "fillFromWaitlist": "Fill from Waitlist",
+    "customersWaiting": "{count} customer(s) waiting",
+    "fillSlot": "Fill this slot from the waitlist",
+    "noMatches": "No matching entries",
+    "noMatchesDescription": "No waitlist entries match this time slot",
+    "selectDateTime": "Select a date and time to see matches"
+  },
+  "unassigned": {
+    "title": "Unassigned Appointments",
+    "description": "Appointments without a stylist assigned",
+    "noUnassigned": "All appointments assigned",
+    "noUnassignedDescription": "There are no unassigned appointments for today.",
+    "needsAssignment": "{count} appointment(s) need stylist assignment",
+    "assignStylist": "Assign Stylist",
+    "selectStylist": "Select stylist...",
+    "assign": "Assign",
+    "assigning": "Assigning...",
+    "assignLater": "Assign Later",
+    "assignLaterDescription": "Stylist can be assigned later from the unassigned appointments panel"
   },
   "calendar": {
     "today": "Today",

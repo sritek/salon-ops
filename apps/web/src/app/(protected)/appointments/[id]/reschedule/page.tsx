@@ -18,7 +18,7 @@ import {
   useAvailableSlots,
 } from '@/hooks/queries/use-appointments';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { formatCurrency } from '@/lib/format';
 
 import {
@@ -67,8 +67,8 @@ export default function RescheduleAppointmentPage() {
   const id = params.id as string;
   const { data: appointment, isLoading } = useAppointment(id);
 
-  const user = useAuthStore((state) => state.user);
-  const branchId = user?.branchIds?.[0] || '';
+  const { branchId: contextBranchId } = useBranchContext();
+  const branchId = contextBranchId || '';
 
   const rescheduleAppointment = useRescheduleAppointment();
 
