@@ -8,7 +8,7 @@ A multi-tenant SaaS platform for salon management. Built with Next.js, Fastify, 
 - **Backend**: Fastify, Prisma ORM, Zod validation
 - **Database**: PostgreSQL 15
 - **Cache**: Redis
-- **Package Manager**: pnpm (monorepo with Turborepo)
+- **Package Manager**: pnpm (monorepo with Turborepo) 
 
 ## Prerequisites
 
@@ -297,6 +297,14 @@ pnpm db:reset
 pnpm db:seed
 pnpm dev
 ```
+
+### Shared Files
+
+- `packages/shared/`
+- `packages/config/`
+
+- Run `pnpm --filter @salon-ops/shared build` from the root to build the shared files.  
+- Run `pnpm --filter @salon-ops/shared dev` from the root to watch for changes automatically.
 
 ## License
 

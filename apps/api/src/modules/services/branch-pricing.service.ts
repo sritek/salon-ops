@@ -193,8 +193,18 @@ export class BranchPricingService {
     const existingMap = new Map(existingPrices.map((p) => [p.serviceId, p]));
 
     // Prepare transactions
-    const transactions = [];
-    const priceHistoryEntries = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const transactions: any[] = [];
+    const priceHistoryEntries: Array<{
+      tenantId: string;
+      serviceId: string;
+      branchId: string;
+      oldPrice: number;
+      newPrice: number;
+      changeReason: string;
+      changedBy: string | undefined;
+    }> = [];
+
 
     for (const priceData of data.prices) {
       const existing = existingMap.get(priceData.serviceId);

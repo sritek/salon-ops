@@ -139,9 +139,9 @@ export class CustomersService {
       include: {
         customerNotes: options?.includeNotes
           ? {
-              orderBy: { createdAt: 'desc' },
-              take: 10,
-            }
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          }
           : false,
       },
     });
@@ -652,7 +652,7 @@ export class CustomersService {
     );
 
     const mostVisitedBranchId =
-      Object.entries(branchVisits).sort(([, a], [, b]) => b - a)[0]?.[0] || null;
+      Object.entries(branchVisits).sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0] || null;
 
     return {
       totalSpend,
