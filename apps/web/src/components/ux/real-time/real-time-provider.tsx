@@ -1,9 +1,14 @@
 'use client';
 
 /**
- * Real-Time Provider
+ * Real-Time Provider (Conditional)
  * Based on: .kiro/specs/ux-redesign/design.md
  * Requirements: 9.1, 9.5, 9.6
+ *
+ * When NEXT_PUBLIC_ENABLE_REALTIME is false:
+ * - Provider returns disabled context
+ * - No SSE connections are attempted
+ * - All hooks return no-op functions
  *
  * Fixes applied:
  * - Health check before SSE connection attempt
@@ -15,7 +20,12 @@
 import { useEffect, useRef, useCallback, createContext, useContext, type ReactNode } from 'react';
 
 import { useAuthStore } from '@/stores/auth-store';
-import { useRealTimeStore, type EventType, type ConnectionStatus } from '@/stores/real-time-store';
+import {
+  useRealTimeStore,
+  isRealTimeEnabled,
+  type EventType,
+  type ConnectionStatus,
+} from '@/stores/real-time-store';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -37,13 +47,31 @@ interface RealTimeContextValue {
 
 const RealTimeContext = createContext<RealTimeContextValue | null>(null);
 
+// Disabled context value - used when real-time is disabled
+const disabledContextValue: RealTimeContextValue = {
+  connectionStatus: 'disabled',
+  subscribe: () => () => {},
+};
+
 interface RealTimeProviderProps {
   children: ReactNode;
   branchId?: string;
   fallbackToPolling?: boolean;
 }
 
-export function RealTimeProvider({
+/**
+ * Disabled provider - renders when real-time is disabled
+ */
+function DisabledRealTimeProvider({ children }: { children: ReactNode }) {
+  return (
+    <RealTimeContext.Provider value={disabledContextValue}>{children}</RealTimeContext.Provider>
+  );
+}
+
+/**
+ * Enabled provider - renders when real-time is enabled
+ */
+function EnabledRealTimeProvider({
   children,
   branchId,
   fallbackToPolling = true,
@@ -331,6 +359,27 @@ export function RealTimeProvider({
   };
 
   return <RealTimeContext.Provider value={contextValue}>{children}</RealTimeContext.Provider>;
+}
+
+/**
+ * Main RealTimeProvider - conditionally renders enabled or disabled provider
+ */
+export function RealTimeProvider({
+  children,
+  branchId,
+  fallbackToPolling = true,
+}: RealTimeProviderProps) {
+  // Use disabled provider when real-time is disabled
+  if (!isRealTimeEnabled) {
+    return <DisabledRealTimeProvider>{children}</DisabledRealTimeProvider>;
+  }
+
+  // Use enabled provider when real-time is enabled
+  return (
+    <EnabledRealTimeProvider branchId={branchId} fallbackToPolling={fallbackToPolling}>
+      {children}
+    </EnabledRealTimeProvider>
+  );
 }
 
 /**

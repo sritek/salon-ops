@@ -22,7 +22,7 @@ import {
   useAssignStylist,
   useAvailableStylists,
 } from '@/hooks/queries/use-appointments';
-import { useAuthStore } from '@/stores/auth-store';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 import type { Appointment } from '@/types/appointments';
 
@@ -32,7 +32,7 @@ interface UnassignedAppointmentsPanelProps {
 
 export function UnassignedAppointmentsPanel({ panelId }: UnassignedAppointmentsPanelProps) {
   const { closePanel } = useSlideOver();
-  const { activeBranchId } = useAuthStore();
+  const { branchId: activeBranchId } = useBranchContext();
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const {
@@ -115,12 +115,13 @@ interface UnassignedAppointmentCardProps {
 function UnassignedAppointmentCard({ appointment }: UnassignedAppointmentCardProps) {
   const [isAssigning, setIsAssigning] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const { activeBranchId } = useAuthStore();
+  const { branchId: activeBranchId } = useBranchContext();
 
   const assignStylist = useAssignStylist();
 
   // Calculate duration from services
-  const totalDuration = appointment.services?.reduce((sum, s) => sum + (s.duration || 30), 0) || 30;
+  const totalDuration =
+    appointment.services?.reduce((sum, s) => sum + (s.durationMinutes || 30), 0) || 30;
 
   // Fetch available stylists when popover opens
   const { data: availableStylists, isLoading: loadingStylists } = useAvailableStylists({

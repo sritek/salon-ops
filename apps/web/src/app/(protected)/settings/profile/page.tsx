@@ -17,8 +17,8 @@ import { format } from 'date-fns';
 
 export default function ProfilePage() {
   const { data: tenant, isLoading, error } = useTenant();
-  const { role } = useAuthStore();
-  const canEdit = role === 'super_owner';
+  const { user } = useAuthStore();
+  const canEdit = user?.role === 'super_owner';
 
   if (isLoading) {
     return <ProfileSkeleton />;

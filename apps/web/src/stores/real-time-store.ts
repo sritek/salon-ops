@@ -2,16 +2,22 @@
  * Real-Time Store
  * Based on: .kiro/specs/ux-redesign/design.md
  * Requirements: 9.1, 9.5, 9.6
+ *
+ * When NEXT_PUBLIC_ENABLE_REALTIME is false, real-time features are disabled.
  */
 
 import { create } from 'zustand';
+
+// Feature flag for real-time features (defaults to false for pilot)
+export const isRealTimeEnabled = process.env.NEXT_PUBLIC_ENABLE_REALTIME === 'true';
 
 export type ConnectionStatus =
   | 'connecting'
   | 'connected'
   | 'disconnected'
   | 'reconnecting'
-  | 'polling';
+  | 'polling'
+  | 'disabled';
 
 export type EventType =
   | 'appointment.created'

@@ -54,6 +54,12 @@ const STATUS_CONFIG: Record<
     color: 'text-blue-600',
     bgColor: 'bg-blue-100',
   },
+  disabled: {
+    icon: WifiOff,
+    label: 'Real-time disabled',
+    color: 'text-gray-400',
+    bgColor: 'bg-gray-100',
+  },
 };
 
 interface ConnectionStatusProps {

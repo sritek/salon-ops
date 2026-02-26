@@ -7,6 +7,7 @@
  * - Smooth transition animation
  * - State persisted in localStorage
  * - Permission-based navigation filtering
+ * - Feature flag-based module filtering
  * - Resets page-specific state on navigation (e.g., appointments filters)
  */
 
@@ -52,6 +53,7 @@ import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui-store';
 import { useAppointmentsUIStore } from '@/stores/appointments-ui-store';
+import { type FeatureFlags, isFeatureEnabled } from '@/config/features';
 
 interface NavItem {
   titleKey: string;
@@ -59,6 +61,8 @@ interface NavItem {
   icon: React.ElementType;
   /** Permission required to view this nav item (undefined = always visible) */
   permission?: string;
+  /** Feature flag required to view this nav item (undefined = always visible) */
+  featureFlag?: Partial<FeatureFlags>;
   /** Sub-navigation items */
   children?: NavItem[];
 }
@@ -148,6 +152,7 @@ const mainNavItems: NavItem[] = [
     href: '/inventory/stock',
     icon: Package,
     permission: PERMISSIONS.INVENTORY_READ,
+    featureFlag: 'inventory',
     children: [
       {
         titleKey: 'stock',
@@ -210,6 +215,7 @@ const mainNavItems: NavItem[] = [
     href: '/memberships',
     icon: Crown,
     permission: PERMISSIONS.SERVICES_READ,
+    featureFlag: 'memberships',
     children: [
       {
         titleKey: 'membershipPlans',
@@ -242,12 +248,14 @@ const mainNavItems: NavItem[] = [
     href: '/reports',
     icon: BarChart3,
     permission: PERMISSIONS.REPORTS_READ,
+    featureFlag: 'reports',
   },
   {
     titleKey: 'marketing',
     href: '/marketing',
     icon: Megaphone,
     permission: PERMISSIONS.MARKETING_READ,
+    featureFlag: 'marketing',
   },
 ];
 
@@ -448,15 +456,25 @@ export function Sidebar({ className }: SidebarProps) {
   const { hasPermission } = usePermissions();
   const resetAppointmentsToToday = useAppointmentsUIStore((state) => state.resetToToday);
 
-  // Filter nav items based on user permissions
+  // Filter nav items based on user permissions and feature flags
   const visibleMainNavItems = useMemo(
-    () => mainNavItems.filter((item) => !item.permission || hasPermission(item.permission)),
-    [hasPermission]
+    () =>
+      mainNavItems.filter(
+        (item) =>
+          (!item.permission || hasPermission(item.permission)) &&
+          (!item.featureFlag || isFeatureEnabled(item.featureFlag))
+      ),
+    [hasPermission, isFeatureEnabled]
   );
 
   const visibleBottomNavItems = useMemo(
-    () => bottomNavItems.filter((item) => !item.permission || hasPermission(item.permission)),
-    [hasPermission]
+    () =>
+      bottomNavItems.filter(
+        (item) =>
+          (!item.permission || hasPermission(item.permission)) &&
+          (!item.featureFlag || isFeatureEnabled(item.featureFlag))
+      ),
+    [hasPermission, isFeatureEnabled]
   );
 
   // Handle navigation - reset page-specific state when navigating via sidebar

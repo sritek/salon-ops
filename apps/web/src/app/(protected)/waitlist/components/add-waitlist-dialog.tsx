@@ -8,12 +8,12 @@ import { format, addDays } from 'date-fns';
 import { CalendarIcon, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useAuthStore } from '@/stores/auth-store';
 import { useCustomerSearch } from '@/hooks/queries/use-customers';
 import { useServices } from '@/hooks/queries/use-services';
 import { useStaffList } from '@/hooks/queries/use-staff';
 import { useCreateWaitlistEntry } from '@/hooks/queries/use-waitlist';
 import { useDebounce } from '@/hooks/use-debounce';
+import { useBranchContext } from '@/hooks/use-branch-context';
 import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
@@ -98,7 +98,7 @@ const TIME_PERIODS: { value: TimePeriod; label: string; range: string }[] = [
 // ============================================
 
 export function AddWaitlistDialog({ open, onOpenChange }: AddWaitlistDialogProps) {
-  const { activeBranchId } = useAuthStore();
+  const { branchId: activeBranchId } = useBranchContext();
   const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const debouncedSearch = useDebounce(customerSearch, 300);
@@ -281,7 +281,7 @@ export function AddWaitlistDialog({ open, onOpenChange }: AddWaitlistDialogProps
                     <SelectContent>
                       {stylists.map((stylist) => (
                         <SelectItem key={stylist.id} value={stylist.id}>
-                          {stylist.name}
+                          {stylist.user?.name || 'Unknown'}
                         </SelectItem>
                       ))}
                     </SelectContent>

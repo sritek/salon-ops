@@ -2781,3 +2781,21 @@ model WaitlistEntry {
   @@index([tenantId])
   @@map("waitlist_entries")
 }
+
+// ============================================
+// Checkout Sessions (Database-backed for pilot)
+// ============================================
+
+model CheckoutSession {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  branchId    String   @map("branch_id")
+  sessionData Json     @map("session_data")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@map("checkout_sessions")
+}

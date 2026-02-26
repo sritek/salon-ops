@@ -2,11 +2,13 @@
  * Checkout Service
  * Core business logic for checkout session management
  * Requirements: 6.2, 6.3, 6.4, 6.5, 6.6
+ *
+ * Session storage is database-backed for pilot deployment.
+ * This ensures checkout works without Redis infrastructure.
  */
 
 import { randomUUID } from 'crypto';
 import { prisma } from '../../lib/prisma';
-import redis from '../../lib/redis';
 import { BadRequestError, NotFoundError } from '../../lib/errors';
 import { billingService } from '../billing/billing.service';
 import type {
@@ -31,7 +33,6 @@ import type {
 // ============================================
 
 const SESSION_TTL_SECONDS = 30 * 60; // 30 minutes
-const SESSION_KEY_PREFIX = 'checkout:session:';
 
 // ============================================
 // Types
@@ -44,11 +45,63 @@ interface TenantContext {
 }
 
 // ============================================
-// Helper Functions
+// Session Storage Helpers (Database-backed)
 // ============================================
 
-function getSessionKey(sessionId: string): string {
-  return `${SESSION_KEY_PREFIX}${sessionId}`;
+/**
+ * Store session in database
+ */
+async function storeSession(session: CheckoutSession): Promise<void> {
+  const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
+
+  await prisma.checkoutSession.upsert({
+    where: { id: session.id },
+    create: {
+      id: session.id,
+      tenantId: session.tenantId,
+      branchId: session.branchId,
+      sessionData: JSON.parse(JSON.stringify(session)),
+      expiresAt,
+    },
+    update: {
+      sessionData: JSON.parse(JSON.stringify(session)),
+      expiresAt,
+    },
+  });
+}
+
+/**
+ * Retrieve session from database
+ * Returns null if session not found or expired
+ */
+async function retrieveSession(
+  sessionId: string,
+  tenantId: string
+): Promise<CheckoutSession | null> {
+  const record = await prisma.checkoutSession.findFirst({
+    where: {
+      id: sessionId,
+      tenantId,
+      expiresAt: { gt: new Date() },
+    },
+  });
+
+  if (!record) return null;
+
+  return record.sessionData as unknown as CheckoutSession;
+}
+
+/**
+ * Delete session from database
+ */
+async function deleteSession(sessionId: string): Promise<void> {
+  await prisma.checkoutSession
+    .delete({
+      where: { id: sessionId },
+    })
+    .catch(() => {
+      // Ignore if session doesn't exist
+    });
 }
 
 function calculateTotals(
@@ -354,8 +407,8 @@ export const checkoutService = {
       expiresAt: expiresAt.toISOString(),
     };
 
-    // Store session in Redis
-    await redis.setex(getSessionKey(sessionId), SESSION_TTL_SECONDS, JSON.stringify(session));
+    // Store session in database
+    await storeSession(session);
 
     return session;
   },
@@ -364,17 +417,10 @@ export const checkoutService = {
    * Get checkout session by ID
    */
   async getSession(sessionId: string, tenantId: string): Promise<CheckoutSession> {
-    const sessionData = await redis.get(getSessionKey(sessionId));
+    const session = await retrieveSession(sessionId, tenantId);
 
-    if (!sessionData) {
+    if (!session) {
       throw new NotFoundError('Checkout session not found or expired', 'SESSION_NOT_FOUND');
-    }
-
-    const session: CheckoutSession = JSON.parse(sessionData);
-
-    // Verify tenant
-    if (session.tenantId !== tenantId) {
-      throw new NotFoundError('Checkout session not found', 'SESSION_NOT_FOUND');
     }
 
     return session;
@@ -533,8 +579,8 @@ export const checkoutService = {
       session.totals.tipAmount
     );
 
-    // Update session in Redis
-    await redis.setex(getSessionKey(sessionId), SESSION_TTL_SECONDS, JSON.stringify(session));
+    // Update session in database
+    await storeSession(session);
 
     return session;
   },
@@ -571,8 +617,8 @@ export const checkoutService = {
       session.totals.tipAmount
     );
 
-    // Update session in Redis
-    await redis.setex(getSessionKey(sessionId), SESSION_TTL_SECONDS, JSON.stringify(session));
+    // Update session in database
+    await storeSession(session);
 
     return session;
   },
@@ -646,8 +692,8 @@ export const checkoutService = {
       session.totals.tipAmount
     );
 
-    // Update session in Redis
-    await redis.setex(getSessionKey(sessionId), SESSION_TTL_SECONDS, JSON.stringify(session));
+    // Update session in database
+    await storeSession(session);
 
     return session;
   },
@@ -681,8 +727,8 @@ export const checkoutService = {
       session.totals.tipAmount
     );
 
-    // Update session in Redis
-    await redis.setex(getSessionKey(sessionId), SESSION_TTL_SECONDS, JSON.stringify(session));
+    // Update session in database
+    await storeSession(session);
 
     return session;
   },
@@ -719,8 +765,8 @@ export const checkoutService = {
       session.totals.tipAmount
     );
 
-    // Update session in Redis
-    await redis.setex(getSessionKey(sessionId), SESSION_TTL_SECONDS, JSON.stringify(session));
+    // Update session in database
+    await storeSession(session);
 
     return session;
   },
@@ -798,8 +844,8 @@ export const checkoutService = {
       { tenantId, userId, branchId: session.branchId }
     );
 
-    // Delete session from Redis
-    await redis.del(getSessionKey(sessionId));
+    // Delete session from database
+    await deleteSession(sessionId);
 
     return {
       session,

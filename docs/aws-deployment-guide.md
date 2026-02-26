@@ -2,10 +2,12 @@
 
 ## Overview
 
-This guide covers deploying the Salon Management SaaS platform to AWS for production use. The architecture uses ECS Fargate for containerized workloads, RDS PostgreSQL for the database, ElastiCache Redis for caching/queues, and S3 for file storage.
+This guide covers deploying the Salon Management SaaS platform to AWS for production use. The architecture uses ECS Fargate for containerized workloads, RDS PostgreSQL for the database, and S3 for file storage.
+
+**Note:** For the pilot deployment, Redis/ElastiCache is optional. The application can run without Redis by setting `ENABLE_REDIS=false`, which disables background job queues and real-time SSE features. This simplifies infrastructure and reduces costs for initial pilot testing.
 
 **Target Environment:** Production-ready for 10-20 pilot salons
-**Estimated Monthly Cost:** ~$150-300/month (can scale down for pilot)
+**Estimated Monthly Cost:** ~$75-100/month (pilot mode without Redis)
 
 ---
 
@@ -104,18 +106,18 @@ AWS_DEFAULT_REGION=ap-south-1
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    PILOT ARCHITECTURE                        │
+│                 PILOT ARCHITECTURE (No Redis)               │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  Route 53 ──► CloudFront ──► ALB ──► ECS Fargate            │
 │                                        │                     │
 │                                        ├── API Service       │
-│                                        ├── Web Service       │
-│                                        └── Worker Service    │
+│                                        └── Web Service       │
 │                                                              │
 │  ┌─────────────────┐    ┌─────────────────┐                 │
-│  │ RDS PostgreSQL  │    │ ElastiCache     │                 │
-│  │ (db.t3.micro)   │    │ (cache.t3.micro)│                 │
+│  │ RDS PostgreSQL  │    │ [OPTIONAL]      │                 │
+│  │ (db.t3.micro)   │    │ ElastiCache     │                 │
+│  │ + Sessions      │    │ Redis           │                 │
 │  └─────────────────┘    └─────────────────┘                 │
 │                                                              │
 │  ┌─────────────────┐    ┌─────────────────┐                 │
@@ -123,22 +125,29 @@ AWS_DEFAULT_REGION=ap-south-1
 │  │ (File Storage)  │    │ (Credentials)   │                 │
 │  └─────────────────┘    └─────────────────┘                 │
 │                                                              │
+│  Disabled Features (when ENABLE_REDIS=false):               │
+│  - BullMQ Job Queues (auto-absent, payroll jobs)            │
+│  - SSE Real-Time Updates                                     │
+│  - Worker Service                                            │
+│                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### AWS Services Used
 
-| Service           | Purpose           | Pilot Tier                       |
-| ----------------- | ----------------- | -------------------------------- |
-| ECS Fargate       | Container hosting | 0.25 vCPU, 0.5GB RAM             |
-| RDS PostgreSQL    | Database          | db.t3.micro (Free tier eligible) |
-| ElastiCache Redis | Cache & Queues    | cache.t3.micro                   |
-| S3                | File storage      | Standard                         |
-| CloudFront        | CDN               | Free tier: 1TB/month             |
-| Route 53          | DNS               | $0.50/hosted zone                |
-| ACM               | SSL Certificates  | Free                             |
-| Secrets Manager   | Credentials       | $0.40/secret/month               |
-| CloudWatch        | Monitoring        | Basic (free)                     |
+| Service           | Purpose           | Pilot Tier                       | Required |
+| ----------------- | ----------------- | -------------------------------- | -------- |
+| ECS Fargate       | Container hosting | 0.25 vCPU, 0.5GB RAM             | Yes      |
+| RDS PostgreSQL    | Database          | db.t3.micro (Free tier eligible) | Yes      |
+| ElastiCache Redis | Cache & Queues    | cache.t3.micro                   | No\*     |
+| S3                | File storage      | Standard                         | Yes      |
+| CloudFront        | CDN               | Free tier: 1TB/month             | Yes      |
+| Route 53          | DNS               | $0.50/hosted zone                | Yes      |
+| ACM               | SSL Certificates  | Free                             | Yes      |
+| Secrets Manager   | Credentials       | $0.40/secret/month               | Yes      |
+| CloudWatch        | Monitoring        | Basic (free)                     | Yes      |
+
+\*Redis is optional for pilot. Set `ENABLE_REDIS=false` to run without it.
 
 ---
 
@@ -171,18 +180,21 @@ docker build -f infrastructure/docker/api/Dockerfile -t salon-ops/api:latest .
 docker tag salon-ops/api:latest $ECR_REGISTRY/salon-ops/api:latest
 docker push $ECR_REGISTRY/salon-ops/api:latest
 
-# Build Web image (with build args)
+# Build Web image (with build args for pilot - real-time disabled)
 docker build -f infrastructure/docker/web/Dockerfile \
   --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com \
   --build-arg NEXT_PUBLIC_APP_URL=https://app.yourdomain.com \
+  --build-arg NEXT_PUBLIC_ENABLE_REALTIME=false \
   -t salon-ops/web:latest .
 docker tag salon-ops/web:latest $ECR_REGISTRY/salon-ops/web:latest
 docker push $ECR_REGISTRY/salon-ops/web:latest
 
-# Build Worker image
-docker build -f infrastructure/docker/worker/Dockerfile -t salon-ops/worker:latest .
-docker tag salon-ops/worker:latest $ECR_REGISTRY/salon-ops/worker:latest
-docker push $ECR_REGISTRY/salon-ops/worker:latest
+# NOTE: Worker service is optional for pilot (requires Redis)
+# Skip this if running without Redis
+# Build Worker image (only if ENABLE_REDIS=true)
+# docker build -f infrastructure/docker/worker/Dockerfile -t salon-ops/worker:latest .
+# docker tag salon-ops/worker:latest $ECR_REGISTRY/salon-ops/worker:latest
+# docker push $ECR_REGISTRY/salon-ops/worker:latest
 ```
 
 ### 4.3 Create VPC and Networking
@@ -288,9 +300,19 @@ export RDS_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier sal
 echo "RDS Endpoint: $RDS_ENDPOINT"
 ```
 
-### 4.6 Create ElastiCache Redis
+### 4.6 Create ElastiCache Redis (OPTIONAL)
+
+**Note:** This step is optional for pilot deployment. Skip this section if you want to run without Redis. Set `ENABLE_REDIS=false` in your environment variables instead.
+
+When Redis is disabled:
+
+- Background jobs (auto-absent marking, payroll generation) won't run automatically
+- Real-time SSE updates won't be available (frontend falls back gracefully)
+- Checkout sessions are stored in PostgreSQL instead of Redis
 
 ```bash
+# SKIP THIS SECTION FOR PILOT WITHOUT REDIS
+# Only proceed if you need background jobs and real-time features
 # Create cache subnet group
 aws elasticache create-cache-subnet-group \
   --cache-subnet-group-name salon-ops-redis-subnet \
@@ -632,7 +654,8 @@ aws elbv2 create-listener \
 ### 7.2 Create ECS Task Definitions
 
 ```bash
-# API Task Definition
+# API Task Definition (Pilot Mode - No Redis)
+# For pilot deployment, set ENABLE_REDIS=false to run without Redis
 cat > /tmp/api-task.json << EOF
 {
   "family": "salon-ops-api",
@@ -654,7 +677,7 @@ cat > /tmp/api-task.json << EOF
         {"name": "NODE_ENV", "value": "production"},
         {"name": "PORT", "value": "3000"},
         {"name": "DATABASE_URL", "value": "postgresql://postgres:$DB_PASSWORD@$RDS_ENDPOINT:5432/salon_ops"},
-        {"name": "REDIS_URL", "value": "redis://$REDIS_ENDPOINT:6379"},
+        {"name": "ENABLE_REDIS", "value": "false"},
         {"name": "JWT_SECRET", "value": "$JWT_SECRET"},
         {"name": "JWT_ACCESS_EXPIRY", "value": "15m"},
         {"name": "JWT_REFRESH_EXPIRY", "value": "7d"},
@@ -683,9 +706,13 @@ cat > /tmp/api-task.json << EOF
 }
 EOF
 
+# NOTE: If you want to enable Redis later, change ENABLE_REDIS to "true"
+# and add: {"name": "REDIS_URL", "value": "redis://$REDIS_ENDPOINT:6379"}
+
 aws ecs register-task-definition --cli-input-json file:///tmp/api-task.json
 
-# Web Task Definition
+# Web Task Definition (Pilot Mode - No Real-Time)
+# Set NEXT_PUBLIC_ENABLE_REALTIME=false during Docker build for pilot
 cat > /tmp/web-task.json << EOF
 {
   "family": "salon-ops-web",
@@ -1014,32 +1041,93 @@ aws logs filter-log-events \
 
 ## 10. Cost Optimization
 
-### Estimated Monthly Costs (Pilot)
+### Estimated Monthly Costs (Pilot - Without Redis)
 
-| Service           | Configuration               | Est. Cost          |
-| ----------------- | --------------------------- | ------------------ |
-| ECS Fargate       | 3 tasks × 0.25 vCPU × 0.5GB | ~$30               |
-| RDS PostgreSQL    | db.t3.micro (free tier)     | $0-15              |
-| ElastiCache Redis | cache.t3.micro              | ~$15               |
-| ALB               | 1 ALB + data transfer       | ~$20               |
-| S3                | <10GB storage               | ~$1                |
-| Route 53          | 1 hosted zone               | $0.50              |
-| CloudWatch        | Basic monitoring            | ~$5                |
-| Data Transfer     | ~50GB/month                 | ~$5                |
-| **Total**         |                             | **~$75-100/month** |
+| Service           | Configuration               | Est. Cost          | Required |
+| ----------------- | --------------------------- | ------------------ | -------- |
+| ECS Fargate       | 2 tasks × 0.25 vCPU × 0.5GB | ~$20               | Yes      |
+| RDS PostgreSQL    | db.t3.micro (free tier)     | $0-15              | Yes      |
+| ElastiCache Redis | cache.t3.micro              | ~$15               | No\*     |
+| ALB               | 1 ALB + data transfer       | ~$20               | Yes      |
+| S3                | <10GB storage               | ~$1                | Yes      |
+| Route 53          | 1 hosted zone               | $0.50              | Yes      |
+| CloudWatch        | Basic monitoring            | ~$5                | Yes      |
+| Data Transfer     | ~50GB/month                 | ~$5                | Yes      |
+| **Total (Pilot)** |                             | **~$60-85/month**  |          |
+| **Total (Full)**  |                             | **~$75-100/month** |          |
+
+\*Skip ElastiCache Redis for pilot by setting `ENABLE_REDIS=false`
+
+### Pilot Mode Savings
+
+Running without Redis saves approximately $15-20/month and simplifies infrastructure:
+
+- No ElastiCache cluster to manage
+- No Worker service needed (saves ~$10/month in Fargate costs)
+- Simpler deployment with fewer moving parts
+
+**Disabled features in pilot mode:**
+
+- Background job queues (auto-absent marking, payroll generation)
+- Real-time SSE updates (frontend works normally, just no live updates)
+- These can be enabled later by adding Redis and setting `ENABLE_REDIS=true`
+
+### Module Feature Flags (Phase 1 Pilot)
+
+For Phase 1 pilot, certain modules are disabled to focus on core functionality:
+
+**Backend (API) Environment Variables:**
+
+```bash
+# Core features enabled by default
+ENABLE_REDIS=false              # Disable Redis/BullMQ/SSE
+
+# Module feature flags (Phase 1: disabled)
+ENABLE_INVENTORY=false          # Disable inventory management module
+ENABLE_MEMBERSHIPS=false        # Disable memberships/packages module
+```
+
+**Frontend (Web) Build Arguments:**
+
+```bash
+# During Docker build for web
+NEXT_PUBLIC_ENABLE_REALTIME=false      # Disable real-time SSE
+NEXT_PUBLIC_ENABLE_INVENTORY=false     # Hide inventory from navigation
+NEXT_PUBLIC_ENABLE_MEMBERSHIPS=false   # Hide memberships from navigation
+```
+
+**Modules included in Phase 1:**
+
+- ✅ Authentication & User Management
+- ✅ Tenant & Branch Management
+- ✅ Appointments (booking, calendar, walk-in, waitlist)
+- ✅ Customers (CRM, loyalty points)
+- ✅ Services (catalog, pricing, categories)
+- ✅ Billing (invoices, payments, day closure)
+- ✅ Staff (attendance, leaves, payroll, commissions)
+
+**Modules disabled for Phase 1:**
+
+- ❌ Inventory (products, stock, purchase orders, transfers)
+- ❌ Memberships & Packages (plans, customer memberships)
+- ❌ Real-time updates (SSE)
+- ❌ Background jobs (auto-absent, scheduled tasks)
+
+To enable these modules later, set the corresponding flags to `true` and redeploy.
 
 ### Cost Saving Tips
 
 1. **Use Free Tier**: RDS db.t3.micro is free tier eligible for 12 months
-2. **Reserved Instances**: For production, consider reserved capacity (30-60% savings)
-3. **Spot Instances**: For workers, use Fargate Spot (70% savings)
-4. **Right-size**: Monitor and adjust task CPU/memory based on actual usage
-5. **S3 Lifecycle**: Set up lifecycle rules to move old files to cheaper storage
+2. **Skip Redis for Pilot**: Set `ENABLE_REDIS=false` to save ~$15-20/month
+3. **Reserved Instances**: For production, consider reserved capacity (30-60% savings)
+4. **Spot Instances**: For workers, use Fargate Spot (70% savings)
+5. **Right-size**: Monitor and adjust task CPU/memory based on actual usage
+6. **S3 Lifecycle**: Set up lifecycle rules to move old files to cheaper storage
 
-### Enable Fargate Spot for Workers
+### Enable Fargate Spot for Workers (When Using Redis)
 
 ```bash
-# Update worker service to use Spot
+# Update worker service to use Spot (only if running with Redis)
 aws ecs update-service \
   --cluster salon-ops-cluster \
   --service salon-ops-worker \
@@ -1133,7 +1221,7 @@ aws elasticache describe-cache-clusters --cache-cluster-id salon-ops-redis --que
 - [ ] VPC and subnets configured
 - [ ] Security groups created
 - [ ] RDS PostgreSQL created and accessible
-- [ ] ElastiCache Redis created
+- [ ] ElastiCache Redis created (OPTIONAL - skip for pilot)
 - [ ] S3 bucket created with CORS
 - [ ] Secrets stored in Secrets Manager
 - [ ] IAM roles created

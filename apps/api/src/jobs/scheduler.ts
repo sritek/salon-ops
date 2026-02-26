@@ -1,15 +1,18 @@
 /**
- * Job Scheduler
+ * Job Scheduler (Conditional)
  *
  * Sets up cron-based scheduling for recurring jobs:
  * - Auto-absent: Daily at 11:59 PM for each branch
  * - Leave balance init: April 1st annually
+ *
+ * When ENABLE_REDIS is false, the scheduler logs a warning and skips initialization.
  */
 
 import { format } from 'date-fns';
 
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
+import { isRedisEnabled } from '@/lib/redis';
 import { addStaffJob, staffQueue } from './index';
 
 /**
@@ -100,6 +103,19 @@ export async function scheduleLeaveBalanceInit() {
  * Call this at server startup
  */
 export async function initializeScheduler() {
+  // Skip initialization if Redis is disabled
+  if (!isRedisEnabled) {
+    logger.warn(
+      'Redis disabled - job scheduler not initialized. Background jobs (auto-absent, leave balance init) will not run automatically.'
+    );
+    return;
+  }
+
+  if (!staffQueue) {
+    logger.warn('Staff queue not available - job scheduler not initialized');
+    return;
+  }
+
   logger.info('Initializing job scheduler');
 
   try {

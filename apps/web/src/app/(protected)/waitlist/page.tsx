@@ -6,9 +6,9 @@ import { toast } from 'sonner';
 
 import { PERMISSIONS } from '@salon-ops/shared';
 
-import { useAuthStore } from '@/stores/auth-store';
 import { useWaitlist, useDeleteWaitlistEntry } from '@/hooks/queries/use-waitlist';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useBranchContext } from '@/hooks/use-branch-context';
 
 import {
   AccessDenied,
@@ -35,7 +35,7 @@ import type { WaitlistEntry, WaitlistStatus } from '@/types/waitlist';
 
 export default function WaitlistPage() {
   const { hasPermission } = usePermissions();
-  const { activeBranchId } = useAuthStore();
+  const { branchId: activeBranchId } = useBranchContext();
   const canWrite = hasPermission(PERMISSIONS.APPOINTMENTS_WRITE);
 
   // State
@@ -45,7 +45,8 @@ export default function WaitlistPage() {
   const [limit, setLimit] = useState(20);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<WaitlistEntry | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_selectedEntry, setSelectedEntry] = useState<WaitlistEntry | null>(null);
 
   // Queries
   const { data: waitlistData, isLoading } = useWaitlist({

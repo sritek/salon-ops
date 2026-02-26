@@ -1,10 +1,12 @@
 /**
- * Staff Jobs Processor
+ * Staff Jobs Processor (Conditional)
  *
  * Handles background jobs for staff management:
  * - Auto-absent: Mark staff as absent at end of day if no attendance
  * - Leave balance init: Initialize leave balances for new financial year
  * - Payslip generation and distribution
+ *
+ * When ENABLE_REDIS is false, the worker is not created.
  */
 
 import { Worker, Job } from 'bullmq';
@@ -14,6 +16,7 @@ import { parseISO, getDay } from 'date-fns';
 import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
+import { isRedisEnabled } from '@/lib/redis';
 import {
   QUEUE_NAMES,
   STAFF_JOB_TYPES,
@@ -24,10 +27,9 @@ import {
   PayslipWhatsAppJobData,
 } from './index';
 
-// Redis connection for worker
-const connection = new Redis(env.REDIS_URL, {
-  maxRetriesPerRequest: null,
-});
+// Conditional Redis connection and worker
+let connection: Redis | null = null;
+let staffWorker: Worker | null = null;
 
 /**
  * Process auto-absent job
@@ -417,42 +419,60 @@ async function processPayslipWhatsApp(job: Job<PayslipWhatsAppJobData>) {
   return { success: true };
 }
 
-// Create worker
-export const staffWorker = new Worker(
-  QUEUE_NAMES.STAFF,
-  async (job: Job) => {
-    switch (job.name) {
-      case STAFF_JOB_TYPES.AUTO_ABSENT:
-        return processAutoAbsent(job as Job<AutoAbsentJobData>);
-      case STAFF_JOB_TYPES.LEAVE_BALANCE_INIT:
-        return processLeaveBalanceInit(job as Job<LeaveBalanceInitJobData>);
-      case STAFF_JOB_TYPES.PAYSLIP_GENERATE:
-        return processPayslipGenerate(job as Job<PayslipGenerateJobData>);
-      case STAFF_JOB_TYPES.PAYSLIP_EMAIL:
-        return processPayslipEmail(job as Job<PayslipEmailJobData>);
-      case STAFF_JOB_TYPES.PAYSLIP_WHATSAPP:
-        return processPayslipWhatsApp(job as Job<PayslipWhatsAppJobData>);
-      default:
-        throw new Error(`Unknown job type: ${job.name}`);
+// Create worker only if Redis is enabled
+if (isRedisEnabled && env.REDIS_URL) {
+  connection = new Redis(env.REDIS_URL, {
+    maxRetriesPerRequest: null,
+  });
+
+  staffWorker = new Worker(
+    QUEUE_NAMES.STAFF,
+    async (job: Job) => {
+      switch (job.name) {
+        case STAFF_JOB_TYPES.AUTO_ABSENT:
+          return processAutoAbsent(job as Job<AutoAbsentJobData>);
+        case STAFF_JOB_TYPES.LEAVE_BALANCE_INIT:
+          return processLeaveBalanceInit(job as Job<LeaveBalanceInitJobData>);
+        case STAFF_JOB_TYPES.PAYSLIP_GENERATE:
+          return processPayslipGenerate(job as Job<PayslipGenerateJobData>);
+        case STAFF_JOB_TYPES.PAYSLIP_EMAIL:
+          return processPayslipEmail(job as Job<PayslipEmailJobData>);
+        case STAFF_JOB_TYPES.PAYSLIP_WHATSAPP:
+          return processPayslipWhatsApp(job as Job<PayslipWhatsAppJobData>);
+        default:
+          throw new Error(`Unknown job type: ${job.name}`);
+      }
+    },
+    {
+      connection,
+      concurrency: 5,
     }
-  },
-  {
-    connection,
-    concurrency: 5,
-  }
-);
+  );
 
-staffWorker.on('completed', (job) => {
-  logger.info({ jobId: job.id, jobName: job.name }, 'Staff job completed');
-});
+  staffWorker.on('completed', (job) => {
+    logger.info({ jobId: job.id, jobName: job.name }, 'Staff job completed');
+  });
 
-staffWorker.on('failed', (job, err) => {
-  logger.error({ jobId: job?.id, jobName: job?.name, error: err.message }, 'Staff job failed');
-});
+  staffWorker.on('failed', (job, err) => {
+    logger.error({ jobId: job?.id, jobName: job?.name, error: err.message }, 'Staff job failed');
+  });
+
+  logger.info('Staff worker initialized');
+} else {
+  logger.warn('Redis disabled - staff worker not initialized');
+}
+
+// Export worker (may be null if Redis disabled)
+export { staffWorker };
 
 // Graceful shutdown
 export async function closeStaffWorker() {
-  await staffWorker.close();
-  await connection.quit();
+  if (!isRedisEnabled) {
+    logger.info('Redis disabled - no staff worker to close');
+    return;
+  }
+
+  if (staffWorker) await staffWorker.close();
+  if (connection) await connection.quit();
   logger.info('Staff worker closed');
 }

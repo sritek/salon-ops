@@ -1,15 +1,19 @@
 /**
- * Real-Time Routes
+ * Real-Time Routes (Conditional)
  * SSE endpoint for real-time updates
  * Based on: .kiro/specs/ux-redesign/design.md
  * Requirements: 9.1
+ *
+ * When ENABLE_REDIS is false:
+ * - Health endpoint returns sseAvailable=false
+ * - Stream endpoint returns 503 Service Unavailable
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { authenticate } from '@/middleware/auth.middleware';
-import { successResponse } from '@/lib/response';
+import { successResponse, errorResponse } from '@/lib/response';
 import { logger } from '@/lib/logger';
 import { realTimeService } from './real-time.service';
 import { streamQuerySchema, type SSEEvent } from './real-time.schema';
@@ -23,6 +27,7 @@ export async function realTimeRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/events/health
    * Health check endpoint for SSE availability
+   * Returns sseAvailable=false when Redis is disabled
    */
   app.get(
     '/health',
@@ -38,8 +43,8 @@ export async function realTimeRoutes(fastify: FastifyInstance) {
     async (_request: FastifyRequest, reply: FastifyReply) => {
       return reply.send(
         successResponse({
-          status: 'healthy',
-          sseAvailable: true,
+          status: realTimeService.isEnabled ? 'healthy' : 'disabled',
+          sseAvailable: realTimeService.isEnabled,
           timestamp: new Date().toISOString(),
         })
       );
@@ -49,6 +54,7 @@ export async function realTimeRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/v1/events/stream
    * Server-Sent Events endpoint for real-time updates
+   * Returns 503 when Redis is disabled
    */
   app.get(
     '/stream',
@@ -64,6 +70,18 @@ export async function realTimeRoutes(fastify: FastifyInstance) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
+      // Return 503 when Redis is disabled
+      if (!realTimeService.isEnabled) {
+        return reply
+          .status(503)
+          .send(
+            errorResponse(
+              'SERVICE_UNAVAILABLE',
+              'Real-time features are disabled. SSE streaming is not available.'
+            )
+          );
+      }
+
       const { tenantId, branchIds } = request.user!;
       const query = request.query as { lastEventId?: string; branchId?: string };
 

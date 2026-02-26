@@ -202,6 +202,11 @@ async function registerRoutes() {
     status: 'ok',
     timestamp: new Date().toISOString(),
     environment: env.NODE_ENV,
+    features: {
+      redis: env.ENABLE_REDIS,
+      inventory: env.ENABLE_INVENTORY,
+      memberships: env.ENABLE_MEMBERSHIPS,
+    },
   }));
 
   // API v1 routes
@@ -212,22 +217,34 @@ async function registerRoutes() {
   fastify.register(billingRoutes, { prefix: '/api/v1/invoices' });
   fastify.register(checkoutRoutes, { prefix: '/api/v1/checkout' });
   fastify.register(staffRoutes, { prefix: '/api/v1/staff' });
-  fastify.register(productRoutes, { prefix: '/api/v1' });
-  fastify.register(vendorRoutes, { prefix: '/api/v1' });
-  fastify.register(purchaseOrderRoutes, { prefix: '/api/v1' });
-  fastify.register(goodsReceiptRoutes, { prefix: '/api/v1' });
-  fastify.register(stockRoutes, { prefix: '/api/v1' });
-  fastify.register(transferRoutes, { prefix: '/api/v1' });
-  fastify.register(auditRoutes, { prefix: '/api/v1' });
-  fastify.register(serviceConsumableRoutes, { prefix: '/api/v1' });
 
-  // Memberships & Packages routes
-  fastify.register(membershipPlanRoutes, { prefix: '/api/v1' });
-  fastify.register(packageRoutes, { prefix: '/api/v1' });
-  fastify.register(customerMembershipRoutes, { prefix: '/api/v1' });
-  fastify.register(customerPackageRoutes, { prefix: '/api/v1' });
-  fastify.register(redemptionRoutes, { prefix: '/api/v1' });
-  fastify.register(membershipConfigRoutes, { prefix: '/api/v1' });
+  // Inventory routes (conditionally enabled)
+  if (env.ENABLE_INVENTORY) {
+    fastify.register(productRoutes, { prefix: '/api/v1' });
+    fastify.register(vendorRoutes, { prefix: '/api/v1' });
+    fastify.register(purchaseOrderRoutes, { prefix: '/api/v1' });
+    fastify.register(goodsReceiptRoutes, { prefix: '/api/v1' });
+    fastify.register(stockRoutes, { prefix: '/api/v1' });
+    fastify.register(transferRoutes, { prefix: '/api/v1' });
+    fastify.register(auditRoutes, { prefix: '/api/v1' });
+    fastify.register(serviceConsumableRoutes, { prefix: '/api/v1' });
+    logger.info('Inventory module enabled');
+  } else {
+    logger.info('Inventory module disabled for pilot');
+  }
+
+  // Memberships & Packages routes (conditionally enabled)
+  if (env.ENABLE_MEMBERSHIPS) {
+    fastify.register(membershipPlanRoutes, { prefix: '/api/v1' });
+    fastify.register(packageRoutes, { prefix: '/api/v1' });
+    fastify.register(customerMembershipRoutes, { prefix: '/api/v1' });
+    fastify.register(customerPackageRoutes, { prefix: '/api/v1' });
+    fastify.register(redemptionRoutes, { prefix: '/api/v1' });
+    fastify.register(membershipConfigRoutes, { prefix: '/api/v1' });
+    logger.info('Memberships module enabled');
+  } else {
+    logger.info('Memberships module disabled for pilot');
+  }
 
   // Dashboard routes
   fastify.register(dashboardRoutes, { prefix: '/api/v1/dashboard' });

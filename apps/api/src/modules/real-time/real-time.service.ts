@@ -1,28 +1,33 @@
 /**
- * Real-Time Service
+ * Real-Time Service (Conditional)
  * Based on: .kiro/specs/ux-redesign/design.md
  * Requirements: 9.1
+ *
+ * When ENABLE_REDIS is false, all methods return safe defaults
+ * without attempting Redis operations.
  */
 
 import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
 
-import redis from '@/lib/redis';
+import redis, { isRedisEnabled } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 import type { EventType, SSEEvent } from './real-time.schema';
 
-// Create separate Redis instances for pub/sub
+// Create separate Redis instances for pub/sub (only if Redis enabled)
 let publisher: Redis | null = null;
 let subscriber: Redis | null = null;
 
-function getPublisher(): Redis {
+function getPublisher(): Redis | null {
+  if (!isRedisEnabled) return null;
   if (!publisher) {
     publisher = redis.duplicate();
   }
   return publisher;
 }
 
-function getSubscriber(): Redis {
+function getSubscriber(): Redis | null {
+  if (!isRedisEnabled) return null;
   if (!subscriber) {
     subscriber = redis.duplicate();
   }
@@ -56,13 +61,22 @@ function getEventLogKey(tenantId: string): string {
 
 /**
  * Publish an event to all connected clients
+ * Returns null if Redis is disabled
  */
 export async function publishEvent(
   tenantId: string,
   branchId: string,
   type: EventType,
   data: unknown
-): Promise<SSEEvent> {
+): Promise<SSEEvent | null> {
+  if (!isRedisEnabled) {
+    logger.debug({ type, tenantId, branchId }, 'Redis disabled - SSE event not published');
+    return null;
+  }
+
+  const pub = getPublisher();
+  if (!pub) return null;
+
   const event: SSEEvent = {
     id: generateEventId(),
     type,
@@ -72,7 +86,6 @@ export async function publishEvent(
     tenantId,
   };
 
-  const pub = getPublisher();
   const channel = getChannelName(tenantId);
 
   // Publish to Redis channel
@@ -91,8 +104,13 @@ export async function publishEvent(
 
 /**
  * Get missed events since a given event ID
+ * Returns empty array if Redis is disabled
  */
 export async function getMissedEvents(tenantId: string, lastEventId: string): Promise<SSEEvent[]> {
+  if (!isRedisEnabled) {
+    return [];
+  }
+
   const logKey = getEventLogKey(tenantId);
   const events = await redis.lrange(logKey, 0, -1);
 
@@ -115,12 +133,20 @@ export async function getMissedEvents(tenantId: string, lastEventId: string): Pr
 
 /**
  * Subscribe to tenant events
+ * Returns no-op unsubscribe function if Redis is disabled
  */
 export async function subscribeToTenant(
   tenantId: string,
   callback: (event: SSEEvent) => void
 ): Promise<() => void> {
+  if (!isRedisEnabled) {
+    logger.debug({ tenantId }, 'Redis disabled - SSE subscription not created');
+    return () => {};
+  }
+
   const sub = getSubscriber();
+  if (!sub) return () => {};
+
   const channel = getChannelName(tenantId);
 
   const messageHandler = (ch: string, message: string) => {
@@ -151,4 +177,5 @@ export const realTimeService = {
   publishEvent,
   getMissedEvents,
   subscribeToTenant,
+  isEnabled: isRedisEnabled,
 };

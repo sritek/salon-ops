@@ -64,11 +64,7 @@ import { useCreateAppointment } from '@/hooks/queries/use-appointments';
 import { useServices } from '@/hooks/queries/use-services';
 import { useStaffList } from '@/hooks/queries/use-staff';
 import { useCustomers } from '@/hooks/queries/use-customers';
-import {
-  useWaitlistCount,
-  useWaitlistMatches,
-  useUpdateWaitlistEntry,
-} from '@/hooks/queries/use-waitlist';
+import { useWaitlistCount, useWaitlistMatches } from '@/hooks/queries/use-waitlist';
 import { useBranchContext } from '@/hooks/use-branch-context';
 import { cn } from '@/lib/utils';
 
@@ -171,7 +167,6 @@ export function NewAppointmentPanel({
   const waitlistCount = waitlistCountData?.count || 0;
 
   const createMutation = useCreateAppointment();
-  const updateWaitlistEntry = useUpdateWaitlistEntry();
 
   // Stable default values
   const stableDefaultValues = useMemo(
