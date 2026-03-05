@@ -23,7 +23,9 @@
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
     "db:seed": "turbo run db:seed",
-    "db:studio": "turbo run db:studio"
+    "db:studio": "turbo run db:studio",
+    "postinstall": "pnpm db:generate",
+    "generate-jwt": "node scripts/generate-jwt-secret.js"
   },
   "devDependencies": {
     "prettier": "^3.2.5",
