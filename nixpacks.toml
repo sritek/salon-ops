@@ -2,7 +2,7 @@
 # This tells Railway how to build and run your Fastify API
 
 [phases.setup]
-nixPkgs = ["nodejs-22_x", "pnpm-9_x"]
+nixPkgs = ["nodejs_22", "pnpm_9"]
 
 [phases.install]
 cmds = [
