@@ -7,7 +7,8 @@ cmds = ["pnpm install --frozen-lockfile --prod=false"]
 [phases.build]
 cmds = [
   "pnpm install --frozen-lockfile",
-  "pnpm turbo run build --filter=@salon-ops/api..."
+  "pnpm turbo run build --filter=@salon-ops/shared",
+  "pnpm turbo run build --filter=@salon-ops/api"
 ]
 
 [start]

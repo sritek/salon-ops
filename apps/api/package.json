@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "start": "node dist/server.js",
     "clean": "rm -rf dist",
     "type-check": "tsc --noEmit",
@@ -46,6 +46,7 @@
     "@types/bcrypt": "^5.0.2",
     "@types/node": "^22.0.0",
     "prisma": "^5.11.0",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.7.1",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
