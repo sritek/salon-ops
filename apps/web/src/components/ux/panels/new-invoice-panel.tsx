@@ -268,7 +268,7 @@ function ConfirmDialog({
 
           {!isFullyPaid && (
             <p className="text-sm text-destructive">
-              Payment amount (₹{totalPayment.toLocaleString('en-IN')}) doesn't match total (₹
+              Payment amount (₹{totalPayment.toLocaleString('en-IN')}) doesn&apos;t match total (₹
               {totals.grandTotal.toLocaleString('en-IN')})
             </p>
           )}
@@ -292,7 +292,6 @@ function ConfirmDialog({
 // ============================================
 
 export function NewInvoicePanel({
-  customerId: _initialCustomerId,
   onSuccess,
 }: NewInvoicePanelProps) {
   const closePanel = useClosePanel();
@@ -309,18 +308,18 @@ export function NewInvoicePanel({
   const [payments, setPayments] = useState<PaymentInput[]>([{ paymentMethod: 'cash', amount: 0 }]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
-  const [_productSearchQuery, _setProductSearchQuery] = useState('');
+  const [productSearchQuery] = useState('');
 
   // Queries
   const { data: customerSearchData } = useCustomerSearch({ q: customerSearchQuery, limit: 10 });
   const { data: servicesData, isLoading: servicesLoading } = useServices({});
-  const { data: staffData, isLoading: _staffLoading } = useStaffList({
+  const { data: staffData } = useStaffList({
     branchId: branchId || '',
     role: 'stylist',
   });
   const { data: productsData, isLoading: productsLoading } = useProductsForBilling(
     branchId || '',
-    _productSearchQuery
+    productSearchQuery
   );
 
   // Mutations
@@ -785,8 +784,8 @@ export function NewInvoicePanel({
               <AlertDescription className="text-amber-800 dark:text-amber-200">
                 <span className="font-medium">Services without appointment</span>
                 <p className="text-sm mt-1 text-amber-700 dark:text-amber-300">
-                  This invoice won't be linked to an appointment. Stylist scheduling and time
-                  tracking won't apply.
+                  This invoice won&apos;t be linked to an appointment. Stylist scheduling and time
+                  tracking won&apos;t apply.
                 </p>
                 <Button
                   type="button"
