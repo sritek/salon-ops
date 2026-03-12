@@ -5,7 +5,12 @@
 
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { formatErrorMessage, parseApiError } from '@/lib/error-handler';
+import {
+  formatErrorMessage,
+  parseApiError,
+  isDatabaseError,
+  isNetworkError,
+} from '@/lib/error-handler';
 
 interface ErrorHandlerOptions {
   /**
@@ -55,6 +60,14 @@ export function useErrorHandler() {
     if (showToast) {
       const message = customMessage || formatErrorMessage(error);
       const parsed = parseApiError(error);
+
+      // Determine toast variant based on error type
+      let variant: 'default' | 'destructive' = 'destructive';
+      if (isDatabaseError(error)) {
+        variant = 'destructive';
+      } else if (isNetworkError(error)) {
+        variant = 'destructive';
+      }
 
       toast.error(message, {
         description:
