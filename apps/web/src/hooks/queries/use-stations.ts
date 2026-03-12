@@ -6,6 +6,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api/client';
+import { appointmentKeys } from '@/hooks/queries/use-appointments';
+import { resourceCalendarKeys } from '@/hooks/queries/use-resource-calendar';
 import type {
   BulkCreateStationsInput,
   CreateStationInput,
@@ -257,8 +259,36 @@ export function useAssignStation(branchId?: string) {
   return useMutation({
     mutationFn: ({ appointmentId, stationId }: { appointmentId: string; stationId: string }) =>
       api.patch(`/appointments/${appointmentId}/station`, { stationId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    onSuccess: (_, { appointmentId }) => {
+      // Invalidate appointment queries
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(appointmentId) });
+      // Invalidate calendar queries to update the calendar view
+      queryClient.invalidateQueries({ queryKey: resourceCalendarKeys.all });
+      // Always invalidate all floor view queries to ensure sync
+      queryClient.invalidateQueries({ queryKey: floorViewKeys.all });
+      if (branchId) {
+        queryClient.invalidateQueries({ queryKey: floorViewKeys.branch(branchId) });
+      }
+    },
+  });
+}
+
+/**
+ * Deassign appointment from station
+ */
+export function useDeassignStation(branchId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (appointmentId: string) =>
+      api.patch(`/appointments/${appointmentId}/deassign-station`),
+    onSuccess: (_, appointmentId) => {
+      // Invalidate appointment queries
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(appointmentId as string) });
+      // Invalidate calendar queries to update the calendar view
+      queryClient.invalidateQueries({ queryKey: resourceCalendarKeys.all });
       // Always invalidate all floor view queries to ensure sync
       queryClient.invalidateQueries({ queryKey: floorViewKeys.all });
       if (branchId) {

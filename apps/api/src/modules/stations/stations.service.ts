@@ -257,22 +257,23 @@ export class StationsService {
   async deleteStation(tenantId: string, id: string): Promise<void> {
     const station = await prisma.station.findFirst({
       where: { id, tenantId, deletedAt: null },
-      include: {
-        appointments: {
-          where: {
-            status: { in: ['checked_in', 'in_progress'] },
-          },
-          take: 1,
-        },
-      },
     });
 
     if (!station) {
       throw new NotFoundError('STATION_NOT_FOUND', 'Station not found');
     }
 
-    // Prevent deletion if station has active appointments
-    if (station.appointments.length > 0) {
+    // Check if station has active appointments
+    const hasActiveAppointment = await prisma.appointment.findFirst({
+      where: {
+        stationId: id,
+        status: { in: ['checked_in', 'in_progress'] },
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (hasActiveAppointment) {
       throw new ConflictError(
         'STATION_HAS_APPOINTMENT',
         'Cannot delete station with active appointments'

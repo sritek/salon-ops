@@ -146,7 +146,7 @@ export const dashboardService = {
   },
 
   /**
-   * Get station view data (stylists and their current status)
+   * Get station view data (physical stations and their current status)
    */
   async getStations(
     tenantId: string,
@@ -155,37 +155,39 @@ export const dashboardService = {
     now: Date
   ): Promise<Station[]> {
     const targetDate = new Date(dateStr);
-    const currentTime = format(now, 'HH:mm');
 
-    // Get stylists assigned to this branch
-    const stylists = await prisma.user.findMany({
+    // Get all active stations for this branch
+    const stations = await prisma.station.findMany({
       where: {
         tenantId,
-        role: 'stylist',
-        isActive: true,
+        branchId,
         deletedAt: null,
-        branchAssignments: {
-          some: { branchId },
+      },
+      include: {
+        stationType: {
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            color: true,
+          },
         },
       },
-      select: {
-        id: true,
-        name: true,
-        avatarUrl: true,
-      },
+      orderBy: { displayOrder: 'asc' },
     });
 
-    // Get today's appointments for all stylists
-    const appointments = await prisma.appointment.findMany({
+    // Get today's appointments assigned to stations
+    const todayAppointments = await prisma.appointment.findMany({
       where: {
         tenantId,
         branchId,
         scheduledDate: targetDate,
-        stylistId: { in: stylists.map((s) => s.id) },
+        stationId: { in: stations.map((s) => s.id) },
         status: { notIn: ['cancelled', 'no_show'] },
       },
       include: {
         customer: { select: { name: true } },
+        stylist: { select: { id: true, name: true } },
         services: {
           include: {
             service: { select: { name: true, durationMinutes: true } },
@@ -194,76 +196,116 @@ export const dashboardService = {
       },
     });
 
-    // Get breaks for today
-    const breaks = await prisma.stylistBreak.findMany({
+    // Get pending appointments from previous days (still in_progress)
+    const pendingAppointments = await prisma.appointment.findMany({
       where: {
         tenantId,
-        stylistId: { in: stylists.map((s) => s.id) },
-        isActive: true,
+        branchId,
+        scheduledDate: { lt: targetDate },
+        stationId: { in: stations.map((s) => s.id) },
+        status: 'in_progress',
+      },
+      include: {
+        customer: { select: { name: true } },
+        stylist: { select: { id: true, name: true } },
+        services: {
+          include: {
+            service: { select: { name: true, durationMinutes: true } },
+          },
+        },
       },
     });
 
-    // Build station data for each stylist
-    const stations: Station[] = stylists.map((stylist, index) => {
-      // Find current appointment (in_progress or checked_in within time range)
-      const currentAppointment = appointments.find((apt) => {
-        if (apt.stylistId !== stylist.id) return false;
-        if (!['in_progress', 'checked_in'].includes(apt.status)) return false;
+    // Get stylist names for appointments (for assistants)
+    const assistantMap = new Map<string, string[]>();
+    // Note: Assistant stylists are not currently tracked in the schema
+    // This can be implemented in a future version
 
-        const aptStart = apt.scheduledTime;
-        const aptEnd = apt.endTime;
-        return currentTime >= aptStart && currentTime <= aptEnd;
-      });
+    // Build station data
+    const stationData: Station[] = stations.map((station) => {
+      // Find appointment currently assigned to this station (today's in_progress)
+      const currentAppointment = todayAppointments.find(
+        (apt) =>
+          apt.stationId === station.id &&
+          apt.status === 'in_progress' &&
+          apt.actualStartTime &&
+          now >= apt.actualStartTime &&
+          now <= parseISO(`${dateStr}T${apt.scheduledEndTime}`)
+      );
 
-      // Check if on break
-      const currentBreak = breaks.find((b) => {
-        if (b.stylistId !== stylist.id) return false;
-        return currentTime >= b.startTime && currentTime <= b.endTime;
-      });
+      // Find pending appointment (from previous days, still in_progress)
+      const pendingAppointment = pendingAppointments.find(
+        (apt) => apt.stationId === station.id && apt.status === 'in_progress'
+      );
 
       // Determine status
       let status: Station['status'] = 'available';
-      if (currentBreak) {
-        status = 'break';
+      if (station.status === 'out_of_service') {
+        status = 'out_of_service';
       } else if (currentAppointment) {
+        status = 'occupied';
+      } else if (pendingAppointment) {
+        // Station has a pending appointment from a previous day
         status = 'occupied';
       }
 
-      // Calculate progress and time remaining for current appointment
-      let appointmentData: Station['currentAppointment'] = null;
-      if (currentAppointment) {
-        const startTime = parseISO(`${dateStr}T${currentAppointment.scheduledTime}`);
-        const endTime = parseISO(`${dateStr}T${currentAppointment.endTime}`);
-        const totalMinutes = differenceInMinutes(endTime, startTime);
-        const elapsedMinutes = differenceInMinutes(now, startTime);
-        const progress = Math.min(100, Math.max(0, (elapsedMinutes / totalMinutes) * 100));
-        const timeRemaining = Math.max(0, totalMinutes - elapsedMinutes);
+      // Build appointment data if occupied (prefer current over pending)
+      let appointmentData: Station['appointment'] = null;
+      const appointmentToDisplay = currentAppointment || pendingAppointment;
 
-        const serviceName = currentAppointment.services[0]?.service?.name || 'Service';
+      if (appointmentToDisplay) {
+        const appointmentDateStr = format(appointmentToDisplay.scheduledDate, 'yyyy-MM-dd');
+        const scheduledStartTime = parseISO(
+          `${appointmentDateStr}T${appointmentToDisplay.scheduledTime}`
+        );
+        const actualStartTime = appointmentToDisplay.actualStartTime
+          ? parseISO(appointmentToDisplay.actualStartTime.toISOString())
+          : scheduledStartTime;
+
+        // Calculate delay in minutes (how late the appointment started)
+        const delayMinutes = Math.max(0, differenceInMinutes(actualStartTime, scheduledStartTime));
+
+        const endTime = parseISO(`${appointmentDateStr}T${appointmentToDisplay.scheduledEndTime}`);
+        const totalMinutes = differenceInMinutes(endTime, actualStartTime);
+        const elapsedMinutes = differenceInMinutes(now, actualStartTime);
+        const progressPercent = Math.min(100, Math.max(0, (elapsedMinutes / totalMinutes) * 100));
+        const remainingMinutes = Math.max(0, totalMinutes - elapsedMinutes);
+        const isOvertime = elapsedMinutes > totalMinutes;
+
+        const serviceNames = appointmentToDisplay.services.map(
+          (as) => as.service?.name || 'Service'
+        );
+        const assistantNames = assistantMap.get(appointmentToDisplay.id) || [];
 
         appointmentData = {
-          id: currentAppointment.id,
-          customerName: currentAppointment.customer?.name || 'Guest',
-          serviceName,
-          startTime: currentAppointment.scheduledTime,
-          endTime: currentAppointment.endTime,
-          progress: Math.round(progress),
-          timeRemaining,
+          id: appointmentToDisplay.id,
+          customerName: appointmentToDisplay.customer?.name || 'Guest',
+          stylistName: appointmentToDisplay.stylist?.name || null,
+          assistantNames,
+          services: serviceNames,
+          startedAt: appointmentToDisplay.actualStartTime?.toISOString() || null,
+          estimatedEndTime: endTime.toISOString(),
+          scheduledTime: appointmentToDisplay.scheduledTime,
+          scheduledDate: format(appointmentToDisplay.scheduledDate, 'yyyy-MM-dd'),
+          delayMinutes,
+          elapsedMinutes: Math.round(elapsedMinutes),
+          remainingMinutes: Math.round(remainingMinutes),
+          progressPercent: Math.round(progressPercent),
+          isOvertime,
         };
       }
 
       return {
-        id: `station-${index + 1}`,
-        name: `Chair ${index + 1}`,
-        stylistId: stylist.id,
-        stylistName: stylist.name,
-        stylistAvatar: stylist.avatarUrl,
+        id: station.id,
+        name: station.name,
+        stationType: station.stationType,
+        displayOrder: station.displayOrder,
         status,
-        currentAppointment: appointmentData,
+        appointment: appointmentData,
       };
     });
 
-    return stations;
+    return stationData;
   },
 
   /**
@@ -529,11 +571,11 @@ export const dashboardService = {
             scheduledTime: { gte: currentTime, lte: twoHoursLater },
           },
           {
-            endTime: { gte: currentTime, lte: twoHoursLater },
+            scheduledEndTime: { gte: currentTime, lte: twoHoursLater },
           },
           {
             scheduledTime: { lte: currentTime },
-            endTime: { gte: twoHoursLater },
+            scheduledEndTime: { gte: twoHoursLater },
           },
         ],
       },
@@ -549,7 +591,7 @@ export const dashboardService = {
         .map((apt) => ({
           id: apt.id,
           startTime: apt.scheduledTime,
-          endTime: apt.endTime,
+          endTime: apt.scheduledEndTime,
           customerName: apt.customer?.name || 'Guest',
           status: apt.status,
         }));

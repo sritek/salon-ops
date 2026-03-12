@@ -183,7 +183,7 @@ export function useCreateAppointment() {
         stylistId: apt.stylistId || null,
         date: apt.scheduledDate,
         startTime: apt.scheduledTime,
-        endTime: apt.endTime,
+        endTime: apt.scheduledEndTime,
         customerName: apt.customerName || apt.customer?.name || 'Customer',
         customerPhone: apt.customerPhone || apt.customer?.phone || null,
         services: apt.services?.map((s) => s.serviceName) || [],
@@ -380,9 +380,31 @@ export function useCompleteAppointment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => api.post<Appointment>(`/appointments/${id}/complete`),
+    mutationFn: ({
+      appointmentId,
+      actualEndTime,
+      completionDate,
+      completionTime,
+    }: {
+      appointmentId: string;
+      actualEndTime?: string;
+      completionDate?: string;
+      completionTime?: string;
+    }) => {
+      // Build the request body
+      const body: Record<string, any> = {};
 
-    onMutate: async (id) => {
+      if (actualEndTime) {
+        body.actualEndTime = actualEndTime;
+      } else if (completionDate && completionTime) {
+        // Combine date and time into ISO string
+        body.actualEndTime = `${completionDate}T${completionTime}:00`;
+      }
+
+      return api.post<Appointment>(`/appointments/${appointmentId}/complete`, body);
+    },
+
+    onMutate: async ({ appointmentId }) => {
       await queryClient.cancelQueries({ queryKey: resourceCalendarKeys.all });
 
       // Optimistically update status
@@ -393,19 +415,19 @@ export function useCompleteAppointment() {
           return {
             ...old,
             appointments: old.appointments.map((apt) =>
-              apt.id === id ? { ...apt, status: 'completed' } : apt
+              apt.id === appointmentId ? { ...apt, status: 'completed' } : apt
             ),
           };
         }
       );
 
-      return { id };
+      return { appointmentId };
     },
 
-    onSuccess: (_, id) => {
+    onSuccess: (_, { appointmentId }) => {
       toast.success('Appointment completed');
       queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(appointmentId) });
       queryClient.invalidateQueries({ queryKey: resourceCalendarKeys.all });
       // Also invalidate floor view since station is now free
       queryClient.invalidateQueries({ queryKey: floorViewKeys.all });

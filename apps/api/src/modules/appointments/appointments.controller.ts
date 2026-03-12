@@ -185,12 +185,20 @@ export class AppointmentsController {
   /**
    * Complete appointment
    */
-  async complete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+  async complete(
+    request: FastifyRequest<{ Params: { id: string }; Body?: { actualEndTime?: string } }>,
+    reply: FastifyReply
+  ) {
     const { tenantId, sub: userId } = request.user!;
+    const actualEndTime = request.body?.actualEndTime
+      ? new Date(request.body.actualEndTime)
+      : undefined;
+
     const appointment = await this.appointmentsService.complete(
       tenantId,
       request.params.id,
-      userId
+      userId,
+      actualEndTime
     );
 
     return reply.send(successResponse(appointment));
@@ -383,7 +391,7 @@ export class AppointmentsController {
       id: apt.id,
       scheduledDate: apt.scheduledDate.toISOString().split('T')[0],
       scheduledTime: apt.scheduledTime,
-      endTime: apt.endTime,
+      scheduledEndTime: apt.scheduledEndTime,
       customerName: apt.customer?.name || apt.customerName || 'Guest',
       customerPhone: apt.customer?.phone || apt.customerPhone,
       stylistId: apt.stylistId,

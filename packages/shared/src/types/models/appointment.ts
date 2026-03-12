@@ -63,8 +63,12 @@ export interface Appointment {
   // Scheduling
   scheduledDate: string; // YYYY-MM-DD
   scheduledTime: string; // HH:mm
-  endTime: string;
+  scheduledEndTime: string;
   totalDuration: number;
+
+  // Actual times (when service actually started/ended)
+  actualStartTime?: string;
+  actualEndTime?: string;
 
   // Stylist
   stylistId?: string;
@@ -232,7 +236,7 @@ export interface CalendarAppointment {
   id: string;
   scheduledDate: string;
   scheduledTime: string;
-  endTime: string;
+  scheduledEndTime: string;
   customerName: string;
   customerPhone?: string;
   stylistId?: string;

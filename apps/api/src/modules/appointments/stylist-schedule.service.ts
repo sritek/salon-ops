@@ -95,7 +95,7 @@ export class StylistScheduleService {
         id: apt.id,
         scheduledDate: apt.scheduledDate.toISOString().split('T')[0],
         scheduledTime: apt.scheduledTime,
-        endTime: apt.endTime,
+        endTime: apt.scheduledEndTime,
         customerName: apt.customer?.name || apt.customerName || 'Guest',
         services: apt.services.map((s) => s.serviceName),
         status: apt.status,
@@ -227,7 +227,9 @@ export class StylistScheduleService {
       });
 
       for (const apt of conflictingAppointments) {
-        if (this.timesOverlap(input.startTime, input.endTime, apt.scheduledTime, apt.endTime)) {
+        if (
+          this.timesOverlap(input.startTime, input.endTime, apt.scheduledTime, apt.scheduledEndTime)
+        ) {
           throw new AppError(
             'BLOCK_CONFLICT',
             'Cannot block slot - conflicts with existing appointment',

@@ -20,19 +20,30 @@ export type CommandCenterQuery = z.infer<typeof commandCenterQuerySchema>;
 export const stationSchema = z.object({
   id: z.string(),
   name: z.string(),
-  stylistId: z.string().nullable(),
-  stylistName: z.string().nullable(),
-  stylistAvatar: z.string().nullable(),
-  status: z.enum(['available', 'occupied', 'break', 'offline']),
-  currentAppointment: z
+  stationType: z.object({
+    id: z.string(),
+    name: z.string(),
+    icon: z.string().nullable(),
+    color: z.string(),
+  }),
+  displayOrder: z.number(),
+  status: z.enum(['available', 'occupied', 'out_of_service']),
+  appointment: z
     .object({
       id: z.string(),
       customerName: z.string(),
-      serviceName: z.string(),
-      startTime: z.string(),
-      endTime: z.string(),
-      progress: z.number(),
-      timeRemaining: z.number(),
+      stylistName: z.string().nullable(),
+      assistantNames: z.array(z.string()),
+      services: z.array(z.string()),
+      startedAt: z.string().nullable(),
+      estimatedEndTime: z.string().nullable(),
+      scheduledTime: z.string(),
+      scheduledDate: z.string(), // Date in YYYY-MM-DD format
+      delayMinutes: z.number(),
+      elapsedMinutes: z.number().nullable(),
+      remainingMinutes: z.number().nullable(),
+      progressPercent: z.number().nullable(),
+      isOvertime: z.boolean(),
     })
     .nullable(),
 });

@@ -32,6 +32,7 @@ export const stationCardSchema = z.object({
       startedAt: z.string().nullable(),
       estimatedEndTime: z.string().nullable(),
       scheduledTime: z.string(),
+      scheduledDate: z.string(), // Date in YYYY-MM-DD format
       elapsedMinutes: z.number().nullable(),
       remainingMinutes: z.number().nullable(),
       progressPercent: z.number().nullable(),

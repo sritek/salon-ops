@@ -487,6 +487,20 @@
       "invalidStatus": "This appointment cannot be rescheduled in its current status.",
       "lastReschedule": "Last Reschedule Warning",
       "lastRescheduleWarning": "This will be the final reschedule allowed for this appointment."
+    },
+    "complete": {
+      "title": "Complete Appointment",
+      "customer": "Customer",
+      "scheduledTime": "Scheduled Time",
+      "actualTime": "Actual Time",
+      "minutes": "minutes",
+      "endTime": "End Time",
+      "endTimeHint": "Adjust the end time if the appointment finished earlier or later than expected",
+      "overtimeWarning": "This appointment is {minutes} minutes over the scheduled time",
+      "cancel": "Cancel",
+      "completing": "Completing...",
+      "complete": "Complete",
+      "completeError": "Failed to complete appointment"
     }
   },
   "walkIn": {

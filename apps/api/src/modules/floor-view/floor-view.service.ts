@@ -50,7 +50,7 @@ export class FloorViewService {
     const todayStart = getTodayUTC();
     const todayEnd = getTodayEndUTC();
 
-    // Get all active stations for the branch
+    // Get all active stations for the branch (lightweight query)
     const stations = await prisma.station.findMany({
       where: {
         tenantId,
@@ -60,40 +60,87 @@ export class FloorViewService {
       orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
       include: {
         stationType: true,
-        appointments: {
-          where: {
-            // Use date range to handle timezone issues with PostgreSQL DATE type
-            scheduledDate: {
-              gte: todayStart,
-              lte: todayEnd,
-            },
-            status: { in: ['checked_in', 'in_progress', 'booked', 'confirmed'] },
-            deletedAt: null,
-          },
-          include: {
-            customer: {
-              select: { name: true },
-            },
-            stylist: {
-              select: { name: true },
-            },
-            services: {
-              include: {
-                service: {
-                  select: { name: true, durationMinutes: true },
-                },
-              },
-            },
-          },
-          orderBy: { scheduledTime: 'asc' },
-        },
       },
     });
 
+    // Query today's appointments
+    const todayAppointments = await prisma.appointment.findMany({
+      where: {
+        tenantId,
+        branchId,
+        stationId: { in: stations.map((s) => s.id) },
+        scheduledDate: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+        status: { in: ['checked_in', 'in_progress', 'booked', 'confirmed'] },
+        deletedAt: null,
+      },
+      include: {
+        customer: {
+          select: { name: true },
+        },
+        stylist: {
+          select: { name: true },
+        },
+        services: {
+          include: {
+            service: {
+              select: { name: true, durationMinutes: true },
+            },
+          },
+        },
+      },
+      orderBy: { scheduledTime: 'asc' },
+    });
+
+    // Query pending appointments from previous days (still in_progress)
+    const pendingAppointments = await prisma.appointment.findMany({
+      where: {
+        tenantId,
+        branchId,
+        stationId: { in: stations.map((s) => s.id) },
+        scheduledDate: {
+          lt: todayStart,
+        },
+        status: 'in_progress',
+        deletedAt: null,
+      },
+      include: {
+        customer: {
+          select: { name: true },
+        },
+        stylist: {
+          select: { name: true },
+        },
+        services: {
+          include: {
+            service: {
+              select: { name: true, durationMinutes: true },
+            },
+          },
+        },
+      },
+      orderBy: { scheduledTime: 'asc' },
+    });
+
+    // Combine all appointments
+    const allAppointments = [...todayAppointments, ...pendingAppointments];
+
+    // Create a map of station appointments for quick lookup
+    const appointmentsByStationId = new Map<string, typeof allAppointments>();
+    for (const appointment of allAppointments) {
+      if (!appointmentsByStationId.has(appointment.stationId!)) {
+        appointmentsByStationId.set(appointment.stationId!, []);
+      }
+      appointmentsByStationId.get(appointment.stationId!)!.push(appointment);
+    }
+
     // Process each station to determine status and build card data
     const stationCards: StationCard[] = stations.map((station) => {
-      const status = this.determineStationStatus(station, now);
-      const appointment = this.getRelevantAppointment(station, status, now);
+      const stationAppointments = appointmentsByStationId.get(station.id) || [];
+      const status = this.determineStationStatus(station, stationAppointments, now);
+      const appointment = this.getRelevantAppointment(stationAppointments, status, now);
 
       return {
         id: station.id,
@@ -128,12 +175,12 @@ export class FloorViewService {
   private determineStationStatus(
     station: {
       status: string;
-      appointments: Array<{
-        status: string;
-        scheduledTime: string;
-        startedAt: Date | null;
-      }>;
     },
+    appointments: Array<{
+      status: string;
+      scheduledTime: string;
+      actualStartTime: Date | null;
+    }>,
     now: Date
   ): FloorViewStatus {
     // Out of service takes precedence
@@ -142,19 +189,19 @@ export class FloorViewService {
     }
 
     // Check for in-progress appointment
-    const inProgressAppointment = station.appointments.find((apt) => apt.status === 'in_progress');
+    const inProgressAppointment = appointments.find((apt) => apt.status === 'in_progress');
     if (inProgressAppointment) {
       return 'occupied';
     }
 
     // Check for checked-in appointment (also considered occupied)
-    const checkedInAppointment = station.appointments.find((apt) => apt.status === 'checked_in');
+    const checkedInAppointment = appointments.find((apt) => apt.status === 'checked_in');
     if (checkedInAppointment) {
       return 'occupied';
     }
 
     // Check for upcoming appointment within threshold
-    const upcomingAppointment = station.appointments.find((apt) => {
+    const upcomingAppointment = appointments.find((apt) => {
       if (apt.status !== 'booked' && apt.status !== 'confirmed') {
         return false;
       }
@@ -176,12 +223,36 @@ export class FloorViewService {
    * Get the relevant appointment for display based on station status
    */
   private getRelevantAppointment(
-    station: {
-      appointments: Array<any>;
-    },
+    appointments: Array<{
+      status: string;
+      scheduledTime: string;
+      scheduledDate: Date;
+      actualStartTime: Date | null;
+      customer: { name: string } | null;
+      stylist: { name: string } | null;
+      services: Array<{
+        service: { name: string; durationMinutes: number };
+      }>;
+      id: string;
+      customerName: string | null;
+      totalDuration: number;
+    }>,
     status: FloorViewStatus,
     now: Date
-  ): any | null {
+  ): {
+    status: string;
+    scheduledTime: string;
+    scheduledDate: Date;
+    actualStartTime: Date | null;
+    customer: { name: string } | null;
+    stylist: { name: string } | null;
+    services: Array<{
+      service: { name: string; durationMinutes: number };
+    }>;
+    id: string;
+    customerName: string | null;
+    totalDuration: number;
+  } | null {
     if (status === 'available' || status === 'out_of_service') {
       return null;
     }
@@ -189,23 +260,26 @@ export class FloorViewService {
     if (status === 'occupied') {
       // Return in-progress or checked-in appointment
       return (
-        station.appointments.find((apt) => apt.status === 'in_progress') ||
-        station.appointments.find((apt) => apt.status === 'checked_in')
+        appointments.find((apt) => apt.status === 'in_progress') ||
+        appointments.find((apt) => apt.status === 'checked_in') ||
+        null
       );
     }
 
     if (status === 'reserved') {
       // Return the next upcoming appointment
-      return station.appointments.find((apt) => {
-        if (apt.status !== 'booked' && apt.status !== 'confirmed') {
-          return false;
-        }
+      return (
+        appointments.find((apt) => {
+          if (apt.status !== 'booked' && apt.status !== 'confirmed') {
+            return false;
+          }
 
-        const appointmentTime = this.parseScheduledTime(apt.scheduledTime, now);
-        const minutesUntilStart = (appointmentTime.getTime() - now.getTime()) / (1000 * 60);
+          const appointmentTime = this.parseScheduledTime(apt.scheduledTime, now);
+          const minutesUntilStart = (appointmentTime.getTime() - now.getTime()) / (1000 * 60);
 
-        return minutesUntilStart >= 0 && minutesUntilStart <= RESERVED_THRESHOLD_MINUTES;
-      });
+          return minutesUntilStart >= 0 && minutesUntilStart <= RESERVED_THRESHOLD_MINUTES;
+        }) || null
+      );
     }
 
     return null;
@@ -221,7 +295,8 @@ export class FloorViewService {
       customer: { name: string } | null;
       stylist: { name: string } | null;
       scheduledTime: string;
-      startedAt: Date | null;
+      scheduledDate: Date;
+      actualStartTime: Date | null;
       totalDuration: number;
       services: Array<{
         service: { name: string; durationMinutes: number };
@@ -246,14 +321,16 @@ export class FloorViewService {
     let isOvertime = false;
     let estimatedEndTime: string | null = null;
 
-    if (appointment.startedAt) {
-      elapsedMinutes = Math.floor((now.getTime() - appointment.startedAt.getTime()) / (1000 * 60));
+    if (appointment.actualStartTime) {
+      elapsedMinutes = Math.floor(
+        (now.getTime() - appointment.actualStartTime.getTime()) / (1000 * 60)
+      );
       remainingMinutes = Math.max(0, totalDuration - elapsedMinutes);
       progressPercent = Math.min(100, Math.round((elapsedMinutes / totalDuration) * 100));
       isOvertime = elapsedMinutes > totalDuration + OVERTIME_THRESHOLD_MINUTES;
 
       // Calculate estimated end time
-      const endTime = new Date(appointment.startedAt.getTime() + totalDuration * 60 * 1000);
+      const endTime = new Date(appointment.actualStartTime.getTime() + totalDuration * 60 * 1000);
       estimatedEndTime = endTime.toISOString();
     }
 
@@ -263,9 +340,10 @@ export class FloorViewService {
       stylistName: appointment.stylist?.name || null,
       assistantNames: [], // TODO: Add assistant support when multi-stylist is implemented
       services: serviceNames,
-      startedAt: appointment.startedAt?.toISOString() || null,
+      startedAt: appointment.actualStartTime?.toISOString() || null,
       estimatedEndTime,
       scheduledTime: appointment.scheduledTime,
+      scheduledDate: appointment.scheduledDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
       elapsedMinutes,
       remainingMinutes,
       progressPercent,

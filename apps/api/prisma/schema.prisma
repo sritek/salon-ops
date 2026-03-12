@@ -701,10 +701,14 @@ model Appointment {
   customerPhone String? @map("customer_phone") @db.VarChar(20)
 
   // Scheduling
-  scheduledDate DateTime @map("scheduled_date") @db.Date
-  scheduledTime String   @map("scheduled_time") @db.VarChar(5)
-  endTime       String   @map("end_time") @db.VarChar(5)
-  totalDuration Int      @map("total_duration") // minutes
+  scheduledDate    DateTime @map("scheduled_date") @db.Date
+  scheduledTime    String   @map("scheduled_time") @db.VarChar(5)
+  scheduledEndTime String   @map("scheduled_end_time") @db.VarChar(5)
+  totalDuration    Int      @map("total_duration") // minutes
+
+  // Actual times (when service actually started/ended)
+  actualStartTime DateTime? @map("actual_start_time")
+  actualEndTime   DateTime? @map("actual_end_time")
 
   // Stylist
   stylistId               String? @map("stylist_id")
@@ -754,8 +758,7 @@ model Appointment {
   internalNotes String? @map("internal_notes") @db.Text
 
   // Station assignment (Floor View)
-  stationId String?   @map("station_id")
-  startedAt DateTime? @map("started_at") // When service actually started
+  stationId String? @map("station_id")
 
   // Metadata
   createdAt DateTime  @default(now()) @map("created_at")

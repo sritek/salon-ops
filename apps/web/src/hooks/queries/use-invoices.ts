@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { floorViewKeys } from '@/hooks/queries/use-stations';
 import type {
   Invoice,
   CreateInvoiceInput,
@@ -199,6 +200,8 @@ export function useQuickBill() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      // Invalidate floor view since station is now free
+      queryClient.invalidateQueries({ queryKey: floorViewKeys.all });
     },
   });
 }

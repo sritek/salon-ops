@@ -632,6 +632,35 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
   );
 
   // =====================================================
+  // STATION DEASSIGNMENT (Floor View)
+  // =====================================================
+
+  app.patch(
+    '/:id/deassign-station',
+    {
+      preHandler: [requirePermission('appointments:write')],
+      schema: {
+        tags: ['Floor View'],
+        summary: 'Deassign station from appointment',
+        description: 'Deassign a station from an appointment. Appointment remains checked-in.',
+        params: idParamSchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request, reply) => {
+      const { tenantId, sub: userId } = (request as any).user!;
+      const { id } = request.params;
+      const result = await appointmentsService.deassignStation(tenantId, id, userId);
+      return reply.send({ success: true, data: result });
+    }
+  );
+
+  // =====================================================
   // ADD SERVICE MID-APPOINTMENT (Upsell)
   // =====================================================
 

@@ -3,21 +3,33 @@
  * Types for Command Center dashboard
  */
 
+import type { FloorViewStatus } from './stations';
+
 export interface Station {
   id: string;
   name: string;
-  stylistId: string | null;
-  stylistName: string | null;
-  stylistAvatar: string | null;
-  status: 'available' | 'occupied' | 'break' | 'offline';
-  currentAppointment: {
+  stationType: {
+    id: string;
+    name: string;
+    icon: string | null;
+    color: string;
+  };
+  displayOrder: number;
+  status: FloorViewStatus;
+  appointment: {
     id: string;
     customerName: string;
-    serviceName: string;
-    startTime: string;
-    endTime: string;
-    progress: number;
-    timeRemaining: number;
+    stylistName: string | null;
+    assistantNames: string[];
+    services: string[];
+    startedAt: string | null;
+    estimatedEndTime: string | null;
+    scheduledTime: string;
+    delayMinutes: number; // Minutes late the appointment started
+    elapsedMinutes: number | null;
+    remainingMinutes: number | null;
+    progressPercent: number | null;
+    isOvertime: boolean;
   } | null;
 }
 

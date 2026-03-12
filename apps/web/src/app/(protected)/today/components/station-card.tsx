@@ -5,28 +5,23 @@
  * Displays a single station with status, appointment info, and actions
  */
 
-import {
-  Play,
-  Eye,
-  Plus,
-  CheckCircle,
-  Clock,
-  User,
-  Scissors,
-  AlertTriangle,
-  Wrench,
-} from 'lucide-react';
+import { Plus, Clock, User, Scissors, AlertTriangle, Wrench, X, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { isPendingAppointment } from '@/lib/appointment-helpers';
 import type { StationCard as StationCardType, FloorViewStatus } from '@/types/stations';
 
 interface StationCardProps {
   station: StationCardType;
   onAssign: (stationId: string) => void;
-  onViewDetails: (appointmentId: string) => void;
-  onComplete: (appointmentId: string) => void;
-  onStartNow: (appointmentId: string) => void;
+  onCheckout?: (
+    appointmentId: string,
+    isPending: boolean,
+    scheduledDate?: string,
+    scheduledTime?: string
+  ) => void;
+  onDeassign: (appointmentId: string, customerName?: string) => void;
 }
 
 const statusConfig: Record<
@@ -45,12 +40,6 @@ const statusConfig: Record<
     text: 'text-blue-700 dark:text-blue-400',
     label: 'Occupied',
   },
-  reserved: {
-    bg: 'bg-yellow-50 dark:bg-yellow-950/20',
-    border: 'border-yellow-200 dark:border-yellow-800',
-    text: 'text-yellow-700 dark:text-yellow-400',
-    label: 'Reserved',
-  },
   out_of_service: {
     bg: 'bg-gray-50 dark:bg-gray-950/20',
     border: 'border-gray-200 dark:border-gray-800',
@@ -59,13 +48,7 @@ const statusConfig: Record<
   },
 };
 
-export function StationCard({
-  station,
-  onAssign,
-  onViewDetails,
-  onComplete,
-  onStartNow,
-}: StationCardProps) {
+export function StationCard({ station, onAssign, onCheckout, onDeassign }: StationCardProps) {
   const config = statusConfig[station.status];
   const appointment = station.appointment;
 
@@ -100,6 +83,17 @@ export function StationCard({
         {/* Occupied Station */}
         {station.status === 'occupied' && appointment && (
           <>
+            {/* Pending Appointment Warning */}
+            {isPendingAppointment(appointment) && (
+              <div className="bg-red-50 border border-red-200 rounded px-2 py-2 flex gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-medium text-red-900">Pending Appointment</p>
+                  <p className="text-xs text-red-700">From {appointment.scheduledDate}</p>
+                </div>
+              </div>
+            )}
+
             {/* Customer & Stylist Info */}
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -123,6 +117,15 @@ export function StationCard({
               {appointment.services.slice(0, 2).join(', ')}
               {appointment.services.length > 2 && ` +${appointment.services.length - 2} more`}
             </div>
+
+            {/* Delay Badge */}
+            {appointment.delayMinutes > 0 && (
+              <div className="bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                <p className="text-xs text-orange-700 font-medium">
+                  Started {appointment.delayMinutes} min late
+                </p>
+              </div>
+            )}
 
             {/* Progress */}
             {appointment.progressPercent !== null && (
@@ -161,58 +164,35 @@ export function StationCard({
 
             {/* Actions */}
             <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => onViewDetails(appointment.id)}
-              >
-                <Eye className="h-3 w-3 mr-1" />
-                View
-              </Button>
-              <Button size="sm" className="flex-1" onClick={() => onComplete(appointment.id)}>
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Done
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* Reserved Station */}
-        {station.status === 'reserved' && appointment && (
-          <>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium truncate">{appointment.customerName}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Scheduled: {appointment.scheduledTime}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-xs text-muted-foreground">
-              {appointment.services.slice(0, 2).join(', ')}
-              {appointment.services.length > 2 && ` +${appointment.services.length - 2} more`}
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => onViewDetails(appointment.id)}
-              >
-                <Eye className="h-3 w-3 mr-1" />
-                View
-              </Button>
-              <Button size="sm" className="flex-1" onClick={() => onStartNow(appointment.id)}>
-                <Play className="h-3 w-3 mr-1" />
-                Start
-              </Button>
+              {onCheckout && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() =>
+                    onCheckout(
+                      appointment.id,
+                      isPendingAppointment(appointment),
+                      appointment.scheduledDate,
+                      appointment.scheduledTime
+                    )
+                  }
+                >
+                  Checkout
+                </Button>
+              )}
+              {/* Only show Deassign for today's appointments, not pending ones */}
+              {!isPendingAppointment(appointment) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-destructive hover:text-destructive"
+                  onClick={() => onDeassign(appointment.id, appointment.customerName)}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Deassign
+                </Button>
+              )}
             </div>
           </>
         )}

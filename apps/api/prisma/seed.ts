@@ -1387,7 +1387,7 @@ async function seedAppointments(
           customerPhone: customer.phone,
           scheduledDate: date,
           scheduledTime: startTime,
-          endTime,
+          scheduledEndTime: endTime,
           totalDuration: service.durationMinutes,
           stylistId: stylist.id,
           bookingType: ['online', 'phone', 'walk_in'][Math.floor(Math.random() * 3)],
@@ -1438,7 +1438,7 @@ async function seedAppointments(
         customerPhone: customer.phone,
         scheduledDate: date,
         scheduledTime: timeSlot.start,
-        endTime: timeSlot.end,
+        scheduledEndTime: timeSlot.end,
         totalDuration: 90,
         stylistId: primaryStylist.id,
         bookingType: 'phone',
@@ -1479,7 +1479,7 @@ async function seedAppointments(
           customerPhone: customer.phone,
           scheduledDate: date,
           scheduledTime: timeSlot.start,
-          endTime: timeSlot.end,
+          scheduledEndTime: timeSlot.end,
           totalDuration: 60,
           stylistId: secondStylist.id,
           bookingType: 'walk_in',
@@ -1523,7 +1523,7 @@ async function seedAppointments(
           customerPhone: customer.phone,
           scheduledDate: date,
           scheduledTime: timeSlot.start,
-          endTime: timeSlot.end,
+          scheduledEndTime: timeSlot.end,
           totalDuration: 45,
           stylistId: thirdStylist.id,
           bookingType: 'online',
@@ -1566,7 +1566,7 @@ async function seedAppointments(
           customerPhone: customer.phone,
           scheduledDate: date,
           scheduledTime: apt.start,
-          endTime: apt.end,
+          scheduledEndTime: apt.end,
           totalDuration: apt.duration,
           stylistId: fourthStylist.id,
           bookingType: 'phone',
@@ -2543,7 +2543,7 @@ async function seedStations(tenantId: string, branches: { id: string }[]) {
         stationTypeId: stationTypes[0].id, // Styling Chair
         name: `Chair ${i}`,
         displayOrder: i - 1,
-        status: 'available',
+        status: 'active',
       });
     }
 
@@ -2555,7 +2555,7 @@ async function seedStations(tenantId: string, branches: { id: string }[]) {
         stationTypeId: stationTypes[1].id, // Wash Basin
         name: `Wash ${i}`,
         displayOrder: 4 + i - 1,
-        status: 'available',
+        status: 'active',
       });
     }
 
@@ -2567,7 +2567,7 @@ async function seedStations(tenantId: string, branches: { id: string }[]) {
         stationTypeId: stationTypes[2].id, // Nail Station
         name: `Nail ${i}`,
         displayOrder: 6 + i - 1,
-        status: 'available',
+        status: 'active',
       });
     }
 
@@ -2579,7 +2579,7 @@ async function seedStations(tenantId: string, branches: { id: string }[]) {
         stationTypeId: stationTypes[3].id, // Facial Bed
         name: `Facial ${i}`,
         displayOrder: 8 + i - 1,
-        status: 'available',
+        status: 'active',
       });
     }
 
@@ -2590,7 +2590,7 @@ async function seedStations(tenantId: string, branches: { id: string }[]) {
       stationTypeId: stationTypes[4].id, // Massage Table
       name: 'Massage 1',
       displayOrder: 10,
-      status: 'available',
+      status: 'active',
     });
   }
 

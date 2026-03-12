@@ -347,11 +347,11 @@ export class AvailabilityService {
         status: { notIn: ['cancelled', 'no_show', 'rescheduled'] },
         deletedAt: null,
       },
-      select: { scheduledTime: true, endTime: true },
+      select: { scheduledTime: true, scheduledEndTime: true },
     });
 
     for (const apt of existingAppointments) {
-      if (this.timesOverlap(startTime, endTime, apt.scheduledTime, apt.endTime)) {
+      if (this.timesOverlap(startTime, endTime, apt.scheduledTime, apt.scheduledEndTime)) {
         return false;
       }
     }
@@ -443,7 +443,7 @@ export class AvailabilityService {
       },
       select: {
         scheduledTime: true,
-        endTime: true,
+        scheduledEndTime: true,
         customerName: true,
       },
       orderBy: { scheduledTime: 'asc' },
@@ -452,7 +452,7 @@ export class AvailabilityService {
     for (const apt of appointments) {
       busySlots.push({
         startTime: apt.scheduledTime,
-        endTime: apt.endTime,
+        endTime: apt.scheduledEndTime,
         type: 'appointment',
         label: apt.customerName || 'Appointment',
       });

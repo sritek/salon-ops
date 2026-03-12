@@ -80,7 +80,7 @@ export interface StationFilters {
 // Floor View Types
 // ============================================
 
-export type FloorViewStatus = 'available' | 'occupied' | 'reserved' | 'out_of_service';
+export type FloorViewStatus = 'available' | 'occupied' | 'out_of_service';
 
 export interface StationCard {
   id: string;
@@ -105,6 +105,8 @@ export interface StationAppointment {
   startedAt: string | null;
   estimatedEndTime: string | null;
   scheduledTime: string;
+  scheduledDate: string; // Date in YYYY-MM-DD format
+  delayMinutes: number;
   elapsedMinutes: number | null;
   remainingMinutes: number | null;
   progressPercent: number | null;
@@ -115,7 +117,6 @@ export interface FloorViewSummary {
   total: number;
   available: number;
   occupied: number;
-  reserved: number;
   outOfService: number;
 }
 

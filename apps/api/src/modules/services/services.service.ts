@@ -89,10 +89,7 @@ export class ServicesService {
   /**
    * Get a single service by ID
    */
-  async getServiceById(
-    tenantId: string,
-    serviceId: string
-  ): Promise<Service | null> {
+  async getServiceById(tenantId: string, serviceId: string): Promise<Service | null> {
     return prisma.service.findFirst({
       where: {
         id: serviceId,
@@ -304,6 +301,7 @@ export class ServicesService {
     // Generate new SKU
     let newSku = `${original.sku}-COPY`;
     let counter = 1;
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const exists = await prisma.service.findUnique({
         where: { tenantId_sku: { tenantId, sku: newSku } },
@@ -365,10 +363,7 @@ export class ServicesService {
   /**
    * Get service catalog (hierarchical view for a branch)
    */
-  async getServiceCatalog(
-    tenantId: string,
-    query: CatalogQuery
-  ) {
+  async getServiceCatalog(tenantId: string, query: CatalogQuery) {
     const categoryWhere: Prisma.ServiceCategoryWhereInput = {
       tenantId,
       deletedAt: null,

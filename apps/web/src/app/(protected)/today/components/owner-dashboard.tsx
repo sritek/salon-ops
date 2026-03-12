@@ -7,7 +7,7 @@
  * Includes Floor View tab for station management
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -24,11 +24,10 @@ import {
   BarChart3,
 } from 'lucide-react';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useOwnerDashboard } from '@/hooks/queries/use-owner-dashboard';
 import { useOpenPanel } from '@/components/ux/slide-over';
-import { useStartAppointment, useCompleteAppointment } from '@/hooks/queries/use-appointments';
+import { DeassignAppointmentDialog } from '@/components/ux/dialogs/deassign-appointment-dialog';
 import { FloorViewTab } from './floor-view-tab';
 import { useUIStore } from '@/stores/ui-store';
 
@@ -75,9 +74,10 @@ export function OwnerDashboardViewToggle() {
 export function OwnerDashboard({ branchId }: OwnerDashboardProps) {
   const { data, isLoading } = useOwnerDashboard({ branchId });
   const { ownerDashboardView } = useUIStore();
-  const { openStationAssignment, openAppointmentDetails, openCheckout } = useOpenPanel();
-  const startMutation = useStartAppointment();
-  const completeMutation = useCompleteAppointment();
+  const { openStationAssignment, openAppointmentDetails } = useOpenPanel();
+  const [deassignDialogOpen, setDeassignDialogOpen] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
 
   // Floor view action handlers
   const handleAssign = useCallback(
@@ -87,36 +87,26 @@ export function OwnerDashboard({ branchId }: OwnerDashboardProps) {
     [openStationAssignment]
   );
 
-  const handleViewDetails = useCallback(
-    (appointmentId: string) => {
-      openAppointmentDetails(appointmentId);
+  const handleDeassign = useCallback((appointmentId: string, customerName?: string) => {
+    setSelectedAppointmentId(appointmentId);
+    setSelectedCustomerName(customerName || null);
+    setDeassignDialogOpen(true);
+  }, []);
+
+  const handleDeassignSuccess = useCallback(() => {
+    setSelectedAppointmentId(null);
+    setSelectedCustomerName(null);
+  }, []);
+
+  const handleCheckout = useCallback(
+    (appointmentId: string, isPending: boolean, scheduledDate?: string) => {
+      openAppointmentDetails(appointmentId, {
+        isCheckoutMode: true,
+        isPending,
+        scheduledDate,
+      });
     },
     [openAppointmentDetails]
-  );
-
-  const handleComplete = useCallback(
-    async (appointmentId: string) => {
-      try {
-        await completeMutation.mutateAsync(appointmentId);
-        toast.success('Appointment completed');
-        openCheckout(appointmentId);
-      } catch (error: any) {
-        toast.error(error.message || 'Failed to complete appointment');
-      }
-    },
-    [completeMutation, openCheckout]
-  );
-
-  const handleStartNow = useCallback(
-    async (appointmentId: string) => {
-      try {
-        await startMutation.mutateAsync(appointmentId);
-        toast.success('Appointment started');
-      } catch (error: any) {
-        toast.error(error.message || 'Failed to start appointment');
-      }
-    },
-    [startMutation]
   );
 
   if (isLoading) {
@@ -125,13 +115,23 @@ export function OwnerDashboard({ branchId }: OwnerDashboardProps) {
 
   if (ownerDashboardView === 'floor') {
     return (
-      <FloorViewTab
-        branchId={branchId}
-        onAssign={handleAssign}
-        onViewDetails={handleViewDetails}
-        onComplete={handleComplete}
-        onStartNow={handleStartNow}
-      />
+      <>
+        <FloorViewTab
+          branchId={branchId}
+          onAssign={handleAssign}
+          onDeassign={handleDeassign}
+          onCheckout={handleCheckout}
+        />
+        {selectedAppointmentId && (
+          <DeassignAppointmentDialog
+            open={deassignDialogOpen}
+            onOpenChange={setDeassignDialogOpen}
+            appointmentId={selectedAppointmentId}
+            customerName={selectedCustomerName || undefined}
+            onSuccess={handleDeassignSuccess}
+          />
+        )}
+      </>
     );
   }
 

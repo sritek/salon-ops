@@ -288,7 +288,7 @@ export class CalendarService {
         stylistId: apt.stylistId,
         date: format(apt.scheduledDate, 'yyyy-MM-dd'),
         startTime: apt.scheduledTime,
-        endTime: apt.endTime,
+        endTime: apt.scheduledEndTime,
         customerName: apt.customer?.name || apt.customerName || 'Guest',
         customerPhone: apt.customer?.phone || apt.customerPhone,
         services: apt.services.map((s) => s.serviceName),
@@ -352,7 +352,7 @@ export class CalendarService {
     if (!duration || duration <= 0) {
       // Calculate duration from existing start and end times
       const [startHours, startMins] = appointment.scheduledTime.split(':').map(Number);
-      const [endHours, endMins] = appointment.endTime.split(':').map(Number);
+      const [endHours, endMins] = appointment.scheduledEndTime.split(':').map(Number);
       const startTotalMins = startHours * 60 + startMins;
       const endTotalMins = endHours * 60 + endMins;
       duration = endTotalMins - startTotalMins;
@@ -363,7 +363,7 @@ export class CalendarService {
     }
 
     // Calculate new end time
-    const newEndTime = this.calculateEndTime(newTime, duration);
+    const newScheduledEndTime = this.calculateEndTime(newTime, duration);
 
     // Check for conflicts at new time/stylist
     const targetStylistId = newStylistId || appointment.stylistId;
@@ -391,7 +391,7 @@ export class CalendarService {
         targetStylistId,
         newDate,
         newTime,
-        newEndTime
+        newScheduledEndTime
       );
 
       if (isBlocked) {
@@ -410,7 +410,7 @@ export class CalendarService {
         data: {
           scheduledDate: parseToUTCDate(newDate),
           scheduledTime: newTime,
-          endTime: newEndTime,
+          scheduledEndTime: newScheduledEndTime,
           stylistId: targetStylistId,
           // Also update totalDuration if it was missing/incorrect
           totalDuration: duration,
@@ -462,7 +462,7 @@ export class CalendarService {
     stylistId: string,
     excludeAppointmentId?: string
   ) {
-    const endTime = this.calculateEndTime(startTime, duration);
+    const scheduledEndTime = this.calculateEndTime(startTime, duration);
     const dateObj = parseToUTCDate(date);
 
     const where: Prisma.AppointmentWhereInput = {
@@ -483,14 +483,19 @@ export class CalendarService {
       select: {
         id: true,
         scheduledTime: true,
-        endTime: true,
+        scheduledEndTime: true,
         customerName: true,
         status: true,
       },
     });
 
     return existingAppointments.filter((apt) => {
-      return this.timesOverlap(startTime, endTime, apt.scheduledTime, apt.endTime);
+      return this.timesOverlap(
+        startTime,
+        scheduledEndTime,
+        apt.scheduledTime,
+        apt.scheduledEndTime
+      );
     });
   }
 
@@ -550,7 +555,7 @@ export class CalendarService {
       stylistId: string | null;
       scheduledDate: Date;
       scheduledTime: string;
-      endTime: string;
+      scheduledEndTime: string;
     }>
   ): Map<string, ConflictInfo> {
     const conflictMap = new Map<string, ConflictInfo>();
@@ -583,9 +588,9 @@ export class CalendarService {
           const apt2 = group[j];
           const overlapMinutes = this.calculateOverlapMinutes(
             apt1.scheduledTime,
-            apt1.endTime,
+            apt1.scheduledEndTime,
             apt2.scheduledTime,
-            apt2.endTime
+            apt2.scheduledEndTime
           );
 
           if (overlapMinutes > 0) {
@@ -597,7 +602,7 @@ export class CalendarService {
         if (conflictingIds.length > 0) {
           // Calculate appointment duration to determine severity
           const apt1Duration =
-            this.timeToMinutes(apt1.endTime) - this.timeToMinutes(apt1.scheduledTime);
+            this.timeToMinutes(apt1.scheduledEndTime) - this.timeToMinutes(apt1.scheduledTime);
           const overlapPercentage = (maxOverlapMinutes / apt1Duration) * 100;
 
           conflictMap.set(apt1.id, {

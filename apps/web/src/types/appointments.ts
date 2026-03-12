@@ -37,7 +37,7 @@ export interface Appointment {
   customerPhone?: string | null;
   scheduledDate: string;
   scheduledTime: string;
-  endTime: string;
+  scheduledEndTime: string;
   totalDuration: number;
   stylistId?: string | null;
   stylistGenderPreference?: GenderPreference | null;
@@ -64,7 +64,8 @@ export interface Appointment {
   isSalonCancelled: boolean;
   // Station assignment
   stationId?: string | null;
-  startedAt?: string | null;
+  actualStartTime?: string | null;
+  actualEndTime?: string | null;
   // Conflict tracking
   hasConflict: boolean;
   conflictNotes?: string | null;
@@ -205,7 +206,7 @@ export interface ConflictingAppointment {
   customerName: string;
   customerPhone?: string | null;
   scheduledTime: string;
-  endTime: string;
+  scheduledEndTime: string;
   status: string;
   services: string[];
 }
@@ -280,7 +281,7 @@ export interface CalendarAppointment {
   id: string;
   scheduledDate: string;
   scheduledTime: string;
-  endTime: string;
+  scheduledEndTime: string;
   customerName: string;
   customerPhone?: string | null;
   stylistId?: string | null;

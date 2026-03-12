@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { SplitPaymentInput } from '@/components/common';
-import { useAppointment } from '@/hooks/queries/use-appointments';
+import { useAppointment, useCompleteAppointment } from '@/hooks/queries/use-appointments';
 import { useQuickBill } from '@/hooks/queries/use-invoices';
 import { useBranchContext } from '@/hooks/use-branch-context';
 import { useErrorHandler } from '@/hooks/use-error-handler';
@@ -50,6 +51,8 @@ import type { PaymentInput } from '@/types/billing';
 interface CheckoutPanelProps {
   appointmentId: string;
   onComplete?: (invoiceId: string) => void;
+  isPending?: boolean; // For pending appointments from previous days
+  scheduledTime?: string; // HH:mm format (for pending appointments)
 }
 
 // ============================================
@@ -335,7 +338,12 @@ function PaymentConfirmDialog({
 // Main Component
 // ============================================
 
-export function CheckoutPanel({ appointmentId, onComplete }: CheckoutPanelProps) {
+export function CheckoutPanel({
+  appointmentId,
+  onComplete,
+  isPending = false,
+  scheduledTime,
+}: CheckoutPanelProps) {
   const closePanel = useClosePanel();
   const { branchId } = useBranchContext();
   const { handleError } = useErrorHandler();
@@ -343,10 +351,16 @@ export function CheckoutPanel({ appointmentId, onComplete }: CheckoutPanelProps)
   // State
   const [payments, setPayments] = useState<PaymentInput[]>([{ paymentMethod: 'cash', amount: 0 }]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [completionTime, setCompletionTime] = useState<string>(
+    scheduledTime ||
+      new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  );
+  const [isCompletingAppointment, setIsCompletingAppointment] = useState(false);
 
   // Queries
   const { data: appointment, isLoading: isLoadingAppointment } = useAppointment(appointmentId);
   const quickBill = useQuickBill();
+  const completeAppointmentMutation = useCompleteAppointment();
 
   // Calculate totals from appointment services
   const totals = useMemo(() => {
@@ -377,47 +391,79 @@ export function CheckoutPanel({ appointmentId, onComplete }: CheckoutPanelProps)
   const isFullyPaid = Math.abs(remainingAmount) < 0.01;
 
   // Handle complete checkout
-  const handleComplete = useCallback(() => {
+  const handleComplete = useCallback(async () => {
     if (!branchId || !appointment) return;
 
-    // Build items from appointment services
-    const items = (appointment.services || []).map((service) => ({
-      itemType: 'service' as const,
-      referenceId: service.serviceId,
-      quantity: service.quantity,
-      stylistId: service.stylistId || undefined,
-    }));
+    try {
+      setIsCompletingAppointment(true);
 
-    // Filter out zero-amount payments
-    const validPayments = payments.filter((p) => p.amount > 0);
-
-    quickBill.mutate(
-      {
-        branchId,
-        customerId: appointment.customerId || undefined,
-        customerName: appointment.customerName || undefined,
-        customerPhone: appointment.customerPhone || undefined,
-        appointmentId,
-        items,
-        payments: validPayments,
-      },
-      {
-        onSuccess: (invoice) => {
-          toast.success('Payment completed!', {
-            description: `Invoice #${invoice.invoiceNumber} created.`,
-          });
-          setShowConfirmDialog(false);
-          onComplete?.(invoice.id);
-          closePanel();
-        },
-        onError: (error) => {
-          handleError(error, {
-            customMessage: 'Failed to complete checkout. Please try again.',
-          });
-        },
+      // Step 1: Only complete the appointment if it's not already completed
+      if (appointment.status !== 'completed') {
+        await completeAppointmentMutation.mutateAsync({
+          appointmentId,
+          completionTime,
+        });
       }
-    );
-  }, [branchId, appointment, appointmentId, payments, quickBill, onComplete, closePanel]);
+
+      // Step 2: Build items from appointment services
+      const items = (appointment.services || []).map((service) => ({
+        itemType: 'service' as const,
+        referenceId: service.serviceId,
+        quantity: service.quantity,
+        stylistId: service.stylistId || undefined,
+      }));
+
+      // Step 3: Filter out zero-amount payments
+      const validPayments = payments.filter((p) => p.amount > 0);
+
+      // Step 4: Create invoice
+      quickBill.mutate(
+        {
+          branchId,
+          customerId: appointment.customerId || undefined,
+          customerName: appointment.customerName || undefined,
+          customerPhone: appointment.customerPhone || undefined,
+          appointmentId,
+          items,
+          payments: validPayments,
+        },
+        {
+          onSuccess: (invoice) => {
+            toast.success('Payment completed!', {
+              description: `Invoice #${invoice.invoiceNumber} created.`,
+            });
+            setShowConfirmDialog(false);
+            onComplete?.(invoice.id);
+            closePanel();
+          },
+          onError: (error) => {
+            handleError(error, {
+              customMessage: 'Failed to complete checkout. Please try again.',
+            });
+          },
+          onSettled: () => {
+            setIsCompletingAppointment(false);
+          },
+        }
+      );
+    } catch (error) {
+      handleError(error, {
+        customMessage: 'Failed to complete appointment. Please try again.',
+      });
+      setIsCompletingAppointment(false);
+    }
+  }, [
+    branchId,
+    appointment,
+    appointmentId,
+    completionTime,
+    completeAppointmentMutation,
+    payments,
+    quickBill,
+    onComplete,
+    closePanel,
+    handleError,
+  ]);
 
   // Get stylist names map (must be before early returns per rules-of-hooks)
   const stylistMap = useMemo(() => {
@@ -491,6 +537,32 @@ export function CheckoutPanel({ appointmentId, onComplete }: CheckoutPanelProps)
           walletBalance={appointment.customer?.walletBalance}
         />
 
+        {/* Completion Time Input - Only show if appointment is not already completed */}
+        {!isPending && appointment.status !== 'completed' && (
+          <>
+            <Separator />
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-semibold">Completion Time</h3>
+              </div>
+
+              <div>
+                <Label htmlFor="completion-time" className="text-sm">
+                  Completion Time
+                </Label>
+                <Input
+                  id="completion-time"
+                  type="time"
+                  value={completionTime}
+                  onChange={(e) => setCompletionTime(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Services */}
         <div>
           <h3 className="font-semibold mb-2">Services</h3>
@@ -534,8 +606,13 @@ export function CheckoutPanel({ appointmentId, onComplete }: CheckoutPanelProps)
         <Button variant="outline" onClick={() => closePanel()}>
           Cancel
         </Button>
-        <Button onClick={() => setShowConfirmDialog(true)} disabled={!canComplete}>
-          Complete Payment - ₹{totals.grandTotal.toFixed(2)}
+        <Button
+          onClick={() => setShowConfirmDialog(true)}
+          disabled={!canComplete || isCompletingAppointment}
+        >
+          {isCompletingAppointment
+            ? 'Completing...'
+            : `Complete Payment - ₹${totals.grandTotal.toFixed(2)}`}
         </Button>
       </SlideOverFooter>
 
@@ -544,7 +621,7 @@ export function CheckoutPanel({ appointmentId, onComplete }: CheckoutPanelProps)
         open={showConfirmDialog}
         onOpenChange={setShowConfirmDialog}
         onConfirm={handleComplete}
-        isLoading={quickBill.isPending}
+        isLoading={quickBill.isPending || isCompletingAppointment}
         customerName={appointment.customer?.name || appointment.customerName || undefined}
         appointmentDate={
           appointment.scheduledDate

@@ -32,6 +32,8 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { StatusBadge, Notice } from '@/components/common';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
@@ -44,14 +46,19 @@ import {
   RescheduleAppointmentDialog,
   StartServiceDialog,
 } from '@/components/ux/dialogs';
-import { useAppointment } from '@/hooks/queries/use-appointments';
+import { useAppointment, useCompleteAppointment } from '@/hooks/queries/use-appointments';
 import { useAuthStore } from '@/stores/auth-store';
 import { maskPhoneNumber, shouldMaskPhoneForRole } from '@/lib/phone-masking';
+import { useErrorHandler } from '@/hooks/use-error-handler';
 import { AppointmentStatus } from '@/types/appointments';
 import { cn } from '@/lib/utils';
 
 interface AppointmentDetailsPanelProps {
   appointmentId: string;
+  // For floor view checkout flow
+  isCheckoutMode?: boolean;
+  isPending?: boolean;
+  scheduledDate?: string;
 }
 
 // Status action configurations - removed 'complete' from in_progress since checkout handles it
@@ -74,11 +81,17 @@ const STATUS_ACTIONS = {
   no_show: [],
 };
 
-export function AppointmentDetailsPanel({ appointmentId }: AppointmentDetailsPanelProps) {
+export function AppointmentDetailsPanel({
+  appointmentId,
+  isCheckoutMode = false,
+  isPending = false,
+  scheduledDate,
+}: AppointmentDetailsPanelProps) {
   const closePanel = useClosePanel();
   const router = useRouter();
   const { openCheckout } = useOpenPanel();
   const { user } = useAuthStore();
+  const { handleError } = useErrorHandler();
   const shouldMask = user?.role ? shouldMaskPhoneForRole(user.role) : false;
 
   // Dialog states
@@ -91,7 +104,18 @@ export function AppointmentDetailsPanel({ appointmentId }: AppointmentDetailsPan
   const [editServicesDialogOpen, setEditServicesDialogOpen] = useState(false);
   const [startServiceDialogOpen, setStartServiceDialogOpen] = useState(false);
 
+  // Checkout mode state
+  const [completionDate, setCompletionDate] = useState<string>(
+    scheduledDate || new Date().toISOString().split('T')[0]
+  );
+  const [completionTime, setCompletionTime] = useState<string>(
+    new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  );
+  const [isCompletingAppointment, setIsCompletingAppointment] = useState(false);
+
+  // Queries
   const { data: appointment, isLoading, error } = useAppointment(appointmentId);
+  const completeAppointmentMutation = useCompleteAppointment();
 
   // Get available actions based on current status
   const availableActions = useMemo(() => {
@@ -141,6 +165,38 @@ export function AppointmentDetailsPanel({ appointmentId }: AppointmentDetailsPan
     setRescheduleDialogOpen(true);
   }, []);
 
+  // Handle proceed to checkout from floor view (completes appointment then opens checkout)
+  const handleProceedToCheckout = useCallback(async () => {
+    if (!appointmentId) return;
+
+    try {
+      setIsCompletingAppointment(true);
+
+      // Complete the appointment with provided times
+      await completeAppointmentMutation.mutateAsync({
+        appointmentId,
+        completionDate,
+        completionTime,
+      });
+
+      // Open checkout panel with the completed appointment
+      openCheckout(appointmentId);
+    } catch (error) {
+      handleError(error, {
+        customMessage: 'Failed to complete appointment. Please try again.',
+      });
+    } finally {
+      setIsCompletingAppointment(false);
+    }
+  }, [
+    appointmentId,
+    completionDate,
+    completionTime,
+    completeAppointmentMutation,
+    openCheckout,
+    handleError,
+  ]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -179,7 +235,7 @@ export function AppointmentDetailsPanel({ appointmentId }: AppointmentDetailsPan
 
   // Format date and time
   const formattedDate = format(parseISO(appointment.scheduledDate), 'EEEE, MMMM d, yyyy');
-  const formattedTime = `${appointment.scheduledTime} - ${appointment.endTime || '--:--'}`;
+  const formattedTime = `${appointment.scheduledTime} - ${appointment.scheduledEndTime || '--:--'}`;
   const canEditServices = (
     ['booked', 'confirmed', 'checked_in', 'in_progress'] as AppointmentStatus[]
   ).includes(appointment.status);
@@ -365,6 +421,54 @@ export function AppointmentDetailsPanel({ appointmentId }: AppointmentDetailsPan
           </>
         )}
 
+        {/* Completion Time Input - Only show in checkout mode */}
+        {isCheckoutMode && (
+          <>
+            <Separator />
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-semibold">Completion Time</h3>
+              </div>
+
+              {isPending && (
+                <div>
+                  <Label htmlFor="completion-date" className="text-sm">
+                    Completion Date
+                  </Label>
+                  <Input
+                    id="completion-date"
+                    type="date"
+                    value={completionDate}
+                    onChange={(e) => setCompletionDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="completion-time" className="text-sm">
+                  Completion Time
+                </Label>
+                <Input
+                  id="completion-time"
+                  type="time"
+                  value={completionTime}
+                  onChange={(e) => setCompletionTime(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+
+              {isPending && (
+                <div className="flex gap-2 rounded bg-blue-50 dark:bg-blue-950/20 p-2 text-xs text-blue-700 dark:text-blue-400">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                  <p>Completing appointment from {scheduledDate}</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {/* Status Notices */}
         {/* Payment Completed - Show for completed appointments */}
         {appointment.status === 'completed' && (
@@ -432,80 +536,108 @@ export function AppointmentDetailsPanel({ appointmentId }: AppointmentDetailsPan
 
       {/* Action Buttons */}
       <div className="border-t p-4 space-y-3">
-        {/* Status Actions */}
-        {availableActions.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
-            {availableActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <Button
-                  key={action.status}
-                  variant={action.variant}
-                  size="sm"
-                  onClick={() => handleStatusChange(action.status)}
-                >
-                  <Icon className="h-4 w-4 mr-1" />
-                  {action.label}
-                </Button>
-              );
-            })}
-
-            {/* Reschedule button for non-completed appointments */}
-            {canReschedule && (
-              <Button variant="outline" size="sm" onClick={handleReschedule}>
-                <RefreshCw className="h-4 w-4 mr-1" />
-                Reschedule
-              </Button>
-            )}
-          </div>
+        {/* Checkout Mode - Show Confirm & Proceed button */}
+        {isCheckoutMode && (
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleProceedToCheckout}
+            disabled={isCompletingAppointment}
+          >
+            {isCompletingAppointment ? 'Completing...' : 'Confirm & Proceed to Checkout'}
+          </Button>
         )}
 
-        {/* Checkout Button */}
-        {showCheckout && (
-          <Button className="w-full" size="lg" onClick={handleCheckout}>
-            <CreditCard className="h-5 w-5 mr-2" />
-            Checkout
-          </Button>
+        {/* Normal Mode - Show status actions and checkout */}
+        {!isCheckoutMode && (
+          <>
+            {/* Status Actions */}
+            {availableActions.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                {availableActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <Button
+                      key={action.status}
+                      variant={action.variant}
+                      size="sm"
+                      onClick={() => handleStatusChange(action.status)}
+                    >
+                      <Icon className="h-4 w-4 mr-1" />
+                      {action.label}
+                    </Button>
+                  );
+                })}
+
+                {/* Reschedule button for non-completed appointments */}
+                {canReschedule && (
+                  <Button variant="outline" size="sm" onClick={handleReschedule}>
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Reschedule
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Checkout Button */}
+            {showCheckout && (
+              <Button className="w-full" size="lg" onClick={handleCheckout}>
+                <CreditCard className="h-5 w-5 mr-2" />
+                Checkout
+              </Button>
+            )}
+          </>
         )}
       </div>
 
-      {/* Dialogs */}
-      <AppointmentStatusDialog
-        open={statusDialogOpen}
-        onOpenChange={setStatusDialogOpen}
-        appointmentId={appointmentId}
-        targetStatus={statusDialogTarget}
-        customerName={appointment.customerName || undefined}
-        scheduledTime={appointment.scheduledTime}
-      />
+      {/* Dialogs - Conditionally rendered only when open to ensure fresh calculations */}
+      {statusDialogOpen && (
+        <AppointmentStatusDialog
+          open={statusDialogOpen}
+          onOpenChange={setStatusDialogOpen}
+          appointmentId={appointmentId}
+          targetStatus={statusDialogTarget}
+          customerName={appointment.customerName || undefined}
+          scheduledTime={appointment.scheduledTime}
+        />
+      )}
 
-      <CancelAppointmentDialog
-        open={cancelDialogOpen}
-        onOpenChange={setCancelDialogOpen}
-        appointmentId={appointmentId}
-        customerName={appointment.customerName || undefined}
-      />
+      {cancelDialogOpen && (
+        <CancelAppointmentDialog
+          open={cancelDialogOpen}
+          onOpenChange={setCancelDialogOpen}
+          appointmentId={appointmentId}
+          customerName={appointment.customerName || undefined}
+        />
+      )}
 
-      <RescheduleAppointmentDialog
-        open={rescheduleDialogOpen}
-        onOpenChange={setRescheduleDialogOpen}
-        appointment={appointment}
-      />
+      {rescheduleDialogOpen && (
+        <RescheduleAppointmentDialog
+          open={rescheduleDialogOpen}
+          onOpenChange={setRescheduleDialogOpen}
+          appointment={appointment}
+        />
+      )}
 
-      <EditServicesDialog
-        open={editServicesDialogOpen}
-        onOpenChange={setEditServicesDialogOpen}
-        appointment={appointment}
-        canEdit={canEditServices}
-      />
+      {editServicesDialogOpen && (
+        <EditServicesDialog
+          open={editServicesDialogOpen}
+          onOpenChange={setEditServicesDialogOpen}
+          appointment={appointment}
+          canEdit={canEditServices}
+        />
+      )}
 
-      <StartServiceDialog
-        open={startServiceDialogOpen}
-        onOpenChange={setStartServiceDialogOpen}
-        appointmentId={appointmentId}
-        customerName={appointment.customerName || undefined}
-        serviceName={appointment.services?.[0]?.serviceName}
-      />
+      {startServiceDialogOpen && (
+        <StartServiceDialog
+          open={startServiceDialogOpen}
+          onOpenChange={setStartServiceDialogOpen}
+          appointmentId={appointmentId}
+          customerName={appointment.customerName || undefined}
+          serviceName={appointment.services?.[0]?.serviceName}
+          scheduledTime={appointment.scheduledTime}
+        />
+      )}
     </div>
   );
 }

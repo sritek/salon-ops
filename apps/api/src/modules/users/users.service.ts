@@ -359,6 +359,7 @@ export class UsersService {
     }
 
     // Update user (excluding branchAssignments which is handled above)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { branchAssignments: _, ...updateData } = data;
 
     const user = await prisma.user.update({

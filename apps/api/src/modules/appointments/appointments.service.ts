@@ -203,7 +203,7 @@ export class AppointmentsService {
     stylistId?: string,
     excludeAppointmentId?: string
   ) {
-    const endTime = this.calculateEndTime(scheduledTime, duration);
+    const scheduledEndTime = this.calculateEndTime(scheduledTime, duration);
     const dateObj = parseToUTCDate(scheduledDate);
 
     const where: Prisma.AppointmentWhereInput = {
@@ -236,7 +236,12 @@ export class AppointmentsService {
 
     // Find overlapping appointments
     const conflicts = existingAppointments.filter((apt) => {
-      return this.timesOverlap(scheduledTime, endTime, apt.scheduledTime, apt.endTime);
+      return this.timesOverlap(
+        scheduledTime,
+        scheduledEndTime,
+        apt.scheduledTime,
+        apt.scheduledEndTime
+      );
     });
 
     return conflicts.map((apt) => ({
@@ -244,7 +249,7 @@ export class AppointmentsService {
       customerName: apt.customer?.name || apt.customerName || 'Guest',
       customerPhone: apt.customer?.phone || apt.customerPhone,
       scheduledTime: apt.scheduledTime,
-      endTime: apt.endTime,
+      scheduledEndTime: apt.scheduledEndTime,
       status: apt.status,
       services: apt.services.map((s) => s.serviceName),
     }));
@@ -292,7 +297,7 @@ export class AppointmentsService {
     const totalDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
 
     // 3. Calculate end time
-    const endTime = this.calculateEndTime(input.scheduledTime, totalDuration);
+    const scheduledEndTime = this.calculateEndTime(input.scheduledTime, totalDuration);
 
     // 3.5. Check for conflicts - we allow conflicts but mark them
     // Conflicts are shown in UI but don't block appointment creation
@@ -490,7 +495,7 @@ export class AppointmentsService {
           customerPhone: input.customerPhone,
           scheduledDate: parseToUTCDate(input.scheduledDate),
           scheduledTime: input.scheduledTime,
-          endTime,
+          scheduledEndTime,
           totalDuration,
           stylistId: input.stylistId,
           stylistGenderPreference: input.stylistGenderPreference,
@@ -650,13 +655,13 @@ export class AppointmentsService {
       throw new AppError('APT_030', 'Cannot start appointment in current status', 400);
     }
 
-    // Set startedAt timestamp when starting
+    // Set actualStartTime timestamp when starting
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.appointment.update({
         where: { id: appointmentId },
         data: {
           status: 'in_progress',
-          startedAt: new Date(),
+          actualStartTime: new Date(),
         },
         include: {
           services: true,
@@ -686,12 +691,15 @@ export class AppointmentsService {
   /**
    * Complete appointment
    */
-  async complete(tenantId: string, appointmentId: string, userId: string) {
+  async complete(tenantId: string, appointmentId: string, userId: string, actualEndTime?: Date) {
     const appointment = await this.getAppointmentById(tenantId, appointmentId);
 
     if (!STATUS_TRANSITIONS[appointment.status]?.includes('completed')) {
       throw new AppError('APT_030', 'Cannot complete appointment in current status', 400);
     }
+
+    // Use provided end time or default to current time
+    const endTime = actualEndTime || new Date();
 
     // Clear station assignment when completing
     return this.prisma.$transaction(async (tx) => {
@@ -700,6 +708,8 @@ export class AppointmentsService {
         data: {
           status: 'completed',
           stationId: null, // Clear station on completion
+          actualEndTime: endTime,
+          updatedAt: new Date(),
         },
         include: {
           services: true,
@@ -889,7 +899,7 @@ export class AppointmentsService {
       throw new AppError('APT_020', `Maximum reschedule limit (${MAX_RESCHEDULES}) reached`, 400);
     }
 
-    const newEndTime = this.calculateEndTime(input.newTime, appointment.totalDuration);
+    const newScheduledEndTime = this.calculateEndTime(input.newTime, appointment.totalDuration);
 
     return this.prisma.$transaction(async (tx) => {
       // Update original appointment
@@ -920,7 +930,7 @@ export class AppointmentsService {
           customerPhone: appointment.customerPhone,
           scheduledDate: parseToUTCDate(input.newDate),
           scheduledTime: input.newTime,
-          endTime: newEndTime,
+          scheduledEndTime: newScheduledEndTime,
           totalDuration: appointment.totalDuration,
           stylistId: input.stylistId ?? appointment.stylistId,
           stylistGenderPreference: appointment.stylistGenderPreference,
@@ -1234,9 +1244,14 @@ export class AppointmentsService {
     );
 
     if (conflicts.length > 0) {
-      throw new AppError('STYLIST_NOT_AVAILABLE', 'Stylist is not available for this time slot', 409, {
+      throw new AppError(
+        'STYLIST_NOT_AVAILABLE',
+        'Stylist is not available for this time slot',
+        409,
+        {
           conflicts,
-        });
+        }
+      );
     }
 
     // Update appointment with stylist
@@ -1334,12 +1349,14 @@ export class AppointmentsService {
       });
     }
 
-    // Update appointment with station
+    // Update appointment with station and change status to in_progress
     const updated = await this.prisma.$transaction(async (tx) => {
       const apt = await tx.appointment.update({
         where: { id: appointmentId },
         data: {
           stationId,
+          status: 'in_progress',
+          actualStartTime: new Date(),
           updatedAt: new Date(),
         },
         include: {
@@ -1356,6 +1373,18 @@ export class AppointmentsService {
         },
       });
 
+      // Create status history record
+      await tx.appointmentStatusHistory.create({
+        data: {
+          tenantId,
+          appointmentId,
+          fromStatus: appointment.status,
+          toStatus: 'in_progress',
+          changedBy: userId,
+          notes: `Station assigned: ${station.name}`,
+        },
+      });
+
       // Create audit log
       await tx.auditLog.create({
         data: {
@@ -1365,8 +1394,8 @@ export class AppointmentsService {
           action: 'STATION_ASSIGNED',
           entityType: 'appointment',
           entityId: appointmentId,
-          oldValues: { stationId: appointment.stationId },
-          newValues: { stationId },
+          oldValues: { stationId: appointment.stationId, status: appointment.status },
+          newValues: { stationId, status: 'in_progress' },
         },
       });
 
@@ -1377,13 +1406,17 @@ export class AppointmentsService {
   }
 
   /**
-   * Clear station assignment from an appointment
+   * Deassign station from appointment and revert status to checked_in
    */
-  async clearStation(tenantId: string, appointmentId: string, userId: string) {
+  async deassignStation(tenantId: string, appointmentId: string, userId: string) {
     const appointment = await this.getAppointmentById(tenantId, appointmentId);
 
     if (!appointment.stationId) {
-      return appointment; // No station to clear
+      throw new AppError('APT_031', 'Appointment is not assigned to a station', 400);
+    }
+
+    if (appointment.status !== 'in_progress') {
+      throw new AppError('APT_032', 'Can only deassign appointments that are in progress', 400);
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -1391,6 +1424,9 @@ export class AppointmentsService {
         where: { id: appointmentId },
         data: {
           stationId: null,
+          status: 'checked_in',
+          actualStartTime: null,
+          actualEndTime: null,
           updatedAt: new Date(),
         },
         include: {
@@ -1401,6 +1437,21 @@ export class AppointmentsService {
           stylist: {
             select: { id: true, name: true },
           },
+          station: {
+            include: { stationType: true },
+          },
+        },
+      });
+
+      // Create status history record
+      await tx.appointmentStatusHistory.create({
+        data: {
+          tenantId,
+          appointmentId,
+          fromStatus: 'in_progress',
+          toStatus: 'checked_in',
+          changedBy: userId,
+          notes: 'Deassigned from station',
         },
       });
 
@@ -1410,11 +1461,21 @@ export class AppointmentsService {
           tenantId,
           branchId: appointment.branchId,
           userId,
-          action: 'STATION_CLEARED',
+          action: 'STATION_DEASSIGNED',
           entityType: 'appointment',
           entityId: appointmentId,
-          oldValues: { stationId: appointment.stationId },
-          newValues: { stationId: null },
+          oldValues: {
+            stationId: appointment.stationId,
+            status: appointment.status,
+            actualStartTime: appointment.actualStartTime,
+            actualEndTime: appointment.actualEndTime,
+          },
+          newValues: {
+            stationId: null,
+            status: 'checked_in',
+            actualStartTime: null,
+            actualEndTime: null,
+          },
         },
       });
 
@@ -1521,7 +1582,9 @@ export class AppointmentsService {
         stylistId: inputService.stylistId || appointment.stylistId,
         status: 'pending' as const,
         commissionRate: new Decimal(service.commissionValue),
-        commissionAmount: new Decimal((unitPrice * quantity * Number(service.commissionValue)) / 100),
+        commissionAmount: new Decimal(
+          (unitPrice * quantity * Number(service.commissionValue)) / 100
+        ),
       };
     });
 
@@ -1551,7 +1614,7 @@ export class AppointmentsService {
           taxAmount,
           totalAmount,
           totalDuration,
-          endTime,
+          scheduledEndTime: endTime,
           updatedAt: new Date(),
         },
         include: {
@@ -1695,7 +1758,7 @@ export class AppointmentsService {
           taxAmount: totalTax,
           totalAmount: subtotal + totalTax,
           totalDuration,
-          endTime: this.calculateEndTime(appointment.scheduledTime, totalDuration),
+          scheduledEndTime: this.calculateEndTime(appointment.scheduledTime, totalDuration),
           updatedAt: new Date(),
         },
         include: {
@@ -1780,7 +1843,11 @@ export class AppointmentsService {
 
     // Check if appointment is in a valid status
     if (['completed', 'cancelled', 'no_show', 'rescheduled'].includes(appointment.status)) {
-      throw new AppError('APT_030', 'Cannot update stylists for appointment in current status', 400);
+      throw new AppError(
+        'APT_030',
+        'Cannot update stylists for appointment in current status',
+        400
+      );
     }
 
     const updates: any = { updatedAt: new Date() };

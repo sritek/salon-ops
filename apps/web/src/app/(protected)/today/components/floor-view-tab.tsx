@@ -18,18 +18,16 @@ import type { StationCard as StationCardType } from '@/types/stations';
 interface FloorViewTabProps {
   branchId: string;
   onAssign: (stationId: string) => void;
-  onViewDetails: (appointmentId: string) => void;
-  onComplete: (appointmentId: string) => void;
-  onStartNow: (appointmentId: string) => void;
+  onCheckout?: (
+    appointmentId: string,
+    isPending: boolean,
+    scheduledDate?: string,
+    scheduledTime?: string
+  ) => void;
+  onDeassign: (appointmentId: string, customerName?: string) => void;
 }
 
-export function FloorViewTab({
-  branchId,
-  onAssign,
-  onViewDetails,
-  onComplete,
-  onStartNow,
-}: FloorViewTabProps) {
+export function FloorViewTab({ branchId, onAssign, onDeassign, onCheckout }: FloorViewTabProps) {
   const { data, isLoading, refetch, isRefetching } = useFloorView(branchId, {
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
@@ -70,9 +68,8 @@ export function FloorViewTab({
             key={station.id}
             station={station}
             onAssign={onAssign}
-            onViewDetails={onViewDetails}
-            onComplete={onComplete}
-            onStartNow={onStartNow}
+            onDeassign={onDeassign}
+            onCheckout={onCheckout}
           />
         ))}
       </div>
