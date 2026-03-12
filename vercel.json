@@ -1,12 +1,8 @@
 {
-  "version": 2,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm install --frozen-lockfile && pnpm turbo run build --filter=@salon-ops/web",
-  "outputDirectory": "apps/web/.next",
-  "monorepoManager": "pnpm",
+  "devCommand": "cd apps/web && pnpm dev",
   "installCommand": "pnpm install --frozen-lockfile",
-  "env": {
-    "NEXT_PUBLIC_API_URL": "@api-url"
-  },
-  "envPrefix": "NEXT_PUBLIC_",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "outputDirectory": "apps/web/.next"
 }
