@@ -235,7 +235,7 @@ export default function AppointmentsPage() {
   );
 
   const handleComplete = useCallback(
-    async (id: string) => await completeAppointment.mutateAsync(id),
+    async (id: string) => await completeAppointment.mutateAsync({ appointmentId: id }),
     [completeAppointment]
   );
 

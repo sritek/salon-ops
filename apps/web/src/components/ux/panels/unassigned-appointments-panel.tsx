@@ -160,7 +160,7 @@ function UnassignedAppointmentCard({ appointment }: UnassignedAppointmentCardPro
         <div className="flex items-center gap-1">
           <Clock className="h-4 w-4" />
           <span>
-            {appointment.scheduledTime} - {appointment.endTime || '--:--'}
+            {appointment.scheduledTime} - {appointment.scheduledEndTime || '--:--'}
           </span>
         </div>
         <div className="flex items-center gap-1">

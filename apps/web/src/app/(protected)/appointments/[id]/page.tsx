@@ -198,7 +198,7 @@ export default function AppointmentDetailPage() {
                       <div>
                         <div className="text-sm text-muted-foreground">{t('detail.time')}</div>
                         <div className="font-medium">
-                          {appointment.scheduledTime} - {appointment.endTime}
+                          {appointment.scheduledTime} - {appointment.scheduledEndTime}
                         </div>
                       </div>
                     </div>

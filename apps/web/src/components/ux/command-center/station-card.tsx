@@ -2,15 +2,15 @@
 
 /**
  * Station Card Component
- * Displays individual stylist station status
+ * Displays individual station status in the command center
  * Requirements: 4.1, 4.2, 4.12
  */
 
 import { memo } from 'react';
-import { User, Coffee, Clock, Play } from 'lucide-react';
+import { User, Clock, Wrench } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import type { Station } from '@/types/dashboard';
@@ -21,7 +21,10 @@ interface StationCardProps {
   onQuickAction?: (station: Station, action: 'book' | 'start') => void;
 }
 
-const STATUS_STYLES = {
+const STATUS_STYLES: Record<
+  Station['status'],
+  { border: string; bg: string; indicator: string; label: string }
+> = {
   available: {
     border: 'border-green-200 dark:border-green-800',
     bg: 'bg-green-50 dark:bg-green-950/30',
@@ -34,25 +37,20 @@ const STATUS_STYLES = {
     indicator: 'bg-blue-500',
     label: 'Occupied',
   },
-  break: {
-    border: 'border-yellow-200 dark:border-yellow-800',
-    bg: 'bg-yellow-50 dark:bg-yellow-950/30',
-    indicator: 'bg-yellow-500',
-    label: 'On Break',
-  },
-  offline: {
+  out_of_service: {
     border: 'border-gray-200 dark:border-gray-700',
     bg: 'bg-gray-50 dark:bg-gray-900/30',
     indicator: 'bg-gray-400',
-    label: 'Offline',
+    label: 'Out of Service',
   },
 };
 
 function StationCardComponent({ station, onClick, onQuickAction }: StationCardProps) {
   const styles = STATUS_STYLES[station.status];
-  const initials = station.stylistName
+  const appointment = station.appointment;
+  const stylistInitials = appointment?.stylistName
     ?.split(' ')
-    .map((n) => n[0])
+    .map((n: string) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
@@ -92,44 +90,46 @@ function StationCardComponent({ station, onClick, onQuickAction }: StationCardPr
         <span className="text-xs text-muted-foreground">{styles.label}</span>
       </div>
 
-      {/* Stylist info */}
+      {/* Station info */}
       <div className="flex items-center gap-3 mb-3">
         <Avatar className="h-10 w-10">
-          {station.stylistAvatar && (
-            <AvatarImage src={station.stylistAvatar} alt={station.stylistName || ''} />
-          )}
           <AvatarFallback className="text-sm">
-            {initials || <User className="h-4 w-4" />}
+            {stylistInitials || <User className="h-4 w-4" />}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">{station.stylistName || 'Unassigned'}</p>
+          <p className="font-medium truncate">{appointment?.stylistName || 'Unassigned'}</p>
           <p className="text-xs text-muted-foreground">{station.name}</p>
         </div>
       </div>
 
       {/* Current appointment or status */}
-      {station.status === 'occupied' && station.currentAppointment ? (
+      {station.status === 'occupied' && appointment ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-medium truncate">{station.currentAppointment.customerName}</span>
-            <span className="text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {station.currentAppointment.timeRemaining}m
-            </span>
+            <span className="font-medium truncate">{appointment.customerName}</span>
+            {appointment.remainingMinutes != null && (
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {appointment.remainingMinutes}m
+              </span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground truncate">
-            {station.currentAppointment.serviceName}
+            {appointment.services.join(', ')}
           </p>
-          <Progress value={station.currentAppointment.progress} className="h-1.5" />
+          {appointment.progressPercent != null && (
+            <Progress value={appointment.progressPercent} className="h-1.5" />
+          )}
           <p className="text-xs text-muted-foreground text-right">
-            {station.currentAppointment.startTime} - {station.currentAppointment.endTime}
+            {appointment.scheduledTime}
+            {appointment.estimatedEndTime ? ` - ${appointment.estimatedEndTime}` : ''}
           </p>
         </div>
-      ) : station.status === 'break' ? (
+      ) : station.status === 'out_of_service' ? (
         <div className="flex items-center justify-center py-4 text-muted-foreground">
-          <Coffee className="h-5 w-5 mr-2" />
-          <span className="text-sm">On Break</span>
+          <Wrench className="h-5 w-5 mr-2" />
+          <span className="text-sm">Out of Service</span>
         </div>
       ) : station.status === 'available' ? (
         <div className="pt-2">
@@ -139,15 +139,10 @@ function StationCardComponent({ station, onClick, onQuickAction }: StationCardPr
             className="w-full"
             onClick={(e) => handleQuickAction(e, 'book')}
           >
-            <Play className="h-3 w-3 mr-1" />
             Book Now
           </Button>
         </div>
-      ) : (
-        <div className="flex items-center justify-center py-4 text-muted-foreground">
-          <span className="text-sm">Not Available</span>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }
