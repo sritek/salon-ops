@@ -121,7 +121,7 @@ export default function AppointmentDetailPage() {
 
   const handleComplete = async () => {
     try {
-      await completeAppointment.mutateAsync(id);
+      await completeAppointment.mutateAsync({ appointmentId: id });
       toast.success('Appointment completed');
       refetch();
     } catch (error) {
@@ -198,7 +198,7 @@ export default function AppointmentDetailPage() {
                       <div>
                         <div className="text-sm text-muted-foreground">{t('detail.time')}</div>
                         <div className="font-medium">
-                          {appointment.scheduledTime} - {appointment.endTime}
+                          {appointment.scheduledTime} - {appointment.scheduledEndTime}
                         </div>
                       </div>
                     </div>

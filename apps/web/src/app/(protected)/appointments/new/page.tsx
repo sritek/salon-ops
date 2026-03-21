@@ -192,7 +192,7 @@ export default function NewAppointmentPage() {
       const aptStartMinutes =
         parseInt(apt.scheduledTime.split(':')[0]) * 60 + parseInt(apt.scheduledTime.split(':')[1]);
       const aptEndMinutes =
-        parseInt(apt.endTime.split(':')[0]) * 60 + parseInt(apt.endTime.split(':')[1]);
+        parseInt(apt.scheduledEndTime.split(':')[0]) * 60 + parseInt(apt.scheduledEndTime.split(':')[1]);
 
       // Check for overlap
       return selectedStartMinutes < aptEndMinutes && selectedEndMinutes > aptStartMinutes;
@@ -474,7 +474,7 @@ export default function NewAppointmentPage() {
                             >
                               <Clock className="h-3 w-3" />
                               <span>
-                                {apt.scheduledTime} - {apt.endTime}:{' '}
+                                {apt.scheduledTime} - {apt.scheduledEndTime}:{' '}
                                 {apt.customer?.name || apt.customerName || 'Guest'}
                               </span>
                               <Badge variant="outline" className="text-xs">
@@ -495,7 +495,7 @@ export default function NewAppointmentPage() {
                         <div className="space-y-1 max-h-32 overflow-y-auto">
                           {existingAppointments.map((apt) => (
                             <div key={apt.id} className="text-xs text-muted-foreground">
-                              {apt.scheduledTime} - {apt.endTime}:{' '}
+                              {apt.scheduledTime} - {apt.scheduledEndTime}:{' '}
                               {apt.customer?.name || apt.customerName || 'Guest'}
                             </div>
                           ))}
