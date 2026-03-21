@@ -5,6 +5,7 @@
 
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
+import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import {
@@ -51,6 +52,7 @@ import { usersRoutes } from './modules/users';
 import { stationTypesRoutes } from './modules/station-types';
 import { stationsRoutes } from './modules/stations';
 import { floorViewRoutes } from './modules/floor-view';
+import { internalRoutes } from './modules/internal';
 
 // Create Fastify instance with Zod type provider
 const fastify = Fastify({
@@ -88,6 +90,30 @@ async function registerPlugins() {
   // JWT
   await fastify.register(jwt, {
     secret: env.JWT_SECRET,
+  });
+
+  // Multipart for file uploads
+  await fastify.register(multipart, {
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB max
+      files: 1, // Only 1 file at a time
+      fields: 10, // Allow up to 10 non-file fields
+    },
+    // Throw error when file size limit is reached (cleaner error handling)
+    throwFileSizeLimit: true,
+  });
+
+  // Request timeout (30 seconds)
+  fastify.addHook('onRequest', async (request, reply) => {
+    request.raw.setTimeout(30000, () => {
+      reply.status(408).send({
+        success: false,
+        error: {
+          code: 'REQUEST_TIMEOUT',
+          message: 'Request timeout',
+        },
+      });
+    });
   });
 
   // Swagger documentation with Zod schema transform
@@ -210,6 +236,9 @@ async function registerRoutes() {
 
   // Floor View routes
   fastify.register(floorViewRoutes, { prefix: '/api/v1' });
+
+  // Internal Admin Portal routes (company-only)
+  fastify.register(internalRoutes, { prefix: '/api/v1/internal' });
 }
 
 // Start server

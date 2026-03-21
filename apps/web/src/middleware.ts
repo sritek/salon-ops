@@ -8,6 +8,8 @@ import type { NextRequest } from 'next/server';
 
 const publicRoutes = ['/login', '/register', '/forgot-password', '/book'];
 const authRoutes = ['/login', '/register', '/forgot-password'];
+const internalRoutes = ['/internal'];
+const internalAuthRoutes = ['/internal/login'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -23,6 +25,36 @@ export function middleware(request: NextRequest) {
     } catch {
       isAuthenticated = false;
     }
+  }
+
+  // Get admin auth state from cookie
+  const adminStorage = request.cookies.get('admin-storage')?.value;
+  let isAdminAuthenticated = false;
+
+  if (adminStorage) {
+    try {
+      const parsed = JSON.parse(adminStorage);
+      isAdminAuthenticated = parsed.state?.isAuthenticated === true;
+    } catch {
+      isAdminAuthenticated = false;
+    }
+  }
+
+  // Internal admin routes
+  if (pathname.startsWith('/internal')) {
+    // Internal login page - redirect to tenants if already logged in
+    if (internalAuthRoutes.some((route) => pathname === route)) {
+      if (isAdminAuthenticated) {
+        return NextResponse.redirect(new URL('/internal/tenants', request.url));
+      }
+      return NextResponse.next();
+    }
+
+    // Protected internal routes - redirect to internal login if not logged in
+    if (!isAdminAuthenticated) {
+      return NextResponse.redirect(new URL('/internal/login', request.url));
+    }
+    return NextResponse.next();
   }
 
   // Public booking pages

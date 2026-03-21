@@ -23,7 +23,11 @@
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
     "db:seed": "turbo run db:seed",
-    "db:studio": "turbo run db:studio"
+    "db:studio": "turbo run db:studio",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:ps": "docker-compose ps"
   },
   "devDependencies": {
     "prettier": "^3.2.5",

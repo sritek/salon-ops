@@ -57,6 +57,10 @@ const envSchema = z
     ENABLE_MEMBERSHIPS: booleanSchema.default(false),
     ENABLE_ONLINE_BOOKING: booleanSchema.default(false),
     ENABLE_MARKETING: booleanSchema.default(false),
+
+    // Internal Admin Portal
+    INTERNAL_ADMIN_EMAIL: z.string().email().default('admin@trimio.com'),
+    INTERNAL_ADMIN_PASSWORD: z.string().min(8).default('admin123456'),
   })
   .refine((data) => !data.ENABLE_REDIS || (data.ENABLE_REDIS && data.REDIS_URL), {
     message: 'REDIS_URL is required when ENABLE_REDIS is true',
