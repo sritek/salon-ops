@@ -195,12 +195,17 @@ export class CalendarService {
     // Get stylist breaks and blocked slots
     const stylistIds = userBranches.map((ub) => ub.user.id);
 
+    // Get day of week for filtering breaks (0 = Sunday, 6 = Saturday)
+    const dayOfWeek = getDayOfWeek(date);
+
     const [breaks, blockedSlots] = await Promise.all([
       this.prisma.stylistBreak.findMany({
         where: {
           tenantId,
           stylistId: { in: stylistIds },
           isActive: true,
+          // Filter by day of week: either matches the specific day or applies to all days (null)
+          OR: [{ dayOfWeek: dayOfWeek }, { dayOfWeek: null }],
         },
       }),
       this.prisma.stylistBlockedSlot.findMany({

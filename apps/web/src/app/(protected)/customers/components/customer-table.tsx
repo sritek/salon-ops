@@ -23,6 +23,7 @@ interface CustomerTableProps {
   page: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   hasFilters: boolean;
 }
@@ -39,11 +40,15 @@ export function CustomerTable({
   page,
   onPageChange,
   onPageSizeChange,
+  onEdit,
   onDelete,
   hasFilters,
 }: CustomerTableProps) {
   const t = useTranslations('customers.list');
-  const columns = useMemo(() => getCustomerColumns({ canWrite, onDelete }), [canWrite, onDelete]);
+  const columns = useMemo(
+    () => getCustomerColumns({ canWrite, onEdit, onDelete }),
+    [canWrite, onEdit, onDelete]
+  );
 
   const emptyState = (
     <EmptyState

@@ -75,13 +75,6 @@ export default function ServicesPage() {
     setPage(1);
   }, []);
 
-  const handleView = useCallback(
-    (id: string) => {
-      router.push(`/services/${id}`);
-    },
-    [router]
-  );
-
   const handleEdit = useCallback(
     (id: string) => {
       router.push(`/services/${id}?edit=true`);
@@ -153,7 +146,6 @@ export default function ServicesPage() {
             page={page}
             onPageChange={setPage}
             onPageSizeChange={handlePageSizeChange}
-            onView={handleView}
             onEdit={handleEdit}
             onDuplicate={handleDuplicate}
             onDelete={handleDelete}

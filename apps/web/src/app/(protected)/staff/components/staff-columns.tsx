@@ -2,10 +2,19 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 
 import { formatDate } from '@/lib/format';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 import type { ColumnDef } from '@/components/common';
 import type { StaffProfile } from '@/types/staff';
@@ -36,7 +45,17 @@ function getPrimaryBranch(staffMember: StaffProfile): string {
 // Column Definitions
 // ============================================
 
-export function getStaffColumns(): ColumnDef<StaffProfile>[] {
+interface GetColumnsOptions {
+  canWrite: boolean;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+export function getStaffColumns({
+  canWrite,
+  onEdit,
+  onDelete,
+}: GetColumnsOptions): ColumnDef<StaffProfile>[] {
   return [
     {
       accessorKey: 'name',
@@ -85,6 +104,11 @@ export function getStaffColumns(): ColumnDef<StaffProfile>[] {
       header: 'Status',
       cell: ({ row }) => <StaffStatusBadge isActive={row.original.isActive} />,
     },
+    {
+      id: 'actions',
+      cell: ({ row }) =>
+        canWrite ? <StaffActions staff={row.original} onEdit={onEdit} onDelete={onDelete} /> : null,
+    },
   ];
 }
 
@@ -103,5 +127,40 @@ function StaffStatusBadge({ isActive }: { isActive: boolean }) {
     <Badge variant={isActive ? 'default' : 'secondary'}>
       {isActive ? t('status.active') : t('status.inactive')}
     </Badge>
+  );
+}
+
+// ============================================
+// Actions Component
+// ============================================
+
+interface StaffActionsProps {
+  staff: StaffProfile;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+function StaffActions({ staff, onEdit, onDelete }: StaffActionsProps) {
+  const t = useTranslations('common');
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => onEdit(staff.userId)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          {t('actions.edit')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onDelete(staff.userId)} className="text-destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          Deactivate
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

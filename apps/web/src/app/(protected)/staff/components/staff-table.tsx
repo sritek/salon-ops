@@ -22,9 +22,12 @@ interface StaffTableProps {
   meta?: PaginationMeta;
   isLoading: boolean;
   error?: Error | null;
+  canWrite: boolean;
   page: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
   hasFilters: boolean;
 }
 
@@ -37,14 +40,20 @@ export function StaffTable({
   meta,
   isLoading,
   error,
+  canWrite,
   page,
   onPageChange,
   onPageSizeChange,
+  onEdit,
+  onDelete,
   hasFilters,
 }: StaffTableProps) {
   const t = useTranslations('staff');
   const tCommon = useTranslations('common');
-  const columns = useMemo(() => getStaffColumns(), []);
+  const columns = useMemo(
+    () => getStaffColumns({ canWrite, onEdit, onDelete }),
+    [canWrite, onEdit, onDelete]
+  );
 
   if (error) {
     return (

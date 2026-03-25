@@ -412,8 +412,73 @@ export class AppointmentsService {
       tokenNumber = (lastToken?.tokenNumber ?? 0) + 1;
     }
 
+    // 7.5. Auto-create or find customer if phone is provided but no customerId
+    let resolvedCustomerId = input.customerId;
+    let customerWasCreated = false;
+
+    if (!input.customerId && input.customerPhone) {
+      // Check if customer with this phone already exists
+      const existingCustomer = await this.prisma.customer.findFirst({
+        where: {
+          tenantId,
+          phone: input.customerPhone,
+          deletedAt: null,
+        },
+        select: { id: true, bookingStatus: true },
+      });
+
+      if (existingCustomer) {
+        // Use existing customer
+        resolvedCustomerId = existingCustomer.id;
+
+        // Check if existing customer is blocked (for online bookings)
+        if (input.bookingType === 'online' && existingCustomer.bookingStatus === 'blocked') {
+          throw new AppError('APT_011', 'Customer is blocked from online booking', 403);
+        }
+
+        // Check prepayment requirement for existing customer
+        if (input.bookingType === 'online' && existingCustomer.bookingStatus === 'prepaid_only') {
+          prepaymentRequired = true;
+          prepaymentAmount = subtotal + taxAmount;
+        }
+      } else {
+        // Create new customer - will be done in transaction below
+        customerWasCreated = true;
+      }
+    }
+
     // 8. Create appointment in transaction
     const appointment = await this.prisma.$transaction(async (tx) => {
+      // 8.0 Create customer if needed (phone provided, no existing customer)
+      if (customerWasCreated && input.customerPhone) {
+        const newCustomer = await tx.customer.create({
+          data: {
+            tenantId,
+            phone: input.customerPhone,
+            name: input.customerName || 'Guest',
+            firstVisitBranchId: input.branchId,
+          },
+        });
+        resolvedCustomerId = newCustomer.id;
+
+        // Audit log for auto-created customer
+        await tx.auditLog.create({
+          data: {
+            tenantId,
+            branchId: input.branchId,
+            userId,
+            action: 'CUSTOMER_AUTO_CREATED',
+            entityType: 'customer',
+            entityId: newCustomer.id,
+            newValues: {
+              name: newCustomer.name,
+              phone: newCustomer.phone,
+              source: 'appointment_booking',
+            },
+          },
+        });
+      }
+
       // 8.1 Process conflict actions if override is being used
       const processedConflicts: { id: string; action: string; customerName: string }[] = [];
 
@@ -490,7 +555,7 @@ export class AppointmentsService {
         data: {
           tenantId,
           branchId: input.branchId,
-          customerId: input.customerId,
+          customerId: resolvedCustomerId,
           customerName: input.customerName,
           customerPhone: input.customerPhone,
           scheduledDate: parseToUTCDate(input.scheduledDate),
@@ -557,6 +622,7 @@ export class AppointmentsService {
             tokenNumber: apt.tokenNumber,
             hadConflicts: processedConflicts.length > 0,
             processedConflicts: processedConflicts.length > 0 ? processedConflicts : undefined,
+            customerAutoCreated: customerWasCreated,
           },
         },
       });

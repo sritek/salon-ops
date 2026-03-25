@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { AlertTriangle, Eye, MoreHorizontal, Pencil, Star, Trash2, Wallet } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, MoreHorizontal, Pencil, Trash2, Wallet } from 'lucide-react';
 
 import { formatCurrency } from '@/lib/format';
 
@@ -42,14 +42,10 @@ export function getStatusBadgeVariant(
   status: BookingStatus
 ): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
-    case 'vip':
-      return 'default';
     case 'normal':
       return 'secondary';
     case 'blocked':
       return 'destructive';
-    case 'restricted':
-      return 'outline';
     default:
       return 'secondary';
   }
@@ -61,11 +57,13 @@ export function getStatusBadgeVariant(
 
 interface GetColumnsOptions {
   canWrite: boolean;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
 export function getCustomerColumns({
   canWrite,
+  onEdit,
   onDelete,
 }: GetColumnsOptions): ColumnDef<Customer>[] {
   return [
@@ -78,7 +76,9 @@ export function getCustomerColumns({
           <div className="flex items-center gap-2">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-medium">{customer.name}</span>
+                <Link href={`/customers/${customer.id}`} className="font-medium hover:underline">
+                  {customer.name}
+                </Link>
                 {customer.allergies && customer.allergies.length > 0 && (
                   <TooltipProvider>
                     <Tooltip>
@@ -130,9 +130,8 @@ export function getCustomerColumns({
       accessorKey: 'loyaltyPoints',
       header: () => <div className="text-right">Loyalty</div>,
       cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-1">
-          <Star className="size-3 text-amber-500" />
-          <span>{row.original.loyaltyPoints.toLocaleString()}</span>
+        <div className="flex items-center justify-end gap-1 text-amber-600">
+          <span>{row.original.loyaltyPoints.toLocaleString()} pts</span>
         </div>
       ),
     },
@@ -160,9 +159,10 @@ export function getCustomerColumns({
     },
     {
       id: 'actions',
-      cell: ({ row }) => (
-        <CustomerActions customer={row.original} canWrite={canWrite} onDelete={onDelete} />
-      ),
+      cell: ({ row }) =>
+        canWrite ? (
+          <CustomerActions customer={row.original} onEdit={onEdit} onDelete={onDelete} />
+        ) : null,
     },
   ];
 }
@@ -173,13 +173,11 @@ export function getCustomerColumns({
 
 interface CustomerActionsProps {
   customer: Customer;
-  canWrite: boolean;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-function CustomerActions({ customer, canWrite, onDelete }: CustomerActionsProps) {
-  const router = useRouter();
-
+function CustomerActions({ customer, onEdit, onDelete }: CustomerActionsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -188,23 +186,15 @@ function CustomerActions({ customer, canWrite, onDelete }: CustomerActionsProps)
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => router.push(`/customers/${customer.id}`)}>
-          <Eye className="mr-2 h-4 w-4" />
-          View Details
+        <DropdownMenuItem onClick={() => onEdit(customer.id)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Edit
         </DropdownMenuItem>
-        {canWrite && (
-          <>
-            <DropdownMenuItem onClick={() => router.push(`/customers/${customer.id}?edit=true`)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onDelete(customer.id)} className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Deactivate
-            </DropdownMenuItem>
-          </>
-        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onDelete(customer.id)} className="text-destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          Deactivate
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

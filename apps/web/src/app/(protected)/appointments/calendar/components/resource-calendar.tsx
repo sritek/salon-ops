@@ -565,6 +565,13 @@ export function ResourceCalendar({
                     return aptStartMins >= slotMins && aptStartMins < nextSlotMins;
                   });
 
+                  // Find breaks starting in this slot (to render as positioned blocks)
+                  const breaksStartingInSlot = stylist.breaks.filter((b) => {
+                    const breakStartMins =
+                      parseInt(b.start.split(':')[0]) * 60 + parseInt(b.start.split(':')[1]);
+                    return breakStartMins >= slotMins && breakStartMins < nextSlotMins;
+                  });
+
                   // Check if slot is occupied by ongoing appointment
                   const isOccupied = filteredAppointments.some((apt) => {
                     if (apt.stylistId !== stylist.id) return false;
@@ -577,10 +584,16 @@ export function ResourceCalendar({
                     return aptStartMins < slotMins && aptEndMins > slotMins;
                   });
 
-                  const isBreak = stylist.breaks.some((b) => time >= b.start && time < b.end);
-                  const isBlocked = stylist.blockedSlots.some(
-                    (s) => s.isFullDay || (time >= s.start && time < s.end)
-                  );
+                  // Check if slot overlaps with any blocked slot
+                  const isBlocked = stylist.blockedSlots.some((s) => {
+                    if (s.isFullDay) return true;
+                    const blockStartMins =
+                      parseInt(s.start.split(':')[0]) * 60 + parseInt(s.start.split(':')[1]);
+                    const blockEndMins =
+                      parseInt(s.end.split(':')[0]) * 60 + parseInt(s.end.split(':')[1]);
+                    // Slot overlaps with blocked slot if: slotStart < blockEnd AND slotEnd > blockStart
+                    return slotMins < blockEndMins && nextSlotMins > blockStartMins;
+                  });
                   const isOutsideHours =
                     !stylist.workingHours ||
                     time < stylist.workingHours.start ||
@@ -594,6 +607,16 @@ export function ResourceCalendar({
                   const hasConflictingAppointments = appointmentsStartingInSlot.some(
                     (apt) => apt.hasConflict
                   );
+
+                  // Check if slot overlaps with any break (for disabling click/drop)
+                  const slotOverlapsBreak = stylist.breaks.some((b) => {
+                    const breakStartMins =
+                      parseInt(b.start.split(':')[0]) * 60 + parseInt(b.start.split(':')[1]);
+                    const breakEndMins =
+                      parseInt(b.end.split(':')[0]) * 60 + parseInt(b.end.split(':')[1]);
+                    // Slot overlaps with break if: slotStart < breakEnd AND slotEnd > breakStart
+                    return slotMins < breakEndMins && nextSlotMins > breakStartMins;
+                  });
 
                   const slotId = `${stylist.id}-${time}`;
 
@@ -609,18 +632,55 @@ export function ResourceCalendar({
                         date={selectedDate}
                         time={time}
                         height={slotHeight}
-                        isBreak={isBreak}
+                        isBreak={slotOverlapsBreak}
                         isBlocked={isBlocked}
                         isOutsideHours={isOutsideHours}
                         isAfterHours={isAfterHours}
                         hasConflict={hasConflict}
                         hasConflictingAppointments={hasConflictingAppointments}
                         onClick={
-                          !isOccupied && appointmentsStartingInSlot.length === 0
+                          !isOccupied &&
+                          !slotOverlapsBreak &&
+                          appointmentsStartingInSlot.length === 0
                             ? () => onSlotClick(stylist.id, selectedDate, time)
                             : undefined
                         }
                       >
+                        {/* Render breaks starting in this slot */}
+                        {breaksStartingInSlot.map((brk) => {
+                          const breakStartMins =
+                            parseInt(brk.start.split(':')[0]) * 60 +
+                            parseInt(brk.start.split(':')[1]);
+                          const breakEndMins =
+                            parseInt(brk.end.split(':')[0]) * 60 + parseInt(brk.end.split(':')[1]);
+                          const duration = breakEndMins - breakStartMins;
+                          const height = (duration / timeSlotInterval) * slotHeight;
+                          const offsetMins = breakStartMins - slotMins;
+                          const topOffset = (offsetMins / timeSlotInterval) * slotHeight;
+
+                          return (
+                            <div
+                              key={brk.id}
+                              className="absolute z-[5] left-0 right-0 mx-1 rounded border border-amber-300 dark:border-amber-700 flex items-center justify-center pointer-events-none"
+                              style={{
+                                height: `${height}px`,
+                                top: `${topOffset}px`,
+                                background: `repeating-linear-gradient(
+                                  -45deg,
+                                  rgb(251 191 36 / 0.15),
+                                  rgb(251 191 36 / 0.15) 4px,
+                                  rgb(251 191 36 / 0.3) 4px,
+                                  rgb(251 191 36 / 0.3) 8px
+                                )`,
+                              }}
+                            >
+                              <span className="text-xs font-medium text-amber-700 dark:text-amber-300 truncate px-2 py-0.5 bg-white/70 dark:bg-gray-900/70 rounded">
+                                {brk.name || 'Break'}
+                              </span>
+                            </div>
+                          );
+                        })}
+
                         {/* Render appointments starting in this slot */}
                         {appointmentsStartingInSlot.map((appointment, aptIndex) => {
                           const startMins =

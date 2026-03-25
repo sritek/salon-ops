@@ -2,16 +2,18 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Plus } from 'lucide-react';
 
 import { PERMISSIONS } from '@salon-ops/shared';
 
-import { useStaffList } from '@/hooks/queries/use-staff';
+import { useStaffList, useDeactivateStaff } from '@/hooks/queries/use-staff';
 import { usePermissions } from '@/hooks/use-permissions';
 
 import {
   AccessDenied,
+  ConfirmDialog,
   FilterButton,
   PageContainer,
   PageContent,
@@ -25,7 +27,9 @@ import { StaffTable } from './components/staff-table';
 import { StaffFilterSheet, type StaffFiltersState } from './components/staff-filter-sheet';
 
 export default function StaffPage() {
+  const router = useRouter();
   const t = useTranslations('staff');
+  const tCommon = useTranslations('common');
   const { hasPermission } = usePermissions();
 
   const [search, setSearch] = useState('');
@@ -37,6 +41,7 @@ export default function StaffPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useStaffList({
     page,
@@ -47,7 +52,8 @@ export default function StaffPage() {
     employmentType: filters.employmentType !== 'all' ? filters.employmentType : undefined,
   });
 
-  const canWrite = hasPermission(PERMISSIONS.STAFF_WRITE);
+  const deactivateStaff = useDeactivateStaff();
+  const canWrite = hasPermission(PERMISSIONS.USERS_WRITE);
 
   const hasFilters =
     !!search ||
@@ -70,8 +76,26 @@ export default function StaffPage() {
     setPage(1);
   }, []);
 
+  const handleEdit = useCallback(
+    (id: string) => {
+      router.push(`/staff/${id}/edit`);
+    },
+    [router]
+  );
+
+  const handleDelete = useCallback((id: string) => {
+    setDeleteId(id);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (deleteId) {
+      await deactivateStaff.mutateAsync(deleteId);
+      setDeleteId(null);
+    }
+  }, [deleteId, deactivateStaff]);
+
   return (
-    <PermissionGuard permission={PERMISSIONS.STAFF_READ} fallback={<AccessDenied />}>
+    <PermissionGuard permission={PERMISSIONS.USERS_READ} fallback={<AccessDenied />}>
       <PageContainer>
         <PageHeader
           title={t('title')}
@@ -107,9 +131,12 @@ export default function StaffPage() {
             meta={data?.meta}
             isLoading={isLoading}
             error={error}
+            canWrite={canWrite}
             page={page}
             onPageChange={setPage}
             onPageSizeChange={handlePageSizeChange}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
             hasFilters={hasFilters}
           />
         </PageContent>
@@ -120,6 +147,16 @@ export default function StaffPage() {
           onOpenChange={setFilterOpen}
           filters={filters}
           onFiltersChange={handleFiltersChange}
+        />
+
+        <ConfirmDialog
+          open={!!deleteId}
+          onOpenChange={(open) => !open && setDeleteId(null)}
+          title={tCommon('confirmDelete.title')}
+          description={tCommon('confirmDelete.description')}
+          variant="destructive"
+          onConfirm={confirmDelete}
+          isLoading={deactivateStaff.isPending}
         />
       </PageContainer>
     </PermissionGuard>

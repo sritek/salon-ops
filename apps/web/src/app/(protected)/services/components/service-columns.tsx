@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { Copy, Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Copy, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 
 import { formatCurrency } from '@/lib/format';
 
@@ -24,7 +25,6 @@ import type { Service } from '@/types/services';
 
 interface GetColumnsOptions {
   canWrite: boolean;
-  onView: (id: string) => void;
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
@@ -32,7 +32,6 @@ interface GetColumnsOptions {
 
 export function getServiceColumns({
   canWrite,
-  onView,
   onEdit,
   onDuplicate,
   onDelete,
@@ -43,7 +42,9 @@ export function getServiceColumns({
       header: 'Service',
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="font-medium">{row.original.name}</span>
+          <Link href={`/services/${row.original.id}`} className="font-medium hover:underline">
+            {row.original.name}
+          </Link>
           <span className="text-sm text-muted-foreground">{row.original.sku}</span>
         </div>
       ),
@@ -75,20 +76,19 @@ export function getServiceColumns({
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => <ServiceStatusBadges service={row.original} />,
+      cell: ({ row }) => <ServiceStatusBadge service={row.original} />,
     },
     {
       id: 'actions',
-      cell: ({ row }) => (
-        <ServiceActions
-          service={row.original}
-          canWrite={canWrite}
-          onView={onView}
-          onEdit={onEdit}
-          onDuplicate={onDuplicate}
-          onDelete={onDelete}
-        />
-      ),
+      cell: ({ row }) =>
+        canWrite ? (
+          <ServiceActions
+            service={row.original}
+            onEdit={onEdit}
+            onDuplicate={onDuplicate}
+            onDelete={onDelete}
+          />
+        ) : null,
     },
   ];
 }
@@ -106,7 +106,7 @@ function ServiceDuration({ minutes }: { minutes: number }) {
   );
 }
 
-function ServiceStatusBadges({ service }: { service: Service }) {
+function ServiceStatusBadge({ service }: { service: Service }) {
   const t = useTranslations('common');
   return (
     <Badge variant={service.isActive ? 'default' : 'secondary'}>
@@ -121,21 +121,12 @@ function ServiceStatusBadges({ service }: { service: Service }) {
 
 interface ServiceActionsProps {
   service: Service;
-  canWrite: boolean;
-  onView: (id: string) => void;
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-function ServiceActions({
-  service,
-  canWrite,
-  onView,
-  onEdit,
-  onDuplicate,
-  onDelete,
-}: ServiceActionsProps) {
+function ServiceActions({ service, onEdit, onDuplicate, onDelete }: ServiceActionsProps) {
   const t = useTranslations('common');
 
   return (
@@ -146,27 +137,19 @@ function ServiceActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onView(service.id)}>
-          <Eye className="mr-2 h-4 w-4" />
-          {t('actions.viewDetails')}
+        <DropdownMenuItem onClick={() => onEdit(service.id)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          {t('actions.edit')}
         </DropdownMenuItem>
-        {canWrite && (
-          <>
-            <DropdownMenuItem onClick={() => onEdit(service.id)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              {t('actions.edit')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDuplicate(service.id)}>
-              <Copy className="mr-2 h-4 w-4" />
-              {t('actions.duplicate')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onDelete(service.id)} className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t('actions.delete')}
-            </DropdownMenuItem>
-          </>
-        )}
+        <DropdownMenuItem onClick={() => onDuplicate(service.id)}>
+          <Copy className="mr-2 h-4 w-4" />
+          {t('actions.duplicate')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => onDelete(service.id)} className="text-destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          {t('actions.delete')}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

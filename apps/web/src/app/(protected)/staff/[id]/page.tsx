@@ -256,7 +256,7 @@ export default function StaffDetailPage() {
                   <CardDescription>{t('sections.basicInfoDesc')}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-3">
                     <div className="flex items-center gap-3">
                       <User className="h-4 w-4 text-muted-foreground" />
                       <div>
@@ -274,7 +274,7 @@ export default function StaffDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <Mail className="size-4 text-muted-foreground" />
                       <div>
                         <p className="text-sm text-muted-foreground">{t('fields.email')}</p>
                         <p className="font-medium">{staffUser?.email || '-'}</p>
@@ -354,7 +354,7 @@ export default function StaffDetailPage() {
                   <CardTitle>{t('sections.employmentDetails')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-3">
                     <div>
                       <p className="text-sm text-muted-foreground">{t('fields.employeeCode')}</p>
                       <p className="font-medium">{staff.employeeCode || '-'}</p>
@@ -439,7 +439,7 @@ export default function StaffDetailPage() {
                   <CardTitle>{t('sections.salaryDetails')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-3">
                     <div>
                       <p className="text-sm text-muted-foreground">{t('fields.salaryType')}</p>
                       <p className="font-medium capitalize">{staff.salaryType}</p>

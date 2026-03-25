@@ -78,15 +78,14 @@ export function DroppableSlot({
       onClick={handleClick}
       style={{ height: `${height}px` }}
       className={cn(
-        'border-b border-r transition-all duration-150 relative',
+        'border-b border-r transition-all duration-150 relative overflow-visible',
         // Base background - default white/dark
         'bg-background',
         // Outside working hours (before open or after close for this stylist)
         isOutsideHours && 'bg-muted/40',
         // Blocked time
         isBlocked && 'bg-red-50 dark:bg-red-950/20',
-        // Break time
-        isBreak && 'bg-amber-100/80 dark:bg-amber-900/40',
+        // Break time - no background, break is rendered as positioned block
         // After-hours styling (overtime) - more visible orange tint
         isAfterHours &&
           !isBreak &&
@@ -111,15 +110,6 @@ export function DroppableSlot({
         isDragging && !canDrop && 'opacity-60'
       )}
     >
-      {/* Break indicator */}
-      {isBreak && (
-        <div className="flex items-center justify-center h-full">
-          <span className="text-xs font-semibold text-amber-700 dark:text-amber-200 truncate bg-amber-200/70 dark:bg-amber-700/50 rounded px-2 py-0.5 shadow-sm">
-            Break
-          </span>
-        </div>
-      )}
-
       {/* After-hours indicator - subtle label at top of slot */}
       {isAfterHours && !isBreak && !isBlocked && !isOutsideHours && !children && (
         <div className="absolute top-0 right-0 px-1">

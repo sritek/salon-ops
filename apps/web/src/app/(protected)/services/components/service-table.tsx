@@ -26,7 +26,6 @@ interface ServiceTableProps {
   page: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  onView: (id: string) => void;
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
@@ -46,7 +45,6 @@ export function ServiceTable({
   page,
   onPageChange,
   onPageSizeChange,
-  onView,
   onEdit,
   onDuplicate,
   onDelete,
@@ -55,8 +53,8 @@ export function ServiceTable({
   const t = useTranslations('services');
 
   const columns = useMemo(
-    () => getServiceColumns({ canWrite, onView, onEdit, onDuplicate, onDelete }),
-    [canWrite, onView, onEdit, onDuplicate, onDelete]
+    () => getServiceColumns({ canWrite, onEdit, onDuplicate, onDelete }),
+    [canWrite, onEdit, onDuplicate, onDelete]
   );
 
   if (error) {

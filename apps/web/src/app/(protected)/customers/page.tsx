@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -36,6 +37,7 @@ import {
 import type { BookingStatus, CustomerFilters as CustomerFiltersType } from '@/types/customers';
 
 export default function CustomersPage() {
+  const router = useRouter();
   const t = useTranslations('customers.list');
   const tCommon = useTranslations('common');
   const { hasPermission } = usePermissions();
@@ -99,6 +101,13 @@ export default function CustomersPage() {
     setDeleteId(id);
   }, []);
 
+  const handleEdit = useCallback(
+    (id: string) => {
+      router.push(`/customers/${id}?edit=true`);
+    },
+    [router]
+  );
+
   const confirmDelete = useCallback(async () => {
     if (deleteId) {
       await deleteCustomer.mutateAsync(deleteId);
@@ -146,6 +155,7 @@ export default function CustomersPage() {
             page={page}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}
+            onEdit={handleEdit}
             onDelete={handleDelete}
             hasFilters={hasFilters}
           />
