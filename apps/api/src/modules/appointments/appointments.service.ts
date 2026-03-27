@@ -416,7 +416,13 @@ export class AppointmentsService {
     let resolvedCustomerId = input.customerId;
     let customerWasCreated = false;
 
-    if (!input.customerId && input.customerPhone) {
+    // Check if we should auto-create/find customer:
+    // - No customerId provided (or empty string)
+    // - Phone number is provided (and not empty string)
+    const hasCustomerId = input.customerId && input.customerId.trim() !== '';
+    const hasCustomerPhone = input.customerPhone && input.customerPhone.trim() !== '';
+
+    if (!hasCustomerId && hasCustomerPhone) {
       // Check if customer with this phone already exists
       const existingCustomer = await this.prisma.customer.findFirst({
         where: {
