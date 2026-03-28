@@ -112,6 +112,11 @@ export function FloatingActionButton({ className, onActionSelect }: FloatingActi
     };
   };
 
+  // Hide FAB entirely for stylists
+  if (user?.role === 'stylist') {
+    return null;
+  }
+
   return (
     <div className={cn('fixed bottom-20 left-1/2 -translate-x-1/2 z-50 md:hidden', className)}>
       {/* Backdrop */}

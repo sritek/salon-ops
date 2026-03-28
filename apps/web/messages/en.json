@@ -989,25 +989,35 @@
         "half_day": "Half Day",
         "on_leave": "On Leave",
         "holiday": "Holiday",
-        "week_off": "Week Off"
+        "week_off": "Week Off",
+        "not_marked": "Not Marked"
       },
       "table": {
         "staff": "Staff",
+        "role": "Role",
         "date": "Date",
         "checkIn": "Check In",
         "checkOut": "Check Out",
         "hours": "Hours",
         "overtime": "Overtime",
-        "status": "Status"
+        "status": "Status",
+        "lateMinutes": "Late (min)"
       },
       "summary": {
         "present": "Present",
         "absent": "Absent",
         "onLeave": "On Leave",
-        "overtime": "Overtime Hours"
+        "overtime": "Overtime Hours",
+        "notMarked": "Not Marked"
       },
       "noRecords": "No attendance records found",
-      "noRecordsDesc": "Attendance records will appear here."
+      "noRecordsDesc": "Attendance records will appear here.",
+      "editAttendance": "Edit Attendance",
+      "editSuccess": "Attendance updated successfully",
+      "editError": "Failed to update attendance",
+      "notes": "Notes",
+      "notesPlaceholder": "Add a note (optional)",
+      "filters": "Filters"
     },
     "leaves": {
       "title": "Leaves",

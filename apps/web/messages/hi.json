@@ -986,25 +986,34 @@
         "half_day": "आधा दिन",
         "on_leave": "छुट्टी पर",
         "holiday": "छुट्टी",
-        "week_off": "साप्ताहिक छुट्टी"
+        "week_off": "साप्ताहिक छुट्टी",
+        "not_marked": "चिह्नित नहीं"
       },
       "table": {
         "staff": "स्टाफ",
+        "role": "भूमिका",
         "date": "तारीख",
         "checkIn": "चेक इन",
         "checkOut": "चेक आउट",
         "hours": "घंटे",
         "overtime": "ओवरटाइम",
-        "status": "स्थिति"
+        "status": "स्थिति",
+        "lateMinutes": "देरी (मिनट)"
       },
       "summary": {
         "present": "उपस्थित",
         "absent": "अनुपस्थित",
         "onLeave": "छुट्टी पर",
-        "overtime": "ओवरटाइम घंटे"
+        "overtime": "ओवरटाइम घंटे",
+        "notMarked": "चिह्नित नहीं"
       },
       "noRecords": "कोई उपस्थिति रिकॉर्ड नहीं मिला",
-      "noRecordsDesc": "उपस्थिति रिकॉर्ड यहां दिखाई देंगे।"
+      "noRecordsDesc": "उपस्थिति रिकॉर्ड यहां दिखाई देंगे।",
+      "editAttendance": "उपस्थिति संपादित करें",
+      "editSuccess": "उपस्थिति सफलतापूर्वक अपडेट की गई",
+      "editError": "उपस्थिति अपडेट करने में विफल",
+      "notes": "नोट्स",
+      "notesPlaceholder": "एक नोट जोड़ें (वैकल्पिक)"
     },
     "leaves": {
       "title": "छुट्टियां",

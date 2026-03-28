@@ -12,7 +12,7 @@ import { AvailabilityService } from './availability.service';
 import { WalkInQueueService } from './walk-in-queue.service';
 import { StylistScheduleService } from './stylist-schedule.service';
 import { authenticate } from '../../middleware/auth.middleware';
-import { requirePermission } from '../../middleware/permission.guard';
+import { requirePermission, requireAnyPermission } from '../../middleware/permission.guard';
 import { prisma } from '../../lib/prisma';
 
 import {
@@ -71,7 +71,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
   app.get(
     '/',
     {
-      preHandler: [requirePermission('appointments:read')],
+      preHandler: [requireAnyPermission(['appointments:read', 'appointments:read:own'])],
       schema: {
         tags: ['Appointments'],
         summary: 'List appointments',
@@ -86,8 +86,15 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
-      const result = await appointmentsService.getAppointments(tenantId, request.query);
+      const { tenantId, sub: userId, role } = (request as any).user!;
+      const query = { ...request.query };
+
+      // Enforce own-data scoping for stylist role
+      if (role === 'stylist') {
+        query.stylistId = userId;
+      }
+
+      const result = await appointmentsService.getAppointments(tenantId, query);
       return reply.send({ success: true, ...result });
     }
   );

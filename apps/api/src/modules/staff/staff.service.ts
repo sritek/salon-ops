@@ -32,6 +32,7 @@ import type {
   CheckOutInput,
   ManualAttendanceInput,
   ListAttendanceQuery,
+  DailyAttendanceQuery,
   ApplyLeaveInput,
   ListLeavesQuery,
   ListCommissionsQuery,
@@ -714,17 +715,10 @@ export const attendanceService = {
     const checkInTime = parseISO(`${today}T${attendance.checkInTime}`);
     const actualHours = differenceInHours(now, checkInTime);
 
-    // Calculate overtime
-    let overtimeHours = 0;
     let earlyLeaveMinutes = 0;
 
     const shift = await shiftService.getStaffShift(tenantId, userId, input.branchId, today);
     if (shift) {
-      const scheduledHours = attendance.scheduledHours?.toNumber() || 8;
-      if (actualHours > scheduledHours) {
-        overtimeHours = actualHours - scheduledHours;
-      }
-
       const shiftEnd = parseISO(`${today}T${shift.endTime}:00`);
       const earlyDiff = differenceInMinutes(shiftEnd, now);
       if (earlyDiff > 0) {
@@ -744,7 +738,6 @@ export const attendanceService = {
       data: {
         checkOutTime: currentTime,
         actualHours,
-        overtimeHours,
         earlyLeaveMinutes,
         status,
         ...(input.location && {
@@ -757,7 +750,6 @@ export const attendanceService = {
     return {
       attendance: updated,
       actualHours,
-      overtimeHours,
       earlyLeaveMinutes,
     };
   },
@@ -855,6 +847,95 @@ export const attendanceService = {
   },
 
   /**
+   * Get daily attendance for all staff on a specific date
+   * Returns all active staff with their attendance record (or null if not marked)
+   */
+  async getDailyAttendance(tenantId: string, query: DailyAttendanceQuery) {
+    const { branchId, date } = query;
+    const targetDate = date ? new Date(date) : new Date(format(new Date(), 'yyyy-MM-dd'));
+
+    // Build staff filter
+    const staffWhere: Prisma.StaffProfileWhereInput = {
+      tenantId,
+      isActive: true,
+      ...(branchId && {
+        user: {
+          branchAssignments: {
+            some: { branchId },
+          },
+        },
+      }),
+    };
+
+    // Get all active staff
+    const staffList = await prisma.staffProfile.findMany({
+      where: staffWhere,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            role: true,
+            avatarUrl: true,
+            isActive: true,
+          },
+        },
+      },
+      orderBy: { user: { name: 'asc' } },
+    });
+
+    // Get attendance records for the date
+    const attendanceWhere: Prisma.AttendanceWhereInput = {
+      tenantId,
+      attendanceDate: targetDate,
+      userId: { in: staffList.map((s) => s.userId) },
+      ...(branchId && { branchId }),
+    };
+
+    const attendanceRecords = await prisma.attendance.findMany({
+      where: attendanceWhere,
+    });
+
+    // Build a map of userId -> attendance
+    const attendanceMap = new Map(attendanceRecords.map((a) => [a.userId, a]));
+
+    // Merge staff with attendance
+    const dailyData = staffList.map((staff) => {
+      const attendance = attendanceMap.get(staff.userId);
+      return {
+        staffId: staff.id,
+        userId: staff.userId,
+        staffName: staff.user?.name ?? '-',
+        role: staff.user?.role ?? '-',
+        avatarUrl: staff.user?.avatarUrl ?? null,
+        attendanceDate: format(targetDate, 'yyyy-MM-dd'),
+        checkInTime: attendance?.checkInTime ?? null,
+        checkOutTime: attendance?.checkOutTime ?? null,
+        actualHours: attendance?.actualHours ? Number(attendance.actualHours) : null,
+        lateMinutes: attendance?.lateMinutes ?? 0,
+        earlyLeaveMinutes: attendance?.earlyLeaveMinutes ?? 0,
+        status: attendance?.status ?? 'not_marked',
+        isManualEntry: attendance?.isManualEntry ?? false,
+        notes: attendance?.notes ?? null,
+      };
+    });
+
+    // Summary counts
+    const summary = {
+      total: dailyData.length,
+      present: dailyData.filter((d) => d.status === 'present').length,
+      absent: dailyData.filter((d) => d.status === 'absent').length,
+      halfDay: dailyData.filter((d) => d.status === 'half_day').length,
+      onLeave: dailyData.filter((d) => d.status === 'on_leave').length,
+      holiday: dailyData.filter((d) => d.status === 'holiday').length,
+      weekOff: dailyData.filter((d) => d.status === 'week_off').length,
+      notMarked: dailyData.filter((d) => d.status === 'not_marked').length,
+    };
+
+    return { data: dailyData, summary };
+  },
+
+  /**
    * Get attendance summary for a user
    */
   async getSummary(
@@ -884,7 +965,6 @@ export const attendanceService = {
       leaveDays: records.filter((r) => r.status === 'on_leave').length,
       holidays: records.filter((r) => r.status === 'holiday').length,
       weekOffs: records.filter((r) => r.status === 'week_off').length,
-      totalOvertimeHours: records.reduce((sum, r) => sum + (r.overtimeHours?.toNumber() || 0), 0),
       totalLateMinutes: records.reduce((sum, r) => sum + r.lateMinutes, 0),
     };
 
@@ -1464,7 +1544,7 @@ export const payrollService = {
       }
     }
 
-    // Create or update payroll
+    // Create or update payroll — extended timeout for bulk payroll item creation
     const payroll = await prisma.$transaction(async (tx) => {
       // Delete existing items if updating
       if (existing) {
@@ -1492,19 +1572,17 @@ export const payrollService = {
           })
         : await tx.payroll.create({ data: payrollData });
 
-      // Create payroll items
-      for (const itemData of items) {
-        await tx.payrollItem.create({
-          data: {
-            tenantId,
-            payrollId: payrollRecord.id,
-            ...itemData,
-          },
-        });
-      }
+      // Create payroll items in bulk
+      await tx.payrollItem.createMany({
+        data: items.map((itemData) => ({
+          tenantId,
+          payrollId: payrollRecord.id,
+          ...itemData,
+        })),
+      });
 
       return payrollRecord;
-    });
+    }, { timeout: 30000 });
 
     // Fetch with items
     const result = await prisma.payroll.findUnique({
@@ -1595,13 +1673,9 @@ export const payrollService = {
     const lopAmount = lopDays * perDaySalary;
     totalDeductions += lopAmount;
 
-    // Calculate overtime
-    const overtimeRate = (baseSalary / (workingDays * 8)) * 1.5;
-    const overtimeAmount = attendanceSummary.totalOvertimeHours * overtimeRate;
-
     // Calculate totals
     const earningsJson = { base_salary: baseSalary };
-    const totalEarnings = baseSalary + overtimeAmount;
+    const totalEarnings = baseSalary;
     const grossSalary = totalEarnings + totalCommissions;
     const netSalary = grossSalary - totalDeductions;
 
@@ -1611,7 +1685,6 @@ export const payrollService = {
       presentDays: attendanceSummary.presentDays + attendanceSummary.halfDays * 0.5,
       absentDays: attendanceSummary.absentDays,
       leaveDays: attendanceSummary.leaveDays,
-      overtimeHours: attendanceSummary.totalOvertimeHours,
       baseSalary,
       earningsJson,
       totalEarnings,
@@ -1619,8 +1692,6 @@ export const payrollService = {
       commissionCount: commissions.length,
       deductionsJson,
       totalDeductions,
-      overtimeRate,
-      overtimeAmount,
       lopDays,
       lopAmount,
       grossSalary,
@@ -1697,7 +1768,7 @@ export const payrollService = {
       });
 
       return updated;
-    });
+    }, { timeout: 15000 });
 
     return result;
   },
@@ -1762,7 +1833,7 @@ export const payrollService = {
       }
 
       return updated;
-    });
+    }, { timeout: 30000 });
 
     return result;
   },

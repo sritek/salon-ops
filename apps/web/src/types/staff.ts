@@ -135,7 +135,6 @@ export interface Attendance {
   checkOutTime?: string;
   scheduledHours?: number;
   actualHours?: number;
-  overtimeHours: number;
   lateMinutes: number;
   earlyLeaveMinutes: number;
   status: AttendanceStatus;
@@ -157,8 +156,42 @@ export interface AttendanceSummary {
   leaveDays: number;
   holidays: number;
   weekOffs: number;
-  totalOvertimeHours: number;
   totalLateMinutes: number;
+}
+
+export type DailyAttendanceStatus = AttendanceStatus | 'not_marked';
+
+export interface DailyAttendanceRecord {
+  staffId: string;
+  userId: string;
+  staffName: string;
+  role: string;
+  avatarUrl: string | null;
+  attendanceDate: string;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  actualHours: number | null;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  status: DailyAttendanceStatus;
+  isManualEntry: boolean;
+  notes: string | null;
+}
+
+export interface DailyAttendanceSummary {
+  total: number;
+  present: number;
+  absent: number;
+  halfDay: number;
+  onLeave: number;
+  holiday: number;
+  weekOff: number;
+  notMarked: number;
+}
+
+export interface DailyAttendanceResponse {
+  data: DailyAttendanceRecord[];
+  summary: DailyAttendanceSummary;
 }
 
 // ============================================
@@ -293,7 +326,6 @@ export interface PayrollItem {
   presentDays: number;
   absentDays: number;
   leaveDays: number;
-  overtimeHours: number;
   baseSalary: number;
   earningsJson: Record<string, number>;
   totalEarnings: number;
@@ -301,8 +333,6 @@ export interface PayrollItem {
   commissionCount: number;
   deductionsJson: Record<string, number>;
   totalDeductions: number;
-  overtimeRate: number;
-  overtimeAmount: number;
   lopDays: number;
   lopAmount: number;
   grossSalary: number;
@@ -410,7 +440,7 @@ export interface ManualAttendanceInput {
   checkInTime?: string;
   checkOutTime?: string;
   status: AttendanceStatus;
-  notes: string;
+  notes?: string;
 }
 
 export interface ApplyLeaveInput {

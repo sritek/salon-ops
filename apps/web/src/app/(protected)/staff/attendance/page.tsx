@@ -1,24 +1,28 @@
 /**
  * Staff Attendance Page
  *
- * Track and manage staff attendance records.
+ * Always uses the daily attendance API (which includes "not_marked" staff).
+ * For date ranges, queries each date in parallel via useDailyAttendanceRange.
+ * Summary stat cards shown for single-day view only.
+ * Filter sheet for date range, staff, and status.
+ * Owner can change status via pencil-icon dropdown.
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { CalendarCheck, Clock, UserX, Coffee } from 'lucide-react';
+import { format, parse } from 'date-fns';
+import { CalendarCheck, UserX, Coffee, Clock, Pencil, Check, Filter } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -29,233 +33,278 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PageHeader, PageContent, EmptyState, StatCard, DatePicker } from '@/components/common';
-import { useAttendanceList } from '@/hooks/queries/use-staff';
-import { formatDate, formatTime } from '@/lib/format';
-import type { Attendance, AttendanceStatus } from '@/types/staff';
+import { PageHeader, PageContent, EmptyState, StatCard, ConfirmDialog } from '@/components/common';
+import { useDailyAttendanceRange, useManualAttendance } from '@/hooks/queries/use-staff';
+import { useBranchContext } from '@/hooks/use-branch-context';
+import { usePermissions } from '@/hooks/use-permissions';
+import { useErrorHandler } from '@/hooks/use-error-handler';
+import type { DailyAttendanceRecord, DailyAttendanceStatus } from '@/types/staff';
+import {
+  AttendanceFiltersSheet,
+  type AttendanceFiltersState,
+} from './components/attendance-filters-sheet';
 
-const ATTENDANCE_STATUSES: AttendanceStatus[] = [
-  'present',
-  'absent',
-  'half_day',
-  'on_leave',
-  'holiday',
-  'week_off',
-];
+type StatusAction = 'present' | 'absent' | 'on_leave';
+const ALL_STATUS_ACTIONS: StatusAction[] = ['present', 'absent', 'on_leave'];
+
+const getStatusBadgeVariant = (status: DailyAttendanceStatus) => {
+  switch (status) {
+    case 'present':
+      return 'default';
+    case 'absent':
+      return 'destructive';
+    case 'on_leave':
+      return 'warning';
+    case 'half_day':
+      return 'secondary';
+    case 'not_marked':
+      return 'outline';
+    case 'holiday':
+    case 'week_off':
+      return 'secondary';
+    default:
+      return 'outline';
+  }
+};
+
+const isEditable = (status: DailyAttendanceStatus) =>
+  !['holiday', 'week_off'].includes(status);
 
 export default function AttendancePage() {
   const t = useTranslations('staff.attendance');
   const tCommon = useTranslations('common');
+  const { isOwner } = usePermissions();
+  const { branchId } = useBranchContext();
+  const { handleError } = useErrorHandler();
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [page, setPage] = useState(1);
+  const today = format(new Date(), 'yyyy-MM-dd');
 
-  const startDate = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
-  const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
-
-  const { data, isLoading, error } = useAttendanceList({
-    page,
-    limit: 20,
-    startDate,
-    endDate,
-    status: statusFilter !== 'all' ? statusFilter : undefined,
+  const [filters, setFilters] = useState<AttendanceFiltersState>({
+    dateFrom: today,
+    dateTo: today,
+    statuses: [],
+    staffIds: [],
   });
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  const attendance = data?.data ?? [];
-  const meta = data?.meta;
+  const [confirmRecord, setConfirmRecord] = useState<DailyAttendanceRecord | null>(null);
+  const [confirmAction, setConfirmAction] = useState<StatusAction | null>(null);
 
-  // Calculate summary stats
-  const presentCount = attendance.filter((a: Attendance) => a.status === 'present').length;
-  const absentCount = attendance.filter((a: Attendance) => a.status === 'absent').length;
-  const onLeaveCount = attendance.filter((a: Attendance) => a.status === 'on_leave').length;
-  const totalOvertime = attendance.reduce(
-    (sum: number, a: Attendance) => sum + (!isNaN(a.overtimeHours) ? Number(a.overtimeHours) : 0),
-    0
+  const isSingleDay = filters.dateFrom === filters.dateTo;
+
+  // Always use daily API — includes "not_marked" staff for every date
+  const { results, isLoading, error } = useDailyAttendanceRange(
+    filters.dateFrom,
+    filters.dateTo,
+    branchId || undefined
   );
 
-  console.log('totalOvertime', totalOvertime);
+  const manualAttendance = useManualAttendance();
 
-  const getStatusBadgeVariant = (status: AttendanceStatus) => {
-    switch (status) {
-      case 'present':
-        return 'default';
-      case 'absent':
-        return 'destructive';
-      case 'half_day':
-        return 'secondary';
-      case 'on_leave':
-        return 'outline';
-      case 'holiday':
-      case 'week_off':
-        return 'secondary';
-      default:
-        return 'outline';
+  // For single day, grab the summary from the first (only) result
+  const summary = isSingleDay ? results[0]?.data?.summary ?? null : null;
+
+  // Merge all daily results into a flat row list
+  const rows: DailyAttendanceRecord[] = useMemo(() => {
+    const all: DailyAttendanceRecord[] = [];
+    for (const r of results) {
+      if (r.data?.data) {
+        all.push(...r.data.data);
+      }
     }
-  };
+    return all;
+  }, [results]);
+
+  // Apply client-side filters
+  const filteredRecords = useMemo(() => {
+    let result = rows;
+    if (filters.statuses.length > 0) {
+      result = result.filter((r) => filters.statuses.includes(r.status));
+    }
+    if (filters.staffIds.length > 0) {
+      result = result.filter((r) => filters.staffIds.includes(r.userId));
+    }
+    return result;
+  }, [rows, filters.statuses, filters.staffIds]);
+
+  const filterCount = filters.statuses.length + filters.staffIds.length;
+
+  const handleFiltersChange = useCallback((next: AttendanceFiltersState) => {
+    setFilters(next);
+  }, []);
+
+  const openConfirm = useCallback((record: DailyAttendanceRecord, action: StatusAction) => {
+    setConfirmRecord(record);
+    setConfirmAction(action);
+  }, []);
+
+  const handleConfirmStatusChange = useCallback(async () => {
+    if (!confirmRecord || !confirmAction || !branchId) return;
+    try {
+      await manualAttendance.mutateAsync({
+        userId: confirmRecord.userId,
+        branchId,
+        attendanceDate: confirmRecord.attendanceDate,
+        status: confirmAction,
+      });
+      toast.success(t('editSuccess'));
+      setConfirmRecord(null);
+      setConfirmAction(null);
+    } catch (err) {
+      handleError(err, { customMessage: t('editError') });
+    }
+  }, [confirmRecord, confirmAction, branchId, manualAttendance, handleError, t]);
+
+  // Header description
+  const dateFromParsed = parse(filters.dateFrom, 'yyyy-MM-dd', new Date());
+  const dateToParsed = parse(filters.dateTo, 'yyyy-MM-dd', new Date());
+  const dateLabel = isSingleDay
+    ? format(dateFromParsed, 'EEEE, dd MMM yyyy')
+    : `${format(dateFromParsed, 'dd MMM yyyy')} — ${format(dateToParsed, 'dd MMM yyyy')}`;
+
+  const confirmTitle = confirmAction ? `Mark ${t(`status.${confirmAction}`)}` : '';
+  const confirmDescription =
+    confirmRecord && confirmAction
+      ? `Are you sure you want to mark ${confirmRecord.staffName} as "${t(`status.${confirmAction}`)}" for ${confirmRecord.attendanceDate}?`
+      : '';
 
   return (
     <>
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader title={t('title')} description={`${t('description')} — ${dateLabel}`} />
 
       <PageContent>
-        {/* Summary Stats */}
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title={t('summary.present')}
-            value={presentCount}
-            icon={CalendarCheck}
-            variant="success"
-          />
-          <StatCard
-            title={t('summary.absent')}
-            value={absentCount}
-            icon={UserX}
-            variant="destructive"
-          />
-          <StatCard
-            title={t('summary.onLeave')}
-            value={onLeaveCount}
-            icon={Coffee}
-            variant="warning"
-          />
-          <StatCard
-            title={t('summary.overtime')}
-            value={`${totalOvertime.toFixed(1)}h`}
-            icon={Clock}
-            variant="info"
-          />
-        </div>
+        {/* Summary Stats (single-day only) */}
+        {isSingleDay && (
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard title={t('summary.present')} value={summary?.present ?? 0} icon={CalendarCheck} variant="success" />
+            <StatCard title={t('summary.absent')} value={summary?.absent ?? 0} icon={UserX} variant="destructive" />
+            <StatCard title={t('summary.onLeave')} value={summary?.onLeave ?? 0} icon={Coffee} variant="warning" />
+            <StatCard title={t('summary.notMarked')} value={summary?.notMarked ?? 0} icon={Clock} variant="default" />
+          </div>
+        )}
 
-        {/* Filters */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <DatePicker
-            value={selectedDate}
-            onChange={(date) => date && setSelectedDate(date)}
-            format="MMMM yyyy"
-            className="w-[240px]"
-          />
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder={tCommon('status.loading')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                {tCommon('pagination.noResults').replace('No results found', 'All Status')}
-              </SelectItem>
-              {ATTENDANCE_STATUSES.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {t(`status.${status}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Filter button */}
+        <div className="mb-6 flex items-center justify-between">
+          {filterCount > 0 && (
+            <span className="text-sm text-muted-foreground">
+              Showing {filteredRecords.length} of {rows.length} records
+            </span>
+          )}
+          <Button variant="outline" onClick={() => setFilterOpen(true)} className="gap-2 ml-auto">
+            <Filter className="h-4 w-4" />
+            {t('filters')}
+            {filterCount > 0 && (
+              <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                {filterCount}
+              </span>
+            )}
+          </Button>
         </div>
 
         {/* Table */}
         {isLoading ? (
           <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
             ))}
           </div>
         ) : error ? (
-          <EmptyState
-            icon={CalendarCheck}
-            title={tCommon('status.error')}
-            description={error.message}
-          />
-        ) : attendance.length === 0 ? (
-          <EmptyState
-            icon={CalendarCheck}
-            title={t('noRecords')}
-            description={t('noRecordsDesc')}
-          />
+          <EmptyState icon={CalendarCheck} title={tCommon('status.error')} description={(error as Error).message} />
+        ) : filteredRecords.length === 0 ? (
+          <EmptyState icon={CalendarCheck} title={t('noRecords')} description={t('noRecordsDesc')} />
         ) : (
-          <>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('table.staff')}</TableHead>
-                    <TableHead>{t('table.date')}</TableHead>
-                    <TableHead>{t('table.checkIn')}</TableHead>
-                    <TableHead>{t('table.checkOut')}</TableHead>
-                    <TableHead>{t('table.hours')}</TableHead>
-                    <TableHead>{t('table.overtime')}</TableHead>
-                    <TableHead>{t('table.status')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {attendance.map((record: Attendance) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
-                        {record.staffProfile?.user?.name ?? '-'}
-                      </TableCell>
-                      <TableCell>{formatDate(record.attendanceDate)}</TableCell>
-                      <TableCell>
-                        {record.checkInTime ? formatTime(record.checkInTime) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {record.checkOutTime ? formatTime(record.checkOutTime) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {record.actualHours
-                          ? `${!isNaN(record.actualHours) ? Number(record.actualHours).toFixed(1) : 0}h`
-                          : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {record.overtimeHours > 0 ? (
-                          <span className="text-green-600">
-                            +{record.overtimeHours.toFixed(1)}h
-                          </span>
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('table.staff')}</TableHead>
+                  <TableHead>{t('table.date')}</TableHead>
+                  <TableHead>{t('table.status')}</TableHead>
+                  {isOwner && <TableHead className="w-[60px]" />}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRecords.map((record, idx) => {
+                  const canEdit = isOwner && isEditable(record.status);
+                  return (
+                    <TableRow key={`${record.userId}-${record.attendanceDate}-${idx}`}>
+                      <TableCell className="font-medium">{record.staffName}</TableCell>
+                      <TableCell>{record.attendanceDate}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(record.status)}>
                           {t(`status.${record.status}`)}
                         </Badge>
                       </TableCell>
+                      {isOwner && (
+                        <TableCell>
+                          {canEdit ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <Pencil className="h-4 w-4" />
+                                  <span className="sr-only">{t('editAttendance')}</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                {ALL_STATUS_ACTIONS.map((action) => {
+                                  const isCurrent = record.status === action;
+                                  return (
+                                    <DropdownMenuItem
+                                      key={action}
+                                      disabled={isCurrent}
+                                      onSelect={() => {
+                                        if (!isCurrent) openConfirm(record, action);
+                                      }}
+                                      className="flex items-center justify-between"
+                                    >
+                                      <span>{t(`status.${action}`)}</span>
+                                      {isCurrent && (
+                                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                          <Check className="h-3 w-3" />
+                                          Current
+                                        </span>
+                                      )}
+                                    </DropdownMenuItem>
+                                  );
+                                })}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : null}
+                        </TableCell>
+                      )}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Pagination */}
-            {meta && meta.totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {tCommon('pagination.showing')} {(page - 1) * 20 + 1} {tCommon('pagination.to')}{' '}
-                  {Math.min(page * 20, meta.total)} {tCommon('pagination.of')} {meta.total}{' '}
-                  {tCommon('pagination.results')}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                  >
-                    {tCommon('actions.previous')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => p + 1)}
-                    disabled={page >= meta.totalPages}
-                  >
-                    {tCommon('actions.next')}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </PageContent>
+
+      {/* Filter Sheet */}
+      <AttendanceFiltersSheet
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!confirmRecord && !!confirmAction}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmRecord(null);
+            setConfirmAction(null);
+          }
+        }}
+        title={confirmTitle}
+        description={confirmDescription}
+        confirmText="Confirm"
+        variant={confirmAction === 'absent' ? 'destructive' : 'default'}
+        onConfirm={handleConfirmStatusChange}
+        isLoading={manualAttendance.isPending}
+      />
     </>
   );
 }

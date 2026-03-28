@@ -26,6 +26,7 @@ import type {
   CheckOutInput,
   ManualAttendanceInput,
   ListAttendanceQuery,
+  DailyAttendanceQuery,
   ApplyLeaveInput,
   ApproveLeaveInput,
   RejectLeaveInput,
@@ -181,6 +182,15 @@ export async function listAttendance(
   const { tenantId } = request.user!;
   const result = await attendanceService.list(tenantId, request.query);
   return reply.send(paginatedResponse(result.data, result.meta));
+}
+
+export async function getDailyAttendance(
+  request: FastifyRequest<{ Querystring: DailyAttendanceQuery }>,
+  reply: FastifyReply
+) {
+  const { tenantId } = request.user!;
+  const result = await attendanceService.getDailyAttendance(tenantId, request.query);
+  return reply.send(successResponse(result));
 }
 
 export async function getAttendanceSummary(

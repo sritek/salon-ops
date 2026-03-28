@@ -18,9 +18,8 @@ import {
   checkOutSchema,
   manualAttendanceSchema,
   listAttendanceQuerySchema,
+  dailyAttendanceQuerySchema,
   applyLeaveSchema,
-  approveLeaveSchema,
-  rejectLeaveSchema,
   listLeavesQuerySchema,
   listCommissionsQuerySchema,
   approveCommissionsSchema,
@@ -53,44 +52,8 @@ export async function staffRoutes(fastify: FastifyInstance) {
     controller.listStaff
   );
 
-  app.get('/:id', { schema: { tags: ['Staff'] } }, controller.getStaff);
-
-  app.patch(
-    '/:id',
-    { schema: { tags: ['Staff'], body: updateStaffSchema } },
-    controller.updateStaff
-  );
-
-  app.delete('/:id', { schema: { tags: ['Staff'] } }, controller.deactivateStaff);
-
   // ============================================
-  // Shift Routes
-  // ============================================
-
-  app.post(
-    '/branches/:branchId/shifts',
-    { schema: { tags: ['Shifts'], body: createShiftSchema } },
-    controller.createShift
-  );
-
-  app.get('/branches/:branchId/shifts', { schema: { tags: ['Shifts'] } }, controller.listShifts);
-
-  app.patch(
-    '/shifts/:id',
-    { schema: { tags: ['Shifts'], body: updateShiftSchema } },
-    controller.updateShift
-  );
-
-  app.delete('/shifts/:id', { schema: { tags: ['Shifts'] } }, controller.deleteShift);
-
-  app.post(
-    '/:userId/branches/:branchId/shifts',
-    { schema: { tags: ['Shifts'], body: assignShiftSchema } },
-    controller.assignShift
-  );
-
-  // ============================================
-  // Attendance Routes
+  // Attendance Routes (registered before /:id to avoid parametric conflicts)
   // ============================================
 
   app.post(
@@ -118,13 +81,39 @@ export async function staffRoutes(fastify: FastifyInstance) {
   );
 
   app.get(
-    '/:userId/attendance/summary',
-    { schema: { tags: ['Attendance'] } },
-    controller.getAttendanceSummary
+    '/attendance/daily',
+    { schema: { tags: ['Attendance'], querystring: dailyAttendanceQuerySchema } },
+    controller.getDailyAttendance
+  );
+
+  app.get(
+    '/attendance/lock-status',
+    { schema: { tags: ['Attendance'], querystring: attendanceLockStatusQuerySchema } },
+    controller.getAttendanceLockStatus
   );
 
   // ============================================
-  // Leave Routes
+  // Shift Routes (static paths before parametric /:id)
+  // ============================================
+
+  app.post(
+    '/branches/:branchId/shifts',
+    { schema: { tags: ['Shifts'], body: createShiftSchema } },
+    controller.createShift
+  );
+
+  app.get('/branches/:branchId/shifts', { schema: { tags: ['Shifts'] } }, controller.listShifts);
+
+  app.patch(
+    '/shifts/:id',
+    { schema: { tags: ['Shifts'], body: updateShiftSchema } },
+    controller.updateShift
+  );
+
+  app.delete('/shifts/:id', { schema: { tags: ['Shifts'] } }, controller.deleteShift);
+
+  // ============================================
+  // Leave Routes (static paths before parametric /:id)
   // ============================================
 
   app.post(
@@ -139,36 +128,16 @@ export async function staffRoutes(fastify: FastifyInstance) {
     controller.listLeaves
   );
 
-  app.post(
-    '/leaves/:id/approve',
-    { schema: { tags: ['Leaves'], body: approveLeaveSchema } },
-    controller.approveLeave
-  );
-
-  app.post(
-    '/leaves/:id/reject',
-    { schema: { tags: ['Leaves'], body: rejectLeaveSchema } },
-    controller.rejectLeave
-  );
-
   app.post('/leaves/:id/cancel', { schema: { tags: ['Leaves'] } }, controller.cancelLeave);
 
-  app.get('/:userId/leave-balance', { schema: { tags: ['Leaves'] } }, controller.getLeaveBalance);
-
   // ============================================
-  // Commission Routes
+  // Commission Routes (static paths before parametric /:id)
   // ============================================
 
   app.get(
     '/commissions',
     { schema: { tags: ['Commissions'], querystring: listCommissionsQuerySchema } },
     controller.listCommissions
-  );
-
-  app.get(
-    '/:userId/commissions/summary',
-    { schema: { tags: ['Commissions'] } },
-    controller.getCommissionSummary
   );
 
   app.post(
@@ -178,27 +147,7 @@ export async function staffRoutes(fastify: FastifyInstance) {
   );
 
   // ============================================
-  // Deduction Routes
-  // ============================================
-
-  app.post(
-    '/:userId/deductions',
-    { schema: { tags: ['Deductions'], body: addDeductionSchema } },
-    controller.addDeduction
-  );
-
-  app.get('/:userId/deductions', { schema: { tags: ['Deductions'] } }, controller.listDeductions);
-
-  app.patch(
-    '/deductions/:id',
-    { schema: { tags: ['Deductions'], body: updateDeductionSchema } },
-    controller.updateDeduction
-  );
-
-  app.delete('/deductions/:id', { schema: { tags: ['Deductions'] } }, controller.cancelDeduction);
-
-  // ============================================
-  // Payroll Routes
+  // Payroll Routes (static paths before parametric /:id)
   // ============================================
 
   app.post(
@@ -222,33 +171,7 @@ export async function staffRoutes(fastify: FastifyInstance) {
   app.post('/payroll/:id/pay', { schema: { tags: ['Payroll'] } }, controller.markPayrollPaid);
 
   // ============================================
-  // Geo-config Routes
-  // ============================================
-
-  app.get(
-    '/branches/:branchId/geo-config',
-    { schema: { tags: ['Geo-config'] } },
-    controller.getGeoConfig
-  );
-
-  app.patch(
-    '/branches/:branchId/geo-config',
-    { schema: { tags: ['Geo-config'], body: updateGeoConfigSchema } },
-    controller.updateGeoConfig
-  );
-
-  // ============================================
-  // Attendance Lock Routes
-  // ============================================
-
-  app.get(
-    '/attendance/lock-status',
-    { schema: { tags: ['Attendance'], querystring: attendanceLockStatusQuerySchema } },
-    controller.getAttendanceLockStatus
-  );
-
-  // ============================================
-  // Payslip Routes
+  // Payslip Routes (static paths before parametric /:id)
   // ============================================
 
   app.get('/payslips', { schema: { tags: ['Payslips'] } }, controller.listPayslips);
@@ -274,18 +197,84 @@ export async function staffRoutes(fastify: FastifyInstance) {
   );
 
   // ============================================
-  // Performance Routes
+  // Deduction Routes (static paths before parametric /:id)
   // ============================================
+
+  app.patch(
+    '/deductions/:id',
+    { schema: { tags: ['Deductions'], body: updateDeductionSchema } },
+    controller.updateDeduction
+  );
+
+  app.delete('/deductions/:id', { schema: { tags: ['Deductions'] } }, controller.cancelDeduction);
+
+  // ============================================
+  // Geo-config Routes
+  // ============================================
+
+  app.get(
+    '/branches/:branchId/geo-config',
+    { schema: { tags: ['Geo-config'] } },
+    controller.getGeoConfig
+  );
+
+  app.patch(
+    '/branches/:branchId/geo-config',
+    { schema: { tags: ['Geo-config'], body: updateGeoConfigSchema } },
+    controller.updateGeoConfig
+  );
+
+  // ============================================
+  // Staff Profile (parametric /:id routes - MUST be after all static routes)
+  // ============================================
+
+  app.get('/:id', { schema: { tags: ['Staff'] } }, controller.getStaff);
+
+  app.patch(
+    '/:id',
+    { schema: { tags: ['Staff'], body: updateStaffSchema } },
+    controller.updateStaff
+  );
+
+  app.delete('/:id', { schema: { tags: ['Staff'] } }, controller.deactivateStaff);
+
+  // ============================================
+  // Parametric /:userId routes
+  // ============================================
+
+  app.post(
+    '/:userId/branches/:branchId/shifts',
+    { schema: { tags: ['Shifts'], body: assignShiftSchema } },
+    controller.assignShift
+  );
+
+  app.get(
+    '/:userId/attendance/summary',
+    { schema: { tags: ['Attendance'] } },
+    controller.getAttendanceSummary
+  );
+
+  app.get('/:userId/leave-balance', { schema: { tags: ['Leaves'] } }, controller.getLeaveBalance);
+
+  app.get(
+    '/:userId/commissions/summary',
+    { schema: { tags: ['Commissions'] } },
+    controller.getCommissionSummary
+  );
+
+  app.post(
+    '/:userId/deductions',
+    { schema: { tags: ['Deductions'], body: addDeductionSchema } },
+    controller.addDeduction
+  );
+
+  app.get('/:userId/deductions', { schema: { tags: ['Deductions'] } }, controller.listDeductions);
 
   app.get(
     '/:userId/performance',
     { schema: { tags: ['Performance'] } },
     controller.getStaffPerformance
   );
-
-  // ============================================
-  // Stylist Breaks Routes
-  // ============================================
 
   app.get(
     '/:userId/breaks',
