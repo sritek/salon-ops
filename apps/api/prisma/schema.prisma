@@ -1304,7 +1304,6 @@ model Attendance {
   // Calculated
   scheduledHours    Decimal? @map("scheduled_hours") @db.Decimal(4, 2)
   actualHours       Decimal? @map("actual_hours") @db.Decimal(4, 2)
-  overtimeHours     Decimal  @default(0) @map("overtime_hours") @db.Decimal(4, 2)
   lateMinutes       Int      @default(0) @map("late_minutes")
   earlyLeaveMinutes Int      @default(0) @map("early_leave_minutes")
 
@@ -1586,7 +1585,6 @@ model PayrollItem {
   presentDays   Decimal @map("present_days") @db.Decimal(4, 1)
   absentDays    Decimal @map("absent_days") @db.Decimal(4, 1)
   leaveDays     Decimal @map("leave_days") @db.Decimal(4, 1)
-  overtimeHours Decimal @default(0) @map("overtime_hours") @db.Decimal(6, 2)
 
   // Earnings
   baseSalary    Decimal @map("base_salary") @db.Decimal(10, 2)
@@ -1600,10 +1598,6 @@ model PayrollItem {
   // Deductions
   deductionsJson  Json    @map("deductions_json")
   totalDeductions Decimal @map("total_deductions") @db.Decimal(10, 2)
-
-  // Overtime
-  overtimeRate   Decimal @default(0) @map("overtime_rate") @db.Decimal(10, 2)
-  overtimeAmount Decimal @default(0) @map("overtime_amount") @db.Decimal(10, 2)
 
   // Loss of pay
   lopDays   Decimal @default(0) @map("lop_days") @db.Decimal(4, 1)

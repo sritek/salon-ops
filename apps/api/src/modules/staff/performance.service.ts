@@ -19,7 +19,6 @@ export interface AttendanceMetrics {
   leaveDays: number;
   lateArrivals: number;
   totalLateMinutes: number;
-  overtimeHours: number;
   attendanceRate: number; // percentage
 }
 
@@ -149,7 +148,6 @@ export const performanceService = {
     const leaveDays = records.filter((r) => r.status === 'on_leave').length;
     const lateArrivals = records.filter((r) => r.lateMinutes > 0).length;
     const totalLateMinutes = records.reduce((sum, r) => sum + r.lateMinutes, 0);
-    const overtimeHours = records.reduce((sum, r) => sum + (r.overtimeHours?.toNumber() || 0), 0);
 
     // Calculate attendance rate (present + half days count as 0.5)
     const effectiveDays = presentDays + halfDays * 0.5;
@@ -167,7 +165,6 @@ export const performanceService = {
       leaveDays,
       lateArrivals,
       totalLateMinutes,
-      overtimeHours,
       attendanceRate: Math.round(attendanceRate * 100) / 100,
     };
   },

@@ -28,7 +28,6 @@ import {
   UserPlus,
   UserCog,
   CalendarCheck,
-  CalendarOff,
   Wallet,
   CreditCard,
   Gift,
@@ -128,12 +127,6 @@ const mainNavItems: NavItem[] = [
         titleKey: 'attendance',
         href: '/staff/attendance',
         icon: CalendarCheck,
-        permission: PERMISSIONS.USERS_READ,
-      },
-      {
-        titleKey: 'leaves',
-        href: '/staff/leaves',
-        icon: CalendarOff,
         permission: PERMISSIONS.USERS_READ,
       },
       {
@@ -275,7 +268,7 @@ function NavLink({
 }) {
   const pathname = usePathname();
   const isActive = isChildItem
-    ? pathname === item.href || (pathname.startsWith(item.href + '/') && item.href !== '/')
+    ? pathname === item.href
     : pathname === item.href || pathname.startsWith(item.href + '/');
 
   const title = t(item.titleKey);

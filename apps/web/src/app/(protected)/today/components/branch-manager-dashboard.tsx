@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useOwnerDashboard } from '@/hooks/queries/use-owner-dashboard';
+import { useDailyAttendance } from '@/hooks/queries/use-staff';
+import { format } from 'date-fns';
 
 interface BranchManagerDashboardProps {
   branchId: string;
@@ -40,6 +42,8 @@ function formatPercent(value: number): string {
 
 export function BranchManagerDashboard({ branchId }: BranchManagerDashboardProps) {
   const { data, isLoading } = useOwnerDashboard({ branchId });
+  const { data: attendanceData } = useDailyAttendance(format(new Date(), 'yyyy-MM-dd'));
+  const staffSummary = attendanceData?.summary;
 
   if (isLoading) {
     return <BranchManagerDashboardSkeleton />;
@@ -84,10 +88,10 @@ export function BranchManagerDashboard({ branchId }: BranchManagerDashboardProps
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data?.staff.presentToday || 0}/{data?.staff.totalActive || 0}
+              {staffSummary?.present ?? 0}/{staffSummary?.total ?? 0}
             </div>
             <div className="text-xs text-muted-foreground">
-              {data?.staff.onLeave || 0} on leave today
+              {staffSummary?.onLeave ?? 0} on leave today
             </div>
           </CardContent>
         </Card>
@@ -158,7 +162,7 @@ export function BranchManagerDashboard({ branchId }: BranchManagerDashboardProps
                   <span className="text-sm font-medium">Present</span>
                 </div>
                 <span className="text-lg font-bold text-green-600">
-                  {data?.staff.presentToday || 0}
+                  {staffSummary?.present ?? 0}
                 </span>
               </div>
               <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
@@ -167,18 +171,25 @@ export function BranchManagerDashboard({ branchId }: BranchManagerDashboardProps
                   <span className="text-sm font-medium">On Leave</span>
                 </div>
                 <span className="text-lg font-bold text-orange-600">
-                  {data?.staff.onLeave || 0}
+                  {staffSummary?.onLeave ?? 0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-red-500" />
+                  <span className="text-sm font-medium">Absent</span>
+                </div>
+                <span className="text-lg font-bold text-red-600">
+                  {staffSummary?.absent ?? 0}
                 </span>
               </div>
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-gray-400" />
-                  <span className="text-sm font-medium">Not Checked In</span>
+                  <span className="text-sm font-medium">Unmarked</span>
                 </div>
                 <span className="text-lg font-bold text-gray-600">
-                  {(data?.staff.totalActive || 0) -
-                    (data?.staff.presentToday || 0) -
-                    (data?.staff.onLeave || 0)}
+                  {staffSummary?.notMarked ?? 0}
                 </span>
               </div>
             </div>

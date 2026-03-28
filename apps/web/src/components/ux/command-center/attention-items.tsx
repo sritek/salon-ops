@@ -104,7 +104,6 @@ function AttentionItemsComponent({
   if (isLoading) {
     return (
       <div className={cn('space-y-4', className)}>
-        <h3 className="text-lg font-semibold">Needs Attention</h3>
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <AttentionItemSkeleton key={i} />
@@ -121,14 +120,13 @@ function AttentionItemsComponent({
 
   return (
     <div className={cn('space-y-4', className)}>
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Needs Attention</h3>
-        {items.length > 0 && (
+      {items.length > 0 && (
+        <div className="flex items-center justify-end">
           <Badge variant={highPriority.length > 0 ? 'destructive' : 'secondary'}>
             {items.length} {items.length === 1 ? 'item' : 'items'}
           </Badge>
-        )}
-      </div>
+        </div>
+      )}
 
       {items.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">

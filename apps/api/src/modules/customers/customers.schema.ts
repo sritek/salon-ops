@@ -63,7 +63,7 @@ export const updateCustomerBodySchema = z.object({
 
 export const updateCustomerPhoneBodySchema = z.object({
   phone: phoneSchema,
-  reason: z.string().min(10).max(500),
+  reason: z.string().min(10, 'Reason must be at least 10 characters').max(500),
 });
 
 export const customerQuerySchema = z.object({
@@ -127,7 +127,7 @@ export const loyaltyConfigSchema = z.object({
 export const adjustLoyaltyBodySchema = z.object({
   type: z.enum(['credit', 'debit']),
   points: z.number().int().positive(),
-  reason: z.string().min(10).max(500),
+  reason: z.string().min(10, 'Reason must be at least 10 characters').max(500),
 });
 
 export const loyaltyQuerySchema = z.object({
@@ -142,7 +142,7 @@ export const loyaltyQuerySchema = z.object({
 export const adjustWalletBodySchema = z.object({
   type: z.enum(['credit', 'debit']),
   amount: z.number().positive().max(1000000), // Max 10 lakh
-  reason: z.string().min(10).max(500),
+  reason: z.string().min(10, 'Reason must be at least 10 characters').max(500),
 });
 
 export const walletQuerySchema = z.object({

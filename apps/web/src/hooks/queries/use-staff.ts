@@ -2,7 +2,7 @@
  * Staff Management Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api/client';
 import type {
@@ -10,6 +10,7 @@ import type {
   Shift,
   Attendance,
   AttendanceSummary,
+  DailyAttendanceResponse,
   Leave,
   LeaveBalance,
   Commission,
@@ -43,6 +44,8 @@ export const staffKeys = {
     [...staffKeys.attendance(), 'list', filters] as const,
   attendanceSummary: (userId: string, startDate: string, endDate: string) =>
     [...staffKeys.attendance(), 'summary', userId, startDate, endDate] as const,
+  attendanceDaily: (date: string, branchId?: string) =>
+    [...staffKeys.attendance(), 'daily', date, branchId] as const,
   leaves: () => [...staffKeys.all, 'leaves'] as const,
   leaveList: (filters: Record<string, unknown>) =>
     [...staffKeys.leaves(), 'list', filters] as const,
@@ -234,6 +237,55 @@ export function useAttendanceList(params: ListAttendanceParams = {}) {
     queryFn: () =>
       api.getPaginated<Attendance>('/staff/attendance', params as Record<string, unknown>),
   });
+}
+
+export function useDailyAttendance(date: string, branchId?: string) {
+  return useQuery({
+    queryKey: staffKeys.attendanceDaily(date, branchId),
+    queryFn: () =>
+      api.get<DailyAttendanceResponse>('/staff/attendance/daily', {
+        date,
+        ...(branchId && { branchId }),
+      }),
+    enabled: !!date,
+  });
+}
+
+/**
+ * Fetch daily attendance for every date in a range using parallel queries.
+ * Each date is cached individually. Returns merged rows + combined loading/error state.
+ */
+export function useDailyAttendanceRange(
+  dateFrom: string,
+  dateTo: string,
+  branchId?: string
+) {
+  // Build array of date strings in the range
+  const dates: string[] = [];
+  const start = new Date(dateFrom + 'T00:00:00');
+  const end = new Date(dateTo + 'T00:00:00');
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const results = useQueries({
+    queries: dates.map((date) => ({
+      queryKey: staffKeys.attendanceDaily(date, branchId),
+      queryFn: () =>
+        api.get<DailyAttendanceResponse>('/staff/attendance/daily', {
+          date,
+          ...(branchId && { branchId }),
+        }),
+      enabled: !!date,
+    })),
+  });
+
+  const isLoading = results.some((r) => r.isLoading);
+  const error = results.find((r) => r.error)?.error ?? null;
+
+  return { results, dates, isLoading, error };
 }
 
 export function useAttendanceSummary(

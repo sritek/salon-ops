@@ -26,6 +26,8 @@ import {
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useOwnerDashboard } from '@/hooks/queries/use-owner-dashboard';
+import { useDailyAttendance } from '@/hooks/queries/use-staff';
+import { format } from 'date-fns';
 import { useOpenPanel } from '@/components/ux/slide-over';
 import { DeassignAppointmentDialog } from '@/components/ux/dialogs/deassign-appointment-dialog';
 import { FloorViewTab } from './floor-view-tab';
@@ -74,6 +76,8 @@ export function OwnerDashboardViewToggle() {
 
 export function OwnerDashboard({ branchId }: OwnerDashboardProps) {
   const { data, isLoading } = useOwnerDashboard({ branchId });
+  const { data: attendanceData } = useDailyAttendance(format(new Date(), 'yyyy-MM-dd'));
+  const staffSummary = attendanceData?.summary;
   const { ownerDashboardView } = useUIStore();
   const { openStationAssignment, openAppointmentDetails } = useOpenPanel();
   const [deassignDialogOpen, setDeassignDialogOpen] = useState(false);
@@ -136,11 +140,11 @@ export function OwnerDashboard({ branchId }: OwnerDashboardProps) {
     );
   }
 
-  return <OwnerOverviewContent data={data} />;
+  return <OwnerOverviewContent data={data} staffSummary={staffSummary} />;
 }
 
 // Extracted overview content to keep the component clean
-function OwnerOverviewContent({ data }: { data: ReturnType<typeof useOwnerDashboard>['data'] }) {
+function OwnerOverviewContent({ data, staffSummary }: { data: ReturnType<typeof useOwnerDashboard>['data']; staffSummary?: { present: number; absent: number; onLeave: number; halfDay: number; holiday: number; weekOff: number; notMarked: number; total: number } }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {/* Left Column - Revenue & Appointments */}
@@ -308,16 +312,24 @@ function OwnerOverviewContent({ data }: { data: ReturnType<typeof useOwnerDashbo
             <div className="flex items-center justify-between p-2 rounded-lg bg-green-50">
               <span className="text-sm text-green-700">Present</span>
               <span className="text-lg font-bold text-green-600">
-                {data?.staff.presentToday || 0}
+                {staffSummary?.present ?? 0}
               </span>
             </div>
             <div className="flex items-center justify-between p-2 rounded-lg bg-orange-50">
               <span className="text-sm text-orange-700">On Leave</span>
-              <span className="text-lg font-bold text-orange-600">{data?.staff.onLeave || 0}</span>
+              <span className="text-lg font-bold text-orange-600">{staffSummary?.onLeave ?? 0}</span>
             </div>
-            <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-              <span className="text-sm text-muted-foreground">Total Active</span>
-              <span className="text-lg font-bold">{data?.staff.totalActive || 0}</span>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-red-50">
+              <span className="text-sm text-red-700">Absent</span>
+              <span className="text-lg font-bold text-red-600">
+                {staffSummary?.absent ?? 0}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+              <span className="text-sm text-gray-700">Unmarked</span>
+              <span className="text-lg font-bold text-gray-600">
+                {staffSummary?.notMarked ?? 0}
+              </span>
             </div>
           </div>
         </Card>
