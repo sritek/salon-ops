@@ -867,8 +867,7 @@ export const billingService = {
     // Generate invoice number
     const invoiceNumber = await this.generateInvoiceNumber(ctx.tenantId, invoice.branchId);
 
-    // Finalize invoice — use extended timeout because this transaction performs
-    // multiple sequential writes (stock, loyalty, wallet, commissions, appointment).
+    // Finalize invoice
     await prisma.$transaction(async (tx) => {
       // Update invoice status
       await tx.invoice.update({
@@ -1066,7 +1065,7 @@ export const billingService = {
       if (commissionRecords.length > 0) {
         await tx.commission.createMany({ data: commissionRecords });
       }
-    }, { timeout: 30000 });
+    });
 
     return this.getInvoice(invoiceId, ctx.tenantId);
   },

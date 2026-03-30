@@ -452,7 +452,7 @@ export class CalendarService {
       });
 
       return serializeDecimals(updated);
-    }, { timeout: 15000 });
+    });
   }
 
   /**

@@ -656,7 +656,7 @@ export class AppointmentsService {
       }
 
       return { apt, processedConflicts };
-    }, { timeout: 30000 });
+    });
 
     return {
       appointment: appointment.apt,
@@ -751,7 +751,7 @@ export class AppointmentsService {
       });
 
       return updated;
-    }, { timeout: 15000 });
+    });
   }
 
   /**
@@ -796,7 +796,7 @@ export class AppointmentsService {
       });
 
       return updated;
-    }, { timeout: 15000 });
+    });
   }
 
   /**
@@ -864,7 +864,7 @@ export class AppointmentsService {
       });
 
       return updated;
-    }, { timeout: 15000 });
+    });
   }
 
   /**
@@ -943,7 +943,7 @@ export class AppointmentsService {
       }
 
       return updated;
-    }, { timeout: 15000 });
+    });
   }
 
   /**
@@ -1098,7 +1098,7 @@ export class AppointmentsService {
         newAppointment,
         rescheduleCount: newAppointment.rescheduleCount,
       };
-    }, { timeout: 15000 });
+    });
   }
 
   /**
@@ -1146,7 +1146,7 @@ export class AppointmentsService {
       });
 
       return updated;
-    }, { timeout: 15000 });
+    });
   }
 
   /**
@@ -1186,7 +1186,7 @@ export class AppointmentsService {
       });
 
       return updated;
-    }, { timeout: 15000 });
+    });
   }
 
   /**
@@ -1360,7 +1360,7 @@ export class AppointmentsService {
       });
 
       return apt;
-    }, { timeout: 15000 });
+    });
 
     return updated;
   }
@@ -1466,7 +1466,7 @@ export class AppointmentsService {
       });
 
       return apt;
-    }, { timeout: 15000 });
+    });
 
     return updated;
   }
@@ -1546,7 +1546,7 @@ export class AppointmentsService {
       });
 
       return apt;
-    }, { timeout: 15000 });
+    });
 
     return updated;
   }
@@ -1720,7 +1720,7 @@ export class AppointmentsService {
       });
 
       return apt;
-    }, { timeout: 15000 });
+    });
 
     return updated;
   }
@@ -1865,7 +1865,7 @@ export class AppointmentsService {
       });
 
       return apt;
-    }, { timeout: 15000 });
+    });
 
     return updated;
   }
@@ -1974,7 +1974,7 @@ export class AppointmentsService {
       });
 
       return apt;
-    }, { timeout: 15000 });
+    });
 
     return updated;
   }

@@ -16,6 +16,10 @@ export const prisma =
   new PrismaClient({
     // log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     log: ['error'],
+    transactionOptions: {
+      maxWait: 10000,  // Max time to acquire a connection from the pool
+      timeout: 30000,  // Max time for the transaction to complete
+    },
   });
 
 if (env.NODE_ENV !== 'production') {

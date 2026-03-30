@@ -1544,7 +1544,7 @@ export const payrollService = {
       }
     }
 
-    // Create or update payroll — extended timeout for bulk payroll item creation
+    // Create or update payroll
     const payroll = await prisma.$transaction(async (tx) => {
       // Delete existing items if updating
       if (existing) {
@@ -1582,7 +1582,7 @@ export const payrollService = {
       });
 
       return payrollRecord;
-    }, { timeout: 30000 });
+    });
 
     // Fetch with items
     const result = await prisma.payroll.findUnique({
@@ -1768,7 +1768,7 @@ export const payrollService = {
       });
 
       return updated;
-    }, { timeout: 15000 });
+    });
 
     return result;
   },
@@ -1833,7 +1833,7 @@ export const payrollService = {
       }
 
       return updated;
-    }, { timeout: 30000 });
+    });
 
     return result;
   },
