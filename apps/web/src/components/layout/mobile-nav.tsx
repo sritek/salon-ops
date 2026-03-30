@@ -555,8 +555,6 @@ export function MobileNav() {
     [hasPermission]
   );
 
-  const isSettingsActive = pathname.startsWith('/settings');
-
   return (
     <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
       <SheetContent side="left" className="w-72 p-0 flex flex-col">

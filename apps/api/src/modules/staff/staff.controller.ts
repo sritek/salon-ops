@@ -14,6 +14,7 @@ import {
   deductionService,
   payrollService,
   geoConfigService,
+  breaksService,
 } from './staff.service';
 import type {
   CreateStaffInput,
@@ -552,7 +553,7 @@ export async function listBreaks(
   reply: FastifyReply
 ) {
   const { tenantId } = request.user!;
-  const breaks = await staffService.listBreaks(
+  const breaks = await breaksService.list(
     tenantId,
     request.params.userId,
     request.query.branchId
@@ -574,7 +575,7 @@ export async function createBreak(
   reply: FastifyReply
 ) {
   const { tenantId, sub: createdBy } = request.user!;
-  const result = await staffService.createBreak(
+  const result = await breaksService.create(
     tenantId,
     request.params.userId,
     request.body,
@@ -588,6 +589,6 @@ export async function deleteBreak(
   reply: FastifyReply
 ) {
   const { tenantId } = request.user!;
-  await staffService.deleteBreak(tenantId, request.params.userId, request.params.breakId);
+  await breaksService.delete(tenantId, request.params.userId, request.params.breakId);
   return reply.send(successResponse({ message: 'Break deleted successfully' }));
 }

@@ -2074,7 +2074,3 @@ export const breaksService = {
   },
 };
 
-// Re-export for controller
-staffService.listBreaks = breaksService.list;
-staffService.createBreak = breaksService.create;
-staffService.deleteBreak = breaksService.delete;

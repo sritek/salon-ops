@@ -177,7 +177,7 @@ export class ServicesService {
       data: {
         tenantId,
         categoryId: data.categoryId,
-        sku,
+        sku: sku as string,
         name: data.name,
         description: data.description,
         basePrice: data.basePrice,
