@@ -67,7 +67,13 @@ const appointmentSchema = z
   .object({
     customerId: z.string().optional(),
     customerName: z.string().min(1, 'Customer name is required'),
-    customerPhone: z.string().optional(),
+    customerPhone: z
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || /^[6-9]\d{9}$/.test(val),
+        'Phone must be a valid 10-digit Indian mobile number'
+      ),
     serviceIds: z.array(z.string()).min(1, 'At least one service is required'),
     stylistId: z.string().optional(),
     assignLater: z.boolean().default(false),
@@ -381,9 +387,16 @@ export function NewAppointmentPanel({
                   {...register('customerName')}
                   className={cn(errors.customerName && 'border-destructive')}
                 />
-                <Input placeholder="Phone number" {...register('customerPhone')} />
                 {errors.customerName && (
                   <p className="text-xs text-destructive">{errors.customerName.message}</p>
+                )}
+                <Input
+                  placeholder="Phone number (10 digits)"
+                  {...register('customerPhone')}
+                  className={cn(errors.customerPhone && 'border-destructive')}
+                />
+                {errors.customerPhone && (
+                  <p className="text-xs text-destructive">{errors.customerPhone.message}</p>
                 )}
               </div>
             )}
