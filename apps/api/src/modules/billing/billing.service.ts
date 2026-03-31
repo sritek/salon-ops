@@ -856,7 +856,8 @@ export const billingService = {
     const newAmountPaid = Number(invoice.amountPaid) + totalPayment;
     const newAmountDue = Number(invoice.grandTotal) - newAmountPaid;
 
-    if (newAmountDue < -0.01) {
+    // Allow small tolerance for rounding differences (up to 1 rupee)
+    if (newAmountDue < -1) {
       throw new BadRequestError('OVERPAYMENT', 'Payment amount exceeds invoice total');
     }
 
@@ -1106,7 +1107,10 @@ export const billingService = {
       if (invoice.appointmentId) {
         await tx.appointment.update({
           where: { id: invoice.appointmentId },
-          data: { status: 'completed' },
+          data: {
+            status: 'completed',
+            completedAt: input.completedAt ? new Date(input.completedAt) : new Date(),
+          },
         });
       }
 
@@ -1273,8 +1277,12 @@ export const billingService = {
     // Create new invoice with the latest discounts and loyalty points
     const invoice = await this.createInvoice(input, ctx);
 
-    // Finalize with payments
-    return this.finalizeInvoice(invoice.id, { payments: input.payments }, ctx);
+    // Finalize with payments and completion time
+    return this.finalizeInvoice(
+      invoice.id,
+      { payments: input.payments, completedAt: input.completedAt },
+      ctx
+    );
   },
 
   /**

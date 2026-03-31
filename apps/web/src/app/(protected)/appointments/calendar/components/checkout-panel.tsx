@@ -6,7 +6,7 @@
  * Calls quickBill API to create invoice and mark appointment as completed.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useClosePanel } from '@/components/ux/slide-over';
 import { SlideOverContent } from '@/components/ux/slide-over/slide-over-content';
 import { SlideOverFooter } from '@/components/ux/slide-over/slide-over-footer';
@@ -33,8 +33,8 @@ import {
 } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SplitPaymentInput } from '@/components/common';
-import { useAppointment, useCompleteAppointment } from '@/hooks/queries/use-appointments';
-import { useQuickBill } from '@/hooks/queries/use-invoices';
+import { useAppointment } from '@/hooks/queries/use-appointments';
+import { useQuickBill, useCalculateTotals } from '@/hooks/queries/use-invoices';
 import { useLoyaltyConfig } from '@/hooks/queries/use-customers';
 import { useBranchContext } from '@/hooks/use-branch-context';
 import { useErrorHandler } from '@/hooks/use-error-handler';
@@ -63,8 +63,6 @@ import type { PaymentInput, DiscountInput } from '@/types/billing';
 interface CheckoutPanelProps {
   appointmentId: string;
   onComplete?: (invoiceId: string) => void;
-  isPending?: boolean; // For pending appointments from previous days
-  scheduledTime?: string; // HH:mm format (for pending appointments)
 }
 
 // ============================================
@@ -386,12 +384,7 @@ function PaymentConfirmDialog({
 // Main Component
 // ============================================
 
-export function CheckoutPanel({
-  appointmentId,
-  onComplete,
-  isPending = false,
-  scheduledTime,
-}: CheckoutPanelProps) {
+export function CheckoutPanel({ appointmentId, onComplete }: CheckoutPanelProps) {
   const closePanel = useClosePanel();
   const { branchId } = useBranchContext();
   const { handleError } = useErrorHandler();
@@ -399,10 +392,6 @@ export function CheckoutPanel({
   // State
   const [payments, setPayments] = useState<PaymentInput[]>([{ paymentMethod: 'cash', amount: 0 }]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [completionTime, setCompletionTime] = useState<string>(
-    scheduledTime ||
-      new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-  );
   const [isCompletingAppointment, setIsCompletingAppointment] = useState(false);
 
   // Discount state
@@ -415,11 +404,16 @@ export function CheckoutPanel({
   const [loyaltyPointsToRedeem, setLoyaltyPointsToRedeem] = useState<number>(0);
   const [showLoyaltySection, setShowLoyaltySection] = useState(false);
 
+  // Completion time state
+  const [completionTime, setCompletionTime] = useState<string>(
+    new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  );
+
   // Queries
   const { data: appointment, isLoading: isLoadingAppointment } = useAppointment(appointmentId);
   const { data: loyaltyConfig } = useLoyaltyConfig();
   const quickBill = useQuickBill();
-  const completeAppointmentMutation = useCompleteAppointment();
+  const calculateTotals = useCalculateTotals();
 
   // Customer loyalty info
   const customerLoyaltyPoints = appointment?.customer?.loyaltyPoints || 0;
@@ -429,8 +423,73 @@ export function CheckoutPanel({
   const isLoyaltyEnabled = loyaltyConfig?.isEnabled ?? false;
   const maxLoyaltyDiscount = customerLoyaltyPoints * loyaltyPointValue;
 
-  // Calculate totals from appointment services
+  // Backend-calculated totals state
+  const [calculatedTotals, setCalculatedTotals] = useState<{
+    subtotal: number;
+    taxAmount: number;
+    discountAmount: number;
+    loyaltyDiscount: number;
+    grandTotal: number;
+  } | null>(null);
+
+  // Calculate totals using backend API when inputs change
+  useEffect(() => {
+    if (!branchId || !appointment?.services || appointment.services.length === 0) {
+      setCalculatedTotals(null);
+      return;
+    }
+
+    const items = appointment.services.map((service) => ({
+      itemType: 'service' as const,
+      referenceId: service.serviceId,
+      quantity: service.quantity,
+      stylistId: service.stylistId || undefined,
+    }));
+
+    const discounts: DiscountInput[] = [];
+    if (discountValue > 0) {
+      discounts.push({
+        discountType: 'manual',
+        calculationType: discountType,
+        calculationValue: discountValue,
+        appliedTo: 'subtotal',
+        reason: discountReason || undefined,
+      });
+    }
+
+    calculateTotals.mutate(
+      {
+        branchId,
+        items,
+        discounts: discounts.length > 0 ? discounts : undefined,
+        redeemLoyaltyPoints: loyaltyPointsToRedeem > 0 ? loyaltyPointsToRedeem : undefined,
+      },
+      {
+        onSuccess: (data: any) => {
+          setCalculatedTotals({
+            subtotal: data.subtotal || 0,
+            taxAmount: data.totalTax || 0,
+            discountAmount: data.discountAmount || 0,
+            loyaltyDiscount: data.loyaltyDiscount || 0,
+            grandTotal: data.grandTotal || 0,
+          });
+        },
+        onError: () => {
+          // Fallback to local calculation if API fails
+          setCalculatedTotals(null);
+        },
+      }
+    );
+  }, [branchId, appointment?.services, discountType, discountValue, loyaltyPointsToRedeem]);
+
+  // Use backend-calculated totals or fallback to local calculation
   const totals = useMemo(() => {
+    // If we have backend-calculated totals, use them
+    if (calculatedTotals) {
+      return calculatedTotals;
+    }
+
+    // Fallback to local calculation (for initial render before API responds)
     if (!appointment?.services) {
       return { subtotal: 0, taxAmount: 0, discountAmount: 0, loyaltyDiscount: 0, grandTotal: 0 };
     }
@@ -460,10 +519,12 @@ export function CheckoutPanel({
 
     return { subtotal, taxAmount, discountAmount, loyaltyDiscount, grandTotal };
   }, [
+    calculatedTotals,
     appointment?.services,
     discountType,
     discountValue,
     loyaltyPointsToRedeem,
+    loyaltyPointValue,
     maxLoyaltyDiscount,
   ]);
 
@@ -486,15 +547,7 @@ export function CheckoutPanel({
     try {
       setIsCompletingAppointment(true);
 
-      // Step 1: Only complete the appointment if it's not already completed
-      if (appointment.status !== 'completed') {
-        await completeAppointmentMutation.mutateAsync({
-          appointmentId,
-          completionTime,
-        });
-      }
-
-      // Step 2: Build items from appointment services
+      // Build items from appointment services
       const items = (appointment.services || []).map((service) => ({
         itemType: 'service' as const,
         referenceId: service.serviceId,
@@ -502,7 +555,7 @@ export function CheckoutPanel({
         stylistId: service.stylistId || undefined,
       }));
 
-      // Step 3: Build discounts array if discount applied
+      // Build discounts array if discount applied
       const discounts: DiscountInput[] = [];
       if (discountValue > 0 && totals.discountAmount > 0) {
         discounts.push({
@@ -514,10 +567,14 @@ export function CheckoutPanel({
         });
       }
 
-      // Step 4: Filter out zero-amount payments
+      // Filter out zero-amount payments
       const validPayments = payments.filter((p) => p.amount > 0);
 
-      // Step 5: Create invoice
+      // Build completedAt datetime from scheduled date and completion time
+      const scheduledDate = appointment.scheduledDate.split('T')[0]; // Get YYYY-MM-DD
+      const completedAtDateTime = new Date(`${scheduledDate}T${completionTime}:00`).toISOString();
+
+      // Create invoice and complete appointment (quickBill handles both)
       quickBill.mutate(
         {
           branchId,
@@ -525,6 +582,7 @@ export function CheckoutPanel({
           customerName: appointment.customerName || undefined,
           customerPhone: appointment.customerPhone || undefined,
           appointmentId,
+          completedAt: completedAtDateTime,
           items,
           discounts: discounts.length > 0 ? discounts : undefined,
           redeemLoyaltyPoints: loyaltyPointsToRedeem > 0 ? loyaltyPointsToRedeem : undefined,
@@ -551,7 +609,7 @@ export function CheckoutPanel({
       );
     } catch (error) {
       handleError(error, {
-        customMessage: 'Failed to complete appointment. Please try again.',
+        customMessage: 'Failed to complete checkout. Please try again.',
       });
       setIsCompletingAppointment(false);
     }
@@ -560,7 +618,6 @@ export function CheckoutPanel({
     appointment,
     appointmentId,
     completionTime,
-    completeAppointmentMutation,
     discountType,
     discountValue,
     discountReason,
@@ -630,7 +687,8 @@ export function CheckoutPanel({
     );
   }
 
-  const canComplete = isFullyPaid && (appointment.services || []).length > 0;
+  const canComplete =
+    isFullyPaid && (appointment.services || []).length > 0 && !calculateTotals.isPending;
 
   return (
     <div className="flex flex-col h-full">
@@ -644,32 +702,6 @@ export function CheckoutPanel({
           loyaltyPoints={appointment.customer?.loyaltyPoints}
           walletBalance={appointment.customer?.walletBalance}
         />
-
-        {/* Completion Time Input - Only show if appointment is not already completed */}
-        {!isPending && appointment.status !== 'completed' && (
-          <>
-            <Separator />
-            <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <h3 className="font-semibold">Completion Time</h3>
-              </div>
-
-              <div>
-                <Label htmlFor="completion-time" className="text-sm">
-                  Completion Time
-                </Label>
-                <Input
-                  id="completion-time"
-                  type="time"
-                  value={completionTime}
-                  onChange={(e) => setCompletionTime(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-          </>
-        )}
 
         {/* Services */}
         <div>
@@ -767,7 +799,23 @@ export function CheckoutPanel({
               </div>
               {discountValue > 0 && (
                 <div className="text-sm text-green-600 font-medium">
-                  Discount: -₹{totals.discountAmount.toFixed(2)}
+                  Discount: -₹
+                  {(() => {
+                    // Show local preview calculation while backend calculates
+                    if (calculatedTotals?.discountAmount) {
+                      return calculatedTotals.discountAmount.toFixed(2);
+                    }
+                    // Local preview calculation
+                    const subtotal =
+                      appointment?.services?.reduce(
+                        (sum, s) => sum + Number(s.unitPrice) * s.quantity,
+                        0
+                      ) || 0;
+                    if (discountType === 'percentage') {
+                      return ((subtotal * discountValue) / 100).toFixed(2);
+                    }
+                    return Math.min(discountValue, subtotal).toFixed(2);
+                  })()}
                 </div>
               )}
             </div>
@@ -822,13 +870,37 @@ export function CheckoutPanel({
                 </div>
                 {loyaltyPointsToRedeem > 0 && (
                   <div className="text-sm text-amber-600 font-medium">
-                    Discount: -₹{totals.loyaltyDiscount.toFixed(2)} ({loyaltyPointsToRedeem} points)
+                    Discount: -₹
+                    {(
+                      calculatedTotals?.loyaltyDiscount ?? loyaltyPointsToRedeem * loyaltyPointValue
+                    ).toFixed(2)}{' '}
+                    ({loyaltyPointsToRedeem} points)
                   </div>
                 )}
               </div>
             </CollapsibleContent>
           </Collapsible>
         )}
+
+        {/* Completion Time */}
+        <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <h3 className="font-medium text-sm">Completion Time</h3>
+          </div>
+          <div>
+            <Label htmlFor="completion-time" className="text-xs text-muted-foreground">
+              Actual completion time
+            </Label>
+            <Input
+              id="completion-time"
+              type="time"
+              value={completionTime}
+              onChange={(e) => setCompletionTime(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+        </div>
 
         {/* Split Payments */}
         <SplitPaymentInput
