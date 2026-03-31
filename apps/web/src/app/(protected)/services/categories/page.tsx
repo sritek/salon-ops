@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Folder, FolderPlus, Pencil, Trash2 } from 'lucide-react';
+import { Folder, FolderPlus, Pencil, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -143,19 +142,12 @@ export default function CategoriesPage() {
       <PageHeader
         title="Service Categories"
         description="Organize your services into categories"
+        backHref="/services"
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/services">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Services
-              </Link>
-            </Button>
-            <Button onClick={handleOpenCreate}>
-              <FolderPlus className="mr-2 h-4 w-4" />
-              Add Category
-            </Button>
-          </div>
+          <Button onClick={handleOpenCreate}>
+            <FolderPlus className="mr-2 h-4 w-4" />
+            Add Category
+          </Button>
         }
       />
 

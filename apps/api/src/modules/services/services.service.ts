@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '../../lib/prisma';
+import { NotFoundError } from '../../lib/errors';
 
 import type { Prisma, Service } from '@prisma/client';
 import type {
@@ -277,7 +278,7 @@ export class ServicesService {
     });
 
     if (!service) {
-      throw new Error('Service not found');
+      throw new NotFoundError('SERVICE_NOT_FOUND', 'Service not found');
     }
 
     // Soft delete if has appointments

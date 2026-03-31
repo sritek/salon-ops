@@ -86,7 +86,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const result = await appointmentsService.getAppointments(tenantId, request.query);
       return reply.send({ success: true, ...result });
     }
