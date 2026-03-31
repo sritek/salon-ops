@@ -357,28 +357,6 @@ export default async function servicesRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // POST /services/:id/duplicate
-  app.post(
-    '/services/:id/duplicate',
-    {
-      schema: {
-        description: 'Duplicate a service',
-        tags: ['Services'],
-        security: [{ bearerAuth: [] }],
-        params: idParamSchema,
-        response: {
-          201: successResponseSchema,
-          401: errorResponseSchema,
-          404: errorResponseSchema,
-        },
-      },
-      preHandler: [authenticate, requirePermission(PERMISSIONS.SERVICES_WRITE)],
-    },
-    async (request, reply) => {
-      return servicesController.duplicateService(request as any, reply);
-    }
-  );
-
   // ============================================
   // Variants Routes
   // ============================================
