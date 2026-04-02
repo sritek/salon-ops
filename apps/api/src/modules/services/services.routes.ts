@@ -41,7 +41,6 @@ import {
   // Response schemas
   successResponseSchema,
   paginatedResponseSchema,
-  messageResponseSchema,
   errorResponseSchema,
   // Param schemas
   idParamSchema,
