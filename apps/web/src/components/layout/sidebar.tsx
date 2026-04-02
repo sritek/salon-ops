@@ -652,7 +652,7 @@ function UserProfileCard({ isCollapsed }: { isCollapsed: boolean }) {
   // Expanded: Horizontal layout
   return (
     <>
-      <div className="flex items-center gap-4 p-2">
+      <div className="flex items-center justify-center gap-4 p-2">
         {/* Settings Button */}
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
@@ -845,7 +845,7 @@ export function Sidebar({ className }: SidebarProps) {
         </nav>
 
         {/* Bottom Section */}
-        <div className="border-t p-2 space-y-1">
+        <div className="border-t p-2 space-y-1 flex flex-col items-center">
           {/* Settings */}
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2">
