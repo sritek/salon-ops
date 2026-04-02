@@ -3,7 +3,7 @@
  * API route definitions for appointment management using Zod type provider
  */
 
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import { AppointmentsController } from './appointments.controller';
@@ -50,7 +50,12 @@ import {
   stylistIdParamSchema,
   stylistBreakParamsSchema,
   stylistSlotParamsSchema,
+  UpdateAppointmentInput,
+  CreateAppointmentInput,
+  GetAvailableSlotsInput,
+  GetCalendarInput,
 } from './appointments.schema';
+import { deleteResponse, successResponse } from '@/lib';
 
 export async function appointmentsRoutes(fastify: FastifyInstance) {
   const appointmentsService = new AppointmentsService(prisma);
@@ -87,7 +92,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId, role } = (request as any).user!;
+      const { tenantId, sub: userId, role } = request.user!;
       const query = { ...request.query };
 
       // Enforce own-data scoping for stylist role
@@ -116,8 +121,8 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         security: [{ bearerAuth: [] }],
       },
     },
-    async (request, reply) => {
-      return controller.getCalendar(request as any, reply);
+    async (request: FastifyRequest<{ Querystring: GetCalendarInput }>, reply) => {
+      return controller.getCalendar(request, reply);
     }
   );
 
@@ -138,8 +143,8 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         security: [{ bearerAuth: [] }],
       },
     },
-    async (request, reply) => {
-      return controller.getAvailableSlots(request as any, reply);
+    async (request: FastifyRequest<{ Querystring: GetAvailableSlotsInput }>, reply) => {
+      return controller.getAvailableSlots(request, reply);
     }
   );
 
@@ -159,8 +164,19 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         security: [{ bearerAuth: [] }],
       },
     },
-    async (request, reply) => {
-      return controller.getAvailableStylists(request as any, reply);
+    async (
+      request: FastifyRequest<{
+        Querystring: {
+          branchId: string;
+          date: string;
+          time: string;
+          duration: number;
+          genderPreference?: string;
+        };
+      }>,
+      reply
+    ) => {
+      return controller.getAvailableStylists(request, reply);
     }
   );
 
@@ -184,7 +200,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const { stylistId } = request.params;
       const { branchId, date } = request.query;
       const result = await availabilityService.getStylistBusySlots(
@@ -212,8 +228,19 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         security: [{ bearerAuth: [] }],
       },
     },
-    async (request, reply) => {
-      return controller.checkConflicts(request as any, reply);
+    async (
+      request: FastifyRequest<{
+        Body: {
+          branchId: string;
+          scheduledDate: string;
+          scheduledTime: string;
+          serviceIds: string[];
+          stylistId?: string;
+        };
+      }>,
+      reply
+    ) => {
+      return controller.checkConflicts(request, reply);
     }
   );
 
@@ -234,8 +261,8 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         security: [{ bearerAuth: [] }],
       },
     },
-    async (request, reply) => {
-      return controller.getById(request as any, reply);
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+      return controller.getById(request, reply);
     }
   );
 
@@ -257,8 +284,17 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         security: [{ bearerAuth: [] }],
       },
     },
-    async (request, reply) => {
-      return controller.create(request as any, reply);
+    async (
+      request: FastifyRequest<{
+        Body: CreateAppointmentInput & {
+          forceOverride?: boolean;
+          overrideReason?: string;
+          conflictActions?: { appointmentId: string; action: 'keep' | 'cancel' }[];
+        };
+      }>,
+      reply
+    ) => {
+      return controller.create(request, reply);
     }
   );
 
@@ -280,8 +316,11 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         security: [{ bearerAuth: [] }],
       },
     },
-    async (request, reply) => {
-      return controller.update(request as any, reply);
+    async (
+      request: FastifyRequest<{ Params: { id: string }; Body: UpdateAppointmentInput }>,
+      reply
+    ) => {
+      return controller.update(request, reply);
     }
   );
 
@@ -304,7 +343,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const { status } = request.body;
       const result = await appointmentsService.updateAppointmentStatus(
@@ -337,7 +376,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.updateServices(tenantId, id, request.body, userId);
       return reply.send({ success: true, data: result });
@@ -366,7 +405,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.checkIn(tenantId, id, userId);
       return reply.send({ success: true, data: result });
@@ -391,7 +430,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.start(tenantId, id, userId);
       return reply.send({ success: true, data: result });
@@ -416,7 +455,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.complete(tenantId, id, userId);
       return reply.send({ success: true, data: result });
@@ -442,7 +481,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.cancel(tenantId, id, request.body, userId);
       return reply.send({ success: true, data: result });
@@ -467,7 +506,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.markNoShow(tenantId, id, userId);
       return reply.send({ success: true, data: result });
@@ -494,7 +533,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.reschedule(tenantId, id, request.body, userId);
       return reply.send({ success: true, data: result });
@@ -519,7 +558,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.resolveConflict(tenantId, id, userId);
       return reply.send({ success: true, data: result });
@@ -547,7 +586,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const { branchId, date } = request.query;
       const result = await appointmentsService.getUnassignedAppointments(tenantId, branchId, date);
       return reply.send({ success: true, data: result });
@@ -571,7 +610,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const { branchId } = request.query as { branchId: string };
       const count = await appointmentsService.getUnassignedCount(tenantId, branchId);
       return reply.send({ success: true, data: { count } });
@@ -599,7 +638,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const { stylistId } = request.body;
       const result = await appointmentsService.assignStylist(tenantId, id, stylistId, userId);
@@ -631,7 +670,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const { stationId } = request.body;
       const result = await appointmentsService.assignStation(tenantId, id, stationId, userId);
@@ -661,7 +700,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.deassignStation(tenantId, id, userId);
       return reply.send({ success: true, data: result });
@@ -691,7 +730,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.addService(tenantId, id, request.body, userId);
       return reply.send({ success: true, data: result });
@@ -721,7 +760,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await appointmentsService.updateStylists(tenantId, id, request.body, userId);
       return reply.send({ success: true, data: result });
@@ -749,7 +788,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const result = await walkInQueueService.addToQueue(
         tenantId,
         request.body.branchId,
@@ -777,7 +816,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const { branchId, date } = request.query;
       const result = await walkInQueueService.getQueue(tenantId, branchId, date);
       return reply.send({ success: true, data: result });
@@ -802,7 +841,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await walkInQueueService.callCustomer(tenantId, id, userId);
       return reply.send({ success: true, data: result });
@@ -828,7 +867,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, sub: userId } = (request as any).user!;
+      const { tenantId, sub: userId } = request.user!;
       const { id } = request.params;
       const result = await walkInQueueService.startServing(
         tenantId,
@@ -858,7 +897,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const { id } = request.params;
       const result = await walkInQueueService.markComplete(tenantId, id);
       return reply.send({ success: true, data: result });
@@ -883,7 +922,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const { id } = request.params;
       const result = await walkInQueueService.markLeft(tenantId, id);
       return reply.send({ success: true, data: result });
@@ -913,7 +952,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const { stylistId } = request.params;
       const result = await stylistScheduleService.getStylistSchedule(
         tenantId,
@@ -943,7 +982,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, branchIds, sub: userId } = (request as any).user!;
+      const { tenantId, branchIds, sub: userId } = request.user!;
       const branchId = branchIds[0];
       const { stylistId } = request.params;
       const result = await stylistScheduleService.createBreak(
@@ -953,7 +992,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         request.body,
         userId
       );
-      return reply.code(201).send({ success: true, data: result });
+      return reply.code(201).send(successResponse(result));
     }
   );
 
@@ -974,7 +1013,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const { breakId } = request.params;
       await stylistScheduleService.deleteBreak(tenantId, breakId);
       return reply.send(deleteResponse('Break deleted successfully'));
@@ -1000,7 +1039,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId, branchIds, sub: userId } = (request as any).user!;
+      const { tenantId, branchIds, sub: userId } = request.user!;
       const branchId = branchIds[0];
       const { stylistId } = request.params;
       const result = await stylistScheduleService.createBlockedSlot(
@@ -1010,7 +1049,7 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         request.body,
         userId
       );
-      return reply.code(201).send({ success: true, data: result });
+      return reply.code(201).send(successResponse(result));
     }
   );
 
@@ -1031,9 +1070,10 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { tenantId } = (request as any).user!;
+      const { tenantId } = request.user!;
       const { slotId } = request.params;
       await stylistScheduleService.deleteBlockedSlot(tenantId, slotId);
+
       return reply.send(deleteResponse('Blocked slot removed successfully'));
     }
   );
