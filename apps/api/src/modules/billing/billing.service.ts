@@ -631,8 +631,6 @@ export const billingService = {
       sortOrder,
     } = query;
 
-    console.log('query', query);
-
     const where: Prisma.InvoiceWhereInput = {
       tenantId,
       ...(branchId && { branchId }),
@@ -1068,7 +1066,8 @@ export const billingService = {
 
           // Deduct wallet if used
           if (Number(invoice.walletAmountUsed) > 0) {
-            const newWalletBalance = Number(customer.walletBalance) - Number(invoice.walletAmountUsed);
+            const newWalletBalance =
+              Number(customer.walletBalance) - Number(invoice.walletAmountUsed);
 
             await tx.customer.update({
               where: { id: invoice.customerId },
@@ -1096,7 +1095,7 @@ export const billingService = {
           where: { id: invoice.appointmentId },
           data: {
             status: 'completed',
-            completedAt: input.completedAt ? new Date(input.completedAt) : new Date(),
+            actualEndTime: input.completedAt ? new Date(input.completedAt) : new Date(),
           },
         });
       }
