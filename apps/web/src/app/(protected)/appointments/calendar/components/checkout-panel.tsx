@@ -417,7 +417,6 @@ export function CheckoutPanel({ appointmentId, onComplete }: CheckoutPanelProps)
 
   // Customer loyalty info
   const customerLoyaltyPoints = appointment?.customer?.loyaltyPoints || 0;
-  const customerWalletBalance = appointment?.customer?.walletBalance || 0;
   // Get redemption value from loyalty config (default to 1 if not configured)
   const loyaltyPointValue = loyaltyConfig?.redemptionValuePerPoint ?? 1;
   const isLoyaltyEnabled = loyaltyConfig?.isEnabled ?? false;

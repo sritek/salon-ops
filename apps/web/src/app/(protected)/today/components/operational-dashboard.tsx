@@ -131,11 +131,9 @@ export function OperationalDashboard({
   }, []);
 
   const handleCheckout = useCallback(
-    (appointmentId: string, isPending: boolean, scheduledDate?: string) => {
+    (appointmentId: string) => {
       openAppointmentDetails(appointmentId, {
         isCheckoutMode: true,
-        isPending,
-        scheduledDate,
       });
     },
     [openAppointmentDetails]
