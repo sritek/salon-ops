@@ -17,6 +17,7 @@ export interface CalendarStylist {
   avatar: string | null;
   color: string;
   isAvailable: boolean;
+  attendanceStatus: string;
   workingHours: { start: string; end: string } | null;
   breaks: Array<{
     id: string;

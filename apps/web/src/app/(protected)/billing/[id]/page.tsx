@@ -16,7 +16,6 @@ import {
   Hash,
   Star,
   Tag,
-  Percent,
   Users,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';

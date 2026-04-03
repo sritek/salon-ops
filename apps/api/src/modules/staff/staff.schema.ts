@@ -132,28 +132,6 @@ export const listStaffQuerySchema = z.object({
 });
 
 // ============================================
-// Shift Schemas
-// ============================================
-
-export const createShiftSchema = z.object({
-  name: z.string().min(2).max(100),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/),
-  breakDurationMinutes: z.number().int().min(0).max(120).default(0),
-  applicableDays: z.array(z.number().int().min(0).max(6)).min(1),
-});
-
-export const updateShiftSchema = createShiftSchema.partial();
-
-export const assignShiftSchema = z.object({
-  shiftId: z.string().uuid(),
-  effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  effectiveUntil: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-});
-
 // ============================================
 // Attendance Schemas
 // ============================================
@@ -191,7 +169,7 @@ export const manualAttendanceSchema = z.object({
     .regex(/^\d{2}:\d{2}(:\d{2})?$/)
     .optional(),
   status: AttendanceStatus,
-  notes: z.string().min(10).max(500),
+  notes: z.string().max(500).optional(),
 });
 
 export const listAttendanceQuerySchema = z.object({
@@ -210,6 +188,14 @@ export const listAttendanceQuerySchema = z.object({
   status: AttendanceStatus.optional(),
 });
 
+export const dailyAttendanceQuerySchema = z.object({
+  branchId: z.string().uuid().optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
+
 // ============================================
 // Leave Schemas
 // ============================================
@@ -222,7 +208,7 @@ export const applyLeaveSchema = z
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     isHalfDay: z.boolean().default(false),
     halfDayType: z.enum(['first_half', 'second_half']).optional(),
-    reason: z.string().min(10).max(500),
+    reason: z.string().min(10, 'Reason must be at least 10 characters').max(500),
   })
   .refine(
     (data) => {
@@ -245,7 +231,7 @@ export const approveLeaveSchema = z.object({
 });
 
 export const rejectLeaveSchema = z.object({
-  reason: z.string().min(10).max(500),
+  reason: z.string().min(10, 'Reason must be at least 10 characters').max(500),
 });
 
 export const listLeavesQuerySchema = z.object({
@@ -337,7 +323,7 @@ export const processPayrollSchema = z.object({
         userId: z.string().uuid(),
         adjustmentType: z.enum(['bonus', 'deduction', 'correction']),
         amount: z.number(),
-        reason: z.string().min(10).max(255),
+        reason: z.string().min(10, 'Reason must be at least 10 characters').max(255),
       })
     )
     .optional(),
@@ -395,13 +381,11 @@ export const listBreaksQuerySchema = z.object({
 export type CreateStaffInput = z.infer<typeof createStaffSchema>;
 export type UpdateStaffInput = z.infer<typeof updateStaffSchema>;
 export type ListStaffQuery = z.infer<typeof listStaffQuerySchema>;
-export type CreateShiftInput = z.infer<typeof createShiftSchema>;
-export type UpdateShiftInput = z.infer<typeof updateShiftSchema>;
-export type AssignShiftInput = z.infer<typeof assignShiftSchema>;
 export type CheckInInput = z.infer<typeof checkInSchema>;
 export type CheckOutInput = z.infer<typeof checkOutSchema>;
 export type ManualAttendanceInput = z.infer<typeof manualAttendanceSchema>;
 export type ListAttendanceQuery = z.infer<typeof listAttendanceQuerySchema>;
+export type DailyAttendanceQuery = z.infer<typeof dailyAttendanceQuerySchema>;
 export type ApplyLeaveInput = z.infer<typeof applyLeaveSchema>;
 export type ApproveLeaveInput = z.infer<typeof approveLeaveSchema>;
 export type RejectLeaveInput = z.infer<typeof rejectLeaveSchema>;

@@ -631,8 +631,6 @@ export const billingService = {
       sortOrder,
     } = query;
 
-    console.log('query', query);
-
     const where: Prisma.InvoiceWhereInput = {
       tenantId,
       ...(branchId && { branchId }),
@@ -991,29 +989,27 @@ export const billingService = {
         }
       }
 
-      // Award loyalty points
+      // Handle customer-related operations (loyalty, wallet) with a single fetch
       if (invoice.customerId) {
+        const customer = await tx.customer.findUnique({
+          where: { id: invoice.customerId },
+        });
+
         const loyaltyConfig = await tx.loyaltyConfig.findUnique({
           where: { tenantId: ctx.tenantId },
         });
 
-        if (loyaltyConfig && loyaltyConfig.isEnabled) {
-          const pointsEarned = Math.floor(
-            Number(invoice.taxableAmount) * Number(loyaltyConfig.pointsPerUnit)
-          );
+        if (customer) {
+          let currentLoyaltyPoints = customer.loyaltyPoints;
 
-          if (pointsEarned > 0) {
-            const customer = await tx.customer.findUnique({
-              where: { id: invoice.customerId },
-            });
+          // Award loyalty points
+          if (loyaltyConfig && loyaltyConfig.isEnabled) {
+            const pointsEarned = Math.floor(
+              Number(invoice.taxableAmount) * Number(loyaltyConfig.pointsPerUnit)
+            );
 
-            if (customer) {
-              const newBalance = customer.loyaltyPoints + pointsEarned;
-
-              await tx.customer.update({
-                where: { id: invoice.customerId },
-                data: { loyaltyPoints: newBalance },
-              });
+            if (pointsEarned > 0) {
+              currentLoyaltyPoints += pointsEarned;
 
               await tx.loyaltyTransaction.create({
                 data: {
@@ -1021,85 +1017,75 @@ export const billingService = {
                   customerId: invoice.customerId,
                   type: 'earned',
                   points: pointsEarned,
-                  balance: newBalance,
+                  balance: currentLoyaltyPoints,
                   reference: `Invoice #${invoiceNumber}`,
                   createdBy: ctx.userId,
                 },
               });
 
-              // Update invoice with points earned
               await tx.invoice.update({
                 where: { id: invoiceId },
                 data: { loyaltyPointsEarned: pointsEarned },
               });
             }
           }
-        }
-      }
 
-      // Deduct loyalty points if redeemed
-      if (Number(invoice.loyaltyPointsRedeemed) > 0 && invoice.customerId) {
-        const customer = await tx.customer.findUnique({
-          where: { id: invoice.customerId },
-        });
+          // Deduct loyalty points if redeemed
+          if (Number(invoice.loyaltyPointsRedeemed) > 0) {
+            const pointsToDeduct = Number(invoice.loyaltyPointsRedeemed);
 
-        if (customer) {
-          const pointsToDeduct = Number(invoice.loyaltyPointsRedeemed);
+            if (currentLoyaltyPoints < pointsToDeduct) {
+              throw new BadRequestError(
+                'INSUFFICIENT_LOYALTY_POINTS',
+                `Customer has ${currentLoyaltyPoints} points but ${pointsToDeduct} are required`
+              );
+            }
 
-          // Validate customer has enough points
-          if (customer.loyaltyPoints < pointsToDeduct) {
-            throw new BadRequestError(
-              'INSUFFICIENT_LOYALTY_POINTS',
-              `Customer has ${customer.loyaltyPoints} points but ${pointsToDeduct} are required`
-            );
+            currentLoyaltyPoints -= pointsToDeduct;
+
+            await tx.loyaltyTransaction.create({
+              data: {
+                tenantId: ctx.tenantId,
+                customerId: invoice.customerId,
+                type: 'redeemed',
+                points: -pointsToDeduct,
+                balance: currentLoyaltyPoints,
+                reference: `Invoice #${invoiceNumber}`,
+                createdBy: ctx.userId,
+              },
+            });
           }
 
-          const newBalance = customer.loyaltyPoints - pointsToDeduct;
+          // Update customer loyalty points (single update instead of multiple)
+          if (currentLoyaltyPoints !== customer.loyaltyPoints) {
+            await tx.customer.update({
+              where: { id: invoice.customerId },
+              data: { loyaltyPoints: currentLoyaltyPoints },
+            });
+          }
 
-          await tx.customer.update({
-            where: { id: invoice.customerId },
-            data: { loyaltyPoints: newBalance },
-          });
+          // Deduct wallet if used
+          if (Number(invoice.walletAmountUsed) > 0) {
+            const newWalletBalance =
+              Number(customer.walletBalance) - Number(invoice.walletAmountUsed);
 
-          await tx.loyaltyTransaction.create({
-            data: {
-              tenantId: ctx.tenantId,
-              customerId: invoice.customerId,
-              type: 'redeemed',
-              points: -pointsToDeduct,
-              balance: newBalance,
-              reference: `Invoice #${invoiceNumber}`,
-              createdBy: ctx.userId,
-            },
-          });
-        }
-      }
+            await tx.customer.update({
+              where: { id: invoice.customerId },
+              data: { walletBalance: newWalletBalance },
+            });
 
-      // Deduct wallet if used
-      if (Number(invoice.walletAmountUsed) > 0 && invoice.customerId) {
-        const customer = await tx.customer.findUnique({
-          where: { id: invoice.customerId },
-        });
-
-        if (customer) {
-          const newBalance = Number(customer.walletBalance) - Number(invoice.walletAmountUsed);
-
-          await tx.customer.update({
-            where: { id: invoice.customerId },
-            data: { walletBalance: newBalance },
-          });
-
-          await tx.walletTransaction.create({
-            data: {
-              tenantId: ctx.tenantId,
-              customerId: invoice.customerId,
-              type: 'debit',
-              amount: -Number(invoice.walletAmountUsed),
-              balance: newBalance,
-              reference: `Invoice #${invoiceNumber}`,
-              createdBy: ctx.userId,
-            },
-          });
+            await tx.walletTransaction.create({
+              data: {
+                tenantId: ctx.tenantId,
+                customerId: invoice.customerId,
+                type: 'debit',
+                amount: -Number(invoice.walletAmountUsed),
+                balance: newWalletBalance,
+                reference: `Invoice #${invoiceNumber}`,
+                createdBy: ctx.userId,
+              },
+            });
+          }
         }
       }
 
@@ -1109,63 +1095,63 @@ export const billingService = {
           where: { id: invoice.appointmentId },
           data: {
             status: 'completed',
-            completedAt: input.completedAt ? new Date(input.completedAt) : new Date(),
+            actualEndTime: input.completedAt ? new Date(input.completedAt) : new Date(),
           },
         });
       }
 
-      // Create commission records for stylists
+      // Create commission records in bulk (single DB call instead of N calls)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      const commissionRecords: Prisma.CommissionCreateManyInput[] = [];
+
       for (const item of invoice.items) {
-        // Create commission for primary stylist
         if (item.stylistId && item.commissionAmount && Number(item.commissionAmount) > 0) {
-          await tx.commission.create({
-            data: {
-              tenantId: ctx.tenantId,
-              branchId: invoice.branchId,
-              userId: item.stylistId,
-              invoiceId: invoiceId,
-              invoiceItemId: item.id,
-              serviceId: item.itemType === 'service' ? item.referenceId : null,
-              serviceName: item.name,
-              serviceAmount: item.netAmount,
-              commissionType: item.commissionType || 'percentage',
-              commissionRate: item.commissionRate || 0,
-              commissionAmount: item.commissionAmount,
-              roleType: 'primary',
-              status: 'pending',
-              commissionDate: today,
-            },
+          commissionRecords.push({
+            tenantId: ctx.tenantId,
+            branchId: invoice.branchId,
+            userId: item.stylistId,
+            invoiceId: invoiceId,
+            invoiceItemId: item.id,
+            serviceId: item.itemType === 'service' ? item.referenceId : null,
+            serviceName: item.name,
+            serviceAmount: item.netAmount,
+            commissionType: item.commissionType || 'percentage',
+            commissionRate: item.commissionRate || 0,
+            commissionAmount: item.commissionAmount,
+            roleType: 'primary',
+            status: 'pending',
+            commissionDate: today,
           });
         }
 
-        // Create commission for assistant if applicable
         if (
           item.assistantId &&
           item.assistantCommissionAmount &&
           Number(item.assistantCommissionAmount) > 0
         ) {
-          await tx.commission.create({
-            data: {
-              tenantId: ctx.tenantId,
-              branchId: invoice.branchId,
-              userId: item.assistantId,
-              invoiceId: invoiceId,
-              invoiceItemId: item.id,
-              serviceId: item.itemType === 'service' ? item.referenceId : null,
-              serviceName: item.name,
-              serviceAmount: item.netAmount,
-              commissionType: item.commissionType || 'percentage',
-              commissionRate: item.commissionRate || 0,
-              commissionAmount: item.assistantCommissionAmount,
-              roleType: 'assistant',
-              status: 'pending',
-              commissionDate: today,
-            },
+          commissionRecords.push({
+            tenantId: ctx.tenantId,
+            branchId: invoice.branchId,
+            userId: item.assistantId,
+            invoiceId: invoiceId,
+            invoiceItemId: item.id,
+            serviceId: item.itemType === 'service' ? item.referenceId : null,
+            serviceName: item.name,
+            serviceAmount: item.netAmount,
+            commissionType: item.commissionType || 'percentage',
+            commissionRate: item.commissionRate || 0,
+            commissionAmount: item.assistantCommissionAmount,
+            roleType: 'assistant',
+            status: 'pending',
+            commissionDate: today,
           });
         }
+      }
+
+      if (commissionRecords.length > 0) {
+        await tx.commission.createMany({ data: commissionRecords });
       }
     });
 

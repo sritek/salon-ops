@@ -87,7 +87,6 @@ function NextUpQueueComponent({
   if (isLoading) {
     return (
       <div className={cn('space-y-4', className)}>
-        <h3 className="text-lg font-semibold">Next Up</h3>
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <QueueItemSkeleton key={i} />
@@ -101,14 +100,13 @@ function NextUpQueueComponent({
 
   return (
     <div className={cn('space-y-4', className)}>
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Next Up</h3>
-        {hasItems && (
+      {hasItems && (
+        <div className="flex items-center justify-end">
           <span className="text-sm text-muted-foreground">
             {appointments.length} appointments, {walkIns.length} walk-ins
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {!hasItems ? (
         <div className="text-center py-8 text-muted-foreground">

@@ -105,11 +105,9 @@ export interface PayslipData {
   presentDays: number;
   absentDays: number;
   leaveDays: number;
-  overtimeHours: number;
 
   // Earnings
   baseSalary: number;
-  overtimeAmount: number;
   totalCommissions: number;
   otherEarnings: Record<string, number>;
   grossEarnings: number;
@@ -282,11 +280,9 @@ export const payslipService = {
       presentDays: item.presentDays.toNumber(),
       absentDays: item.absentDays.toNumber(),
       leaveDays: item.leaveDays.toNumber(),
-      overtimeHours: item.overtimeHours.toNumber(),
 
       // Earnings
       baseSalary: item.baseSalary.toNumber(),
-      overtimeAmount: item.overtimeAmount.toNumber(),
       totalCommissions: item.totalCommissions.toNumber(),
       otherEarnings: earningsJson,
       grossEarnings: item.grossSalary.toNumber(),

@@ -8,7 +8,6 @@ import { Prisma, UserRole } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import {
   format,
-  differenceInMinutes,
   differenceInHours,
   parseISO,
   getDaysInMonth,
@@ -25,13 +24,11 @@ import type {
   CreateStaffInput,
   UpdateStaffInput,
   ListStaffQuery,
-  CreateShiftInput,
-  UpdateShiftInput,
-  AssignShiftInput,
   CheckInInput,
   CheckOutInput,
   ManualAttendanceInput,
   ListAttendanceQuery,
+  DailyAttendanceQuery,
   ApplyLeaveInput,
   ListLeavesQuery,
   ListCommissionsQuery,
@@ -389,169 +386,6 @@ export const staffService = {
 };
 
 // ============================================
-// Shift Service
-// ============================================
-
-export const shiftService = {
-  /**
-   * Create a new shift
-   */
-  async create(tenantId: string, branchId: string, input: CreateShiftInput) {
-    // Check for duplicate name
-    const existing = await prisma.shift.findFirst({
-      where: { branchId, name: input.name },
-    });
-
-    if (existing) {
-      throw new ConflictError('SHIFT_EXISTS', 'Shift with this name already exists');
-    }
-
-    const shift = await prisma.shift.create({
-      data: {
-        tenantId,
-        branchId,
-        name: input.name,
-        startTime: input.startTime,
-        endTime: input.endTime,
-        breakDurationMinutes: input.breakDurationMinutes || 0,
-        applicableDays: input.applicableDays,
-        isActive: true,
-      },
-    });
-
-    return shift;
-  },
-
-  /**
-   * List shifts for a branch
-   */
-  async listByBranch(tenantId: string, branchId: string) {
-    const shifts = await prisma.shift.findMany({
-      where: { tenantId, branchId, isActive: true },
-      orderBy: { name: 'asc' },
-    });
-
-    return shifts;
-  },
-
-  /**
-   * Update a shift
-   */
-  async update(tenantId: string, shiftId: string, input: UpdateShiftInput) {
-    const existing = await prisma.shift.findFirst({
-      where: { id: shiftId, tenantId },
-    });
-
-    if (!existing) {
-      throw new NotFoundError('SHIFT_NOT_FOUND', 'Shift not found');
-    }
-
-    // Check name uniqueness if changing
-    if (input.name && input.name !== existing.name) {
-      const duplicate = await prisma.shift.findFirst({
-        where: { branchId: existing.branchId, name: input.name, id: { not: shiftId } },
-      });
-      if (duplicate) {
-        throw new ConflictError('SHIFT_EXISTS', 'Shift with this name already exists');
-      }
-    }
-
-    const shift = await prisma.shift.update({
-      where: { id: shiftId },
-      data: {
-        ...(input.name && { name: input.name }),
-        ...(input.startTime && { startTime: input.startTime }),
-        ...(input.endTime && { endTime: input.endTime }),
-        ...(input.breakDurationMinutes !== undefined && {
-          breakDurationMinutes: input.breakDurationMinutes,
-        }),
-        ...(input.applicableDays && { applicableDays: input.applicableDays }),
-      },
-    });
-
-    return shift;
-  },
-
-  /**
-   * Delete (deactivate) a shift
-   */
-  async delete(tenantId: string, shiftId: string) {
-    const existing = await prisma.shift.findFirst({
-      where: { id: shiftId, tenantId },
-    });
-
-    if (!existing) {
-      throw new NotFoundError('SHIFT_NOT_FOUND', 'Shift not found');
-    }
-
-    await prisma.shift.update({
-      where: { id: shiftId },
-      data: { isActive: false },
-    });
-
-    return { success: true };
-  },
-
-  /**
-   * Assign shift to staff
-   */
-  async assignToStaff(
-    tenantId: string,
-    userId: string,
-    branchId: string,
-    input: AssignShiftInput,
-    assignedBy?: string
-  ) {
-    // Verify shift exists
-    const shift = await prisma.shift.findFirst({
-      where: { id: input.shiftId, tenantId, branchId, isActive: true },
-    });
-
-    if (!shift) {
-      throw new NotFoundError('SHIFT_NOT_FOUND', 'Shift not found');
-    }
-
-    const assignment = await prisma.staffShiftAssignment.create({
-      data: {
-        tenantId,
-        userId,
-        branchId,
-        shiftId: input.shiftId,
-        effectiveFrom: new Date(input.effectiveFrom),
-        effectiveUntil: input.effectiveUntil ? new Date(input.effectiveUntil) : undefined,
-        createdBy: assignedBy,
-      },
-      include: {
-        shift: true,
-      },
-    });
-
-    return assignment;
-  },
-
-  /**
-   * Get staff's current shift
-   */
-  async getStaffShift(tenantId: string, userId: string, branchId: string, date: string) {
-    const assignment = await prisma.staffShiftAssignment.findFirst({
-      where: {
-        tenantId,
-        userId,
-        branchId,
-        effectiveFrom: { lte: new Date(date) },
-        OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: new Date(date) } }],
-      },
-      include: {
-        shift: true,
-      },
-      orderBy: { effectiveFrom: 'desc' },
-    });
-
-    return assignment?.shift || null;
-  },
-};
-
-// ============================================
 // Attendance Service
 // ============================================
 
@@ -622,25 +456,9 @@ export const attendanceService = {
       }
     }
 
-    // Get staff's shift
-    const shift = await shiftService.getStaffShift(tenantId, userId, input.branchId, today);
-
-    // Calculate late minutes
-    let lateMinutes = 0;
-    let scheduledHours: number | undefined;
-
-    if (shift) {
-      const shiftStart = parseISO(`${today}T${shift.startTime}:00`);
-      const shiftEnd = parseISO(`${today}T${shift.endTime}:00`);
-      const gracePeriod = 15; // 15 minutes grace period
-
-      const diffMinutes = differenceInMinutes(now, shiftStart);
-      if (diffMinutes > gracePeriod) {
-        lateMinutes = diffMinutes;
-      }
-
-      scheduledHours = differenceInHours(shiftEnd, shiftStart) - shift.breakDurationMinutes / 60;
-    }
+    // Late minutes and scheduled hours are not calculated without shift data
+    const lateMinutes = 0;
+    const scheduledHours: number | undefined = undefined;
 
     // Create or update attendance
     const attendance = existing
@@ -678,7 +496,6 @@ export const attendanceService = {
 
     return {
       attendance,
-      shift,
       isLate: lateMinutes > 0,
       lateMinutes,
       locationValid,
@@ -714,23 +531,9 @@ export const attendanceService = {
     const checkInTime = parseISO(`${today}T${attendance.checkInTime}`);
     const actualHours = differenceInHours(now, checkInTime);
 
-    // Calculate overtime
-    let overtimeHours = 0;
     let earlyLeaveMinutes = 0;
 
-    const shift = await shiftService.getStaffShift(tenantId, userId, input.branchId, today);
-    if (shift) {
-      const scheduledHours = attendance.scheduledHours?.toNumber() || 8;
-      if (actualHours > scheduledHours) {
-        overtimeHours = actualHours - scheduledHours;
-      }
-
-      const shiftEnd = parseISO(`${today}T${shift.endTime}:00`);
-      const earlyDiff = differenceInMinutes(shiftEnd, now);
-      if (earlyDiff > 0) {
-        earlyLeaveMinutes = earlyDiff;
-      }
-    }
+    // Early leave calculation skipped — no shift data
 
     // Determine status
     let status = attendance.status;
@@ -744,7 +547,6 @@ export const attendanceService = {
       data: {
         checkOutTime: currentTime,
         actualHours,
-        overtimeHours,
         earlyLeaveMinutes,
         status,
         ...(input.location && {
@@ -757,7 +559,6 @@ export const attendanceService = {
     return {
       attendance: updated,
       actualHours,
-      overtimeHours,
       earlyLeaveMinutes,
     };
   },
@@ -855,6 +656,95 @@ export const attendanceService = {
   },
 
   /**
+   * Get daily attendance for all staff on a specific date
+   * Returns all active staff with their attendance record (or null if not marked)
+   */
+  async getDailyAttendance(tenantId: string, query: DailyAttendanceQuery) {
+    const { branchId, date } = query;
+    const targetDate = date ? new Date(date) : new Date(format(new Date(), 'yyyy-MM-dd'));
+
+    // Build staff filter
+    const staffWhere: Prisma.StaffProfileWhereInput = {
+      tenantId,
+      isActive: true,
+      ...(branchId && {
+        user: {
+          branchAssignments: {
+            some: { branchId },
+          },
+        },
+      }),
+    };
+
+    // Get all active staff
+    const staffList = await prisma.staffProfile.findMany({
+      where: staffWhere,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            role: true,
+            avatarUrl: true,
+            isActive: true,
+          },
+        },
+      },
+      orderBy: { user: { name: 'asc' } },
+    });
+
+    // Get attendance records for the date
+    const attendanceWhere: Prisma.AttendanceWhereInput = {
+      tenantId,
+      attendanceDate: targetDate,
+      userId: { in: staffList.map((s) => s.userId) },
+      ...(branchId && { branchId }),
+    };
+
+    const attendanceRecords = await prisma.attendance.findMany({
+      where: attendanceWhere,
+    });
+
+    // Build a map of userId -> attendance
+    const attendanceMap = new Map(attendanceRecords.map((a) => [a.userId, a]));
+
+    // Merge staff with attendance
+    const dailyData = staffList.map((staff) => {
+      const attendance = attendanceMap.get(staff.userId);
+      return {
+        staffId: staff.id,
+        userId: staff.userId,
+        staffName: staff.user?.name ?? '-',
+        role: staff.user?.role ?? '-',
+        avatarUrl: staff.user?.avatarUrl ?? null,
+        attendanceDate: format(targetDate, 'yyyy-MM-dd'),
+        checkInTime: attendance?.checkInTime ?? null,
+        checkOutTime: attendance?.checkOutTime ?? null,
+        actualHours: attendance?.actualHours ? Number(attendance.actualHours) : null,
+        lateMinutes: attendance?.lateMinutes ?? 0,
+        earlyLeaveMinutes: attendance?.earlyLeaveMinutes ?? 0,
+        status: attendance?.status ?? 'not_marked',
+        isManualEntry: attendance?.isManualEntry ?? false,
+        notes: attendance?.notes ?? null,
+      };
+    });
+
+    // Summary counts
+    const summary = {
+      total: dailyData.length,
+      present: dailyData.filter((d) => d.status === 'present').length,
+      absent: dailyData.filter((d) => d.status === 'absent').length,
+      halfDay: dailyData.filter((d) => d.status === 'half_day').length,
+      onLeave: dailyData.filter((d) => d.status === 'on_leave').length,
+      holiday: dailyData.filter((d) => d.status === 'holiday').length,
+      weekOff: dailyData.filter((d) => d.status === 'week_off').length,
+      notMarked: dailyData.filter((d) => d.status === 'not_marked').length,
+    };
+
+    return { data: dailyData, summary };
+  },
+
+  /**
    * Get attendance summary for a user
    */
   async getSummary(
@@ -884,7 +774,6 @@ export const attendanceService = {
       leaveDays: records.filter((r) => r.status === 'on_leave').length,
       holidays: records.filter((r) => r.status === 'holiday').length,
       weekOffs: records.filter((r) => r.status === 'week_off').length,
-      totalOvertimeHours: records.reduce((sum, r) => sum + (r.overtimeHours?.toNumber() || 0), 0),
       totalLateMinutes: records.reduce((sum, r) => sum + r.lateMinutes, 0),
     };
 
@@ -1492,16 +1381,14 @@ export const payrollService = {
           })
         : await tx.payroll.create({ data: payrollData });
 
-      // Create payroll items
-      for (const itemData of items) {
-        await tx.payrollItem.create({
-          data: {
-            tenantId,
-            payrollId: payrollRecord.id,
-            ...itemData,
-          },
-        });
-      }
+      // Create payroll items in bulk
+      await tx.payrollItem.createMany({
+        data: items.map((itemData) => ({
+          tenantId,
+          payrollId: payrollRecord.id,
+          ...itemData,
+        })),
+      });
 
       return payrollRecord;
     });
@@ -1595,13 +1482,9 @@ export const payrollService = {
     const lopAmount = lopDays * perDaySalary;
     totalDeductions += lopAmount;
 
-    // Calculate overtime
-    const overtimeRate = (baseSalary / (workingDays * 8)) * 1.5;
-    const overtimeAmount = attendanceSummary.totalOvertimeHours * overtimeRate;
-
     // Calculate totals
     const earningsJson = { base_salary: baseSalary };
-    const totalEarnings = baseSalary + overtimeAmount;
+    const totalEarnings = baseSalary;
     const grossSalary = totalEarnings + totalCommissions;
     const netSalary = grossSalary - totalDeductions;
 
@@ -1611,7 +1494,6 @@ export const payrollService = {
       presentDays: attendanceSummary.presentDays + attendanceSummary.halfDays * 0.5,
       absentDays: attendanceSummary.absentDays,
       leaveDays: attendanceSummary.leaveDays,
-      overtimeHours: attendanceSummary.totalOvertimeHours,
       baseSalary,
       earningsJson,
       totalEarnings,
@@ -1619,8 +1501,6 @@ export const payrollService = {
       commissionCount: commissions.length,
       deductionsJson,
       totalDeductions,
-      overtimeRate,
-      overtimeAmount,
       lopDays,
       lopAmount,
       grossSalary,
@@ -2003,7 +1883,3 @@ export const breaksService = {
   },
 };
 
-// Re-export for controller
-staffService.listBreaks = breaksService.list;
-staffService.createBreak = breaksService.create;
-staffService.deleteBreak = breaksService.delete;

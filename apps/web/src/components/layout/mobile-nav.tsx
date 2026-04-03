@@ -24,17 +24,14 @@ import {
   BarChart3,
   Megaphone,
   Settings,
-  UserPlus,
   UserCog,
   CalendarCheck,
-  CalendarOff,
   Wallet,
   CreditCard,
   Gift,
   Crown,
   ChevronDown,
   Gauge,
-  ClipboardList,
   FileText,
   Building2,
   Check,
@@ -87,18 +84,6 @@ const mainNavItems: NavItem[] = [
     permission: PERMISSIONS.APPOINTMENTS_READ,
   },
   {
-    titleKey: 'walkIn',
-    href: '/walk-in',
-    icon: UserPlus,
-    permission: PERMISSIONS.APPOINTMENTS_WRITE,
-  },
-  {
-    titleKey: 'waitlist',
-    href: '/waitlist',
-    icon: ClipboardList,
-    permission: PERMISSIONS.APPOINTMENTS_READ,
-  },
-  {
     titleKey: 'customers',
     href: '/customers',
     icon: Users,
@@ -127,12 +112,6 @@ const mainNavItems: NavItem[] = [
         titleKey: 'attendance',
         href: '/staff/attendance',
         icon: CalendarCheck,
-        permission: PERMISSIONS.USERS_READ,
-      },
-      {
-        titleKey: 'leaves',
-        href: '/staff/leaves',
-        icon: CalendarOff,
         permission: PERMISSIONS.USERS_READ,
       },
       {
@@ -431,7 +410,7 @@ function MobileNavLink({
   // For child items, check exact match or if pathname starts with item.href
   // For parent items without children, check if pathname starts with item.href
   const isActive = isChildItem
-    ? pathname === item.href || (pathname.startsWith(item.href + '/') && item.href !== '/')
+    ? pathname === item.href
     : pathname === item.href || pathname.startsWith(item.href + '/');
 
   return (
@@ -561,8 +540,6 @@ export function MobileNav() {
       ),
     [hasPermission]
   );
-
-  const isSettingsActive = pathname.startsWith('/settings');
 
   return (
     <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>

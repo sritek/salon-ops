@@ -71,7 +71,6 @@ function LiveTimelineComponent({
   if (isLoading) {
     return (
       <div className={cn('space-y-4', className)}>
-        <h3 className="text-lg font-semibold">Timeline</h3>
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <TimelineRowSkeleton key={i} />
@@ -83,7 +82,6 @@ function LiveTimelineComponent({
 
   return (
     <div className={cn('space-y-4', className)}>
-      <h3 className="text-lg font-semibold">Timeline</h3>
 
       <div className="relative">
         {/* Time header */}

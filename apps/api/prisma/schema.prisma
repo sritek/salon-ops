@@ -124,6 +124,14 @@ enum PackageStatus {
   pending
 }
 
+enum CustomerSource {
+  manual
+  walk_in
+  online_booking
+  phone
+  import
+}
+
 // ============================================
 // Tenant & Branch
 // ============================================
@@ -298,6 +306,7 @@ model Customer {
   bookingStatus      String    @default("normal") @map("booking_status") @db.VarChar(20)
   firstVisitBranchId String?   @map("first_visit_branch_id")
   marketingConsent   Boolean   @default(true) @map("marketing_consent")
+  source             CustomerSource @default(manual) @map("source")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
   deletedAt          DateTime? @map("deleted_at")
@@ -1245,50 +1254,6 @@ model StaffProfile {
   @@map("staff_profiles")
 }
 
-model Shift {
-  id       String @id @default(uuid())
-  tenantId String @map("tenant_id")
-  branchId String @map("branch_id")
-
-  name                 String @db.VarChar(100)
-  startTime            String @map("start_time") @db.VarChar(5)
-  endTime              String @map("end_time") @db.VarChar(5)
-  breakDurationMinutes Int    @default(0) @map("break_duration_minutes")
-
-  // Days applicable (0=Sun, 6=Sat)
-  applicableDays Int[] @default([1, 2, 3, 4, 5, 6]) @map("applicable_days")
-
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  // Relations
-  staffAssignments StaffShiftAssignment[]
-
-  @@unique([branchId, name])
-  @@index([branchId, isActive])
-  @@map("shifts")
-}
-
-model StaffShiftAssignment {
-  id       String @id @default(uuid())
-  tenantId String @map("tenant_id")
-  userId   String @map("user_id")
-  branchId String @map("branch_id")
-  shiftId  String @map("shift_id")
-
-  effectiveFrom  DateTime  @map("effective_from") @db.Date
-  effectiveUntil DateTime? @map("effective_until") @db.Date
-
-  createdAt DateTime @default(now()) @map("created_at")
-  createdBy String?  @map("created_by")
-
-  // Relations
-  shift Shift @relation(fields: [shiftId], references: [id])
-
-  @@index([userId, effectiveFrom])
-  @@map("staff_shift_assignments")
-}
-
 model Attendance {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
@@ -1304,7 +1269,6 @@ model Attendance {
   // Calculated
   scheduledHours    Decimal? @map("scheduled_hours") @db.Decimal(4, 2)
   actualHours       Decimal? @map("actual_hours") @db.Decimal(4, 2)
-  overtimeHours     Decimal  @default(0) @map("overtime_hours") @db.Decimal(4, 2)
   lateMinutes       Int      @default(0) @map("late_minutes")
   earlyLeaveMinutes Int      @default(0) @map("early_leave_minutes")
 
@@ -1586,7 +1550,6 @@ model PayrollItem {
   presentDays   Decimal @map("present_days") @db.Decimal(4, 1)
   absentDays    Decimal @map("absent_days") @db.Decimal(4, 1)
   leaveDays     Decimal @map("leave_days") @db.Decimal(4, 1)
-  overtimeHours Decimal @default(0) @map("overtime_hours") @db.Decimal(6, 2)
 
   // Earnings
   baseSalary    Decimal @map("base_salary") @db.Decimal(10, 2)
@@ -1600,10 +1563,6 @@ model PayrollItem {
   // Deductions
   deductionsJson  Json    @map("deductions_json")
   totalDeductions Decimal @map("total_deductions") @db.Decimal(10, 2)
-
-  // Overtime
-  overtimeRate   Decimal @default(0) @map("overtime_rate") @db.Decimal(10, 2)
-  overtimeAmount Decimal @default(0) @map("overtime_amount") @db.Decimal(10, 2)
 
   // Loss of pay
   lopDays   Decimal @default(0) @map("lop_days") @db.Decimal(4, 1)

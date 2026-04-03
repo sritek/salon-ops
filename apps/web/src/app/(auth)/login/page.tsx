@@ -2,15 +2,16 @@
 
 import { Loader2, Scissors } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/components/ui/password-input';
-import { api } from '@/lib/api/client';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { api, ApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth-store';
 
 interface LoginResponse {
@@ -38,18 +39,29 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState('');
+  const [loginMode, setLoginMode] = useState<'phone' | 'email'>('phone');
+  const identifierRef = useRef<HTMLInputElement>(null);
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setPhoneError('');
+
+    if (loginMode === 'phone' && !/^[6-9]\d{9}$/.test(identifier)) {
+      setPhoneError('Please enter a valid 10-digit mobile number');
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const response = await api.post<LoginResponse>('/auth/login', {
-        email,
-        password,
-      });
+      const payload = loginMode === 'phone'
+        ? { phone: identifier, password }
+        : { email: identifier, password };
+
+      const response = await api.post<LoginResponse>('/auth/login', payload);
 
       setAuth(response.user, response.tenant, response.accessToken, response.refreshToken);
 
@@ -65,7 +77,15 @@ export default function LoginPage() {
       const safeRedirectUrl = redirectUrl.startsWith('/') ? redirectUrl : '/today';
       router.push(safeRedirectUrl);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Invalid email or password');
+      if (error instanceof ApiError) {
+        toast.error(
+          loginMode === 'phone'
+            ? 'Invalid phone number or password'
+            : 'Invalid email or password'
+        );
+      } else {
+        toast.error('Unable to connect. Please check your internet connection and try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -86,18 +106,53 @@ export default function LoginPage() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="name@salon.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
+          <Tabs
+            value={loginMode}
+            onValueChange={(value) => {
+              setLoginMode(value as 'phone' | 'email');
+              setIdentifier('');
+              setTimeout(() => identifierRef.current?.focus(), 0);
+            }}
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="phone">Phone</TabsTrigger>
+              <TabsTrigger value="email">Email</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {loginMode === 'phone' ? (
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                placeholder="10-digit mobile number"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+                ref={identifierRef}
+              />
+              {phoneError && (
+                <p className="text-sm text-destructive">{phoneError}</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@salon.com"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+                autoComplete="email"
+                ref={identifierRef}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
