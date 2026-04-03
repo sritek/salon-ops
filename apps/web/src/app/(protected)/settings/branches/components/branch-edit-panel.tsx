@@ -60,7 +60,7 @@ interface BranchEditPanelProps {
 // Convert API working hours format to editor format
 function toEditorFormat(
   apiHours:
-    | Record<string, { isOpen: boolean; open?: string | null; close?: string | null; openTime?: string | null; closeTime?: string | null }>
+    | Record<string, { isOpen: boolean; openTime?: string | null; closeTime?: string | null }>
     | undefined
 ): WeeklyWorkingHours {
   if (!apiHours) return DEFAULT_WORKING_HOURS;
@@ -81,8 +81,8 @@ function toEditorFormat(
     if (dayData) {
       result[day] = {
         isOpen: dayData.isOpen ?? true,
-        openTime: dayData.openTime || dayData.open || '09:00',
-        closeTime: dayData.closeTime || dayData.close || '21:00',
+        openTime: dayData.openTime || '09:00',
+        closeTime: dayData.closeTime || '21:00',
       };
     }
   }

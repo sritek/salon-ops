@@ -132,28 +132,6 @@ export const listStaffQuerySchema = z.object({
 });
 
 // ============================================
-// Shift Schemas
-// ============================================
-
-export const createShiftSchema = z.object({
-  name: z.string().min(2).max(100),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/),
-  breakDurationMinutes: z.number().int().min(0).max(120).default(0),
-  applicableDays: z.array(z.number().int().min(0).max(6)).min(1),
-});
-
-export const updateShiftSchema = createShiftSchema.partial();
-
-export const assignShiftSchema = z.object({
-  shiftId: z.string().uuid(),
-  effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  effectiveUntil: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .optional(),
-});
-
 // ============================================
 // Attendance Schemas
 // ============================================
@@ -403,9 +381,6 @@ export const listBreaksQuerySchema = z.object({
 export type CreateStaffInput = z.infer<typeof createStaffSchema>;
 export type UpdateStaffInput = z.infer<typeof updateStaffSchema>;
 export type ListStaffQuery = z.infer<typeof listStaffQuerySchema>;
-export type CreateShiftInput = z.infer<typeof createShiftSchema>;
-export type UpdateShiftInput = z.infer<typeof updateShiftSchema>;
-export type AssignShiftInput = z.infer<typeof assignShiftSchema>;
 export type CheckInInput = z.infer<typeof checkInSchema>;
 export type CheckOutInput = z.infer<typeof checkOutSchema>;
 export type ManualAttendanceInput = z.infer<typeof manualAttendanceSchema>;

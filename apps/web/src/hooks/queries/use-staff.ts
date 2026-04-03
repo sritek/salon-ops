@@ -8,7 +8,6 @@ import { format } from 'date-fns';
 import { api } from '@/lib/api/client';
 import type {
   StaffProfile,
-  Shift,
   Attendance,
   AttendanceSummary,
   DailyAttendanceResponse,
@@ -39,7 +38,6 @@ export const staffKeys = {
   list: (filters: Record<string, unknown>) => [...staffKeys.lists(), filters] as const,
   details: () => [...staffKeys.all, 'detail'] as const,
   detail: (id: string) => [...staffKeys.details(), id] as const,
-  shifts: (branchId: string) => [...staffKeys.all, 'shifts', branchId] as const,
   attendance: () => [...staffKeys.all, 'attendance'] as const,
   attendanceList: (filters: Record<string, unknown>) =>
     [...staffKeys.attendance(), 'list', filters] as const,
@@ -128,92 +126,6 @@ export function useDeactivateStaff() {
     mutationFn: (id: string) => api.delete<void>(`/staff/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: staffKeys.lists() });
-    },
-  });
-}
-
-// ============================================
-// Shift Hooks
-// ============================================
-
-export function useShiftList(branchId: string) {
-  return useQuery({
-    queryKey: staffKeys.shifts(branchId),
-    queryFn: () => api.get<Shift[]>(`/staff/branches/${branchId}/shifts`),
-    enabled: !!branchId,
-  });
-}
-
-export function useCreateShift() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      branchId,
-      ...input
-    }: {
-      branchId: string;
-      name: string;
-      startTime: string;
-      endTime: string;
-      breakDurationMinutes?: number;
-      applicableDays: number[];
-    }) => api.post<Shift>(`/staff/branches/${branchId}/shifts`, input),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.shifts(variables.branchId) });
-    },
-  });
-}
-
-export function useAssignShift() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      userId,
-      branchId,
-      ...input
-    }: {
-      userId: string;
-      branchId: string;
-      shiftId: string;
-      effectiveFrom: string;
-      effectiveUntil?: string;
-    }) => api.post(`/staff/${userId}/branches/${branchId}/shifts`, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
-    },
-  });
-}
-
-export function useUpdateShift() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      id,
-      ...input
-    }: {
-      id: string;
-      name?: string;
-      startTime?: string;
-      endTime?: string;
-      breakDurationMinutes?: number;
-      applicableDays?: number[];
-    }) => api.patch<Shift>(`/staff/shifts/${id}`, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
-    },
-  });
-}
-
-export function useDeleteShift() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => api.delete<void>(`/staff/shifts/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
     },
   });
 }

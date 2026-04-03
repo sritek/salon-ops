@@ -8,7 +8,6 @@ import { Prisma, UserRole } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import {
   format,
-  differenceInMinutes,
   differenceInHours,
   parseISO,
   getDaysInMonth,
@@ -25,9 +24,6 @@ import type {
   CreateStaffInput,
   UpdateStaffInput,
   ListStaffQuery,
-  CreateShiftInput,
-  UpdateShiftInput,
-  AssignShiftInput,
   CheckInInput,
   CheckOutInput,
   ManualAttendanceInput,
@@ -390,169 +386,6 @@ export const staffService = {
 };
 
 // ============================================
-// Shift Service
-// ============================================
-
-export const shiftService = {
-  /**
-   * Create a new shift
-   */
-  async create(tenantId: string, branchId: string, input: CreateShiftInput) {
-    // Check for duplicate name
-    const existing = await prisma.shift.findFirst({
-      where: { branchId, name: input.name },
-    });
-
-    if (existing) {
-      throw new ConflictError('SHIFT_EXISTS', 'Shift with this name already exists');
-    }
-
-    const shift = await prisma.shift.create({
-      data: {
-        tenantId,
-        branchId,
-        name: input.name,
-        startTime: input.startTime,
-        endTime: input.endTime,
-        breakDurationMinutes: input.breakDurationMinutes || 0,
-        applicableDays: input.applicableDays,
-        isActive: true,
-      },
-    });
-
-    return shift;
-  },
-
-  /**
-   * List shifts for a branch
-   */
-  async listByBranch(tenantId: string, branchId: string) {
-    const shifts = await prisma.shift.findMany({
-      where: { tenantId, branchId, isActive: true },
-      orderBy: { name: 'asc' },
-    });
-
-    return shifts;
-  },
-
-  /**
-   * Update a shift
-   */
-  async update(tenantId: string, shiftId: string, input: UpdateShiftInput) {
-    const existing = await prisma.shift.findFirst({
-      where: { id: shiftId, tenantId },
-    });
-
-    if (!existing) {
-      throw new NotFoundError('SHIFT_NOT_FOUND', 'Shift not found');
-    }
-
-    // Check name uniqueness if changing
-    if (input.name && input.name !== existing.name) {
-      const duplicate = await prisma.shift.findFirst({
-        where: { branchId: existing.branchId, name: input.name, id: { not: shiftId } },
-      });
-      if (duplicate) {
-        throw new ConflictError('SHIFT_EXISTS', 'Shift with this name already exists');
-      }
-    }
-
-    const shift = await prisma.shift.update({
-      where: { id: shiftId },
-      data: {
-        ...(input.name && { name: input.name }),
-        ...(input.startTime && { startTime: input.startTime }),
-        ...(input.endTime && { endTime: input.endTime }),
-        ...(input.breakDurationMinutes !== undefined && {
-          breakDurationMinutes: input.breakDurationMinutes,
-        }),
-        ...(input.applicableDays && { applicableDays: input.applicableDays }),
-      },
-    });
-
-    return shift;
-  },
-
-  /**
-   * Delete (deactivate) a shift
-   */
-  async delete(tenantId: string, shiftId: string) {
-    const existing = await prisma.shift.findFirst({
-      where: { id: shiftId, tenantId },
-    });
-
-    if (!existing) {
-      throw new NotFoundError('SHIFT_NOT_FOUND', 'Shift not found');
-    }
-
-    await prisma.shift.update({
-      where: { id: shiftId },
-      data: { isActive: false },
-    });
-
-    return { success: true };
-  },
-
-  /**
-   * Assign shift to staff
-   */
-  async assignToStaff(
-    tenantId: string,
-    userId: string,
-    branchId: string,
-    input: AssignShiftInput,
-    assignedBy?: string
-  ) {
-    // Verify shift exists
-    const shift = await prisma.shift.findFirst({
-      where: { id: input.shiftId, tenantId, branchId, isActive: true },
-    });
-
-    if (!shift) {
-      throw new NotFoundError('SHIFT_NOT_FOUND', 'Shift not found');
-    }
-
-    const assignment = await prisma.staffShiftAssignment.create({
-      data: {
-        tenantId,
-        userId,
-        branchId,
-        shiftId: input.shiftId,
-        effectiveFrom: new Date(input.effectiveFrom),
-        effectiveUntil: input.effectiveUntil ? new Date(input.effectiveUntil) : undefined,
-        createdBy: assignedBy,
-      },
-      include: {
-        shift: true,
-      },
-    });
-
-    return assignment;
-  },
-
-  /**
-   * Get staff's current shift
-   */
-  async getStaffShift(tenantId: string, userId: string, branchId: string, date: string) {
-    const assignment = await prisma.staffShiftAssignment.findFirst({
-      where: {
-        tenantId,
-        userId,
-        branchId,
-        effectiveFrom: { lte: new Date(date) },
-        OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: new Date(date) } }],
-      },
-      include: {
-        shift: true,
-      },
-      orderBy: { effectiveFrom: 'desc' },
-    });
-
-    return assignment?.shift || null;
-  },
-};
-
-// ============================================
 // Attendance Service
 // ============================================
 
@@ -623,25 +456,9 @@ export const attendanceService = {
       }
     }
 
-    // Get staff's shift
-    const shift = await shiftService.getStaffShift(tenantId, userId, input.branchId, today);
-
-    // Calculate late minutes
-    let lateMinutes = 0;
-    let scheduledHours: number | undefined;
-
-    if (shift) {
-      const shiftStart = parseISO(`${today}T${shift.startTime}:00`);
-      const shiftEnd = parseISO(`${today}T${shift.endTime}:00`);
-      const gracePeriod = 15; // 15 minutes grace period
-
-      const diffMinutes = differenceInMinutes(now, shiftStart);
-      if (diffMinutes > gracePeriod) {
-        lateMinutes = diffMinutes;
-      }
-
-      scheduledHours = differenceInHours(shiftEnd, shiftStart) - shift.breakDurationMinutes / 60;
-    }
+    // Late minutes and scheduled hours are not calculated without shift data
+    const lateMinutes = 0;
+    const scheduledHours: number | undefined = undefined;
 
     // Create or update attendance
     const attendance = existing
@@ -679,7 +496,6 @@ export const attendanceService = {
 
     return {
       attendance,
-      shift,
       isLate: lateMinutes > 0,
       lateMinutes,
       locationValid,
@@ -717,14 +533,7 @@ export const attendanceService = {
 
     let earlyLeaveMinutes = 0;
 
-    const shift = await shiftService.getStaffShift(tenantId, userId, input.branchId, today);
-    if (shift) {
-      const shiftEnd = parseISO(`${today}T${shift.endTime}:00`);
-      const earlyDiff = differenceInMinutes(shiftEnd, now);
-      if (earlyDiff > 0) {
-        earlyLeaveMinutes = earlyDiff;
-      }
-    }
+    // Early leave calculation skipped — no shift data
 
     // Determine status
     let status = attendance.status;

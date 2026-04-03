@@ -11,9 +11,6 @@ import {
   createStaffSchema,
   updateStaffSchema,
   listStaffQuerySchema,
-  createShiftSchema,
-  updateShiftSchema,
-  assignShiftSchema,
   checkInSchema,
   checkOutSchema,
   manualAttendanceSchema,
@@ -84,26 +81,6 @@ export async function staffRoutes(fastify: FastifyInstance) {
     { schema: { tags: ['Attendance'], querystring: dailyAttendanceQuerySchema } },
     controller.getDailyAttendance
   );
-
-  // ============================================
-  // Shift Routes (static paths before parametric /:id)
-  // ============================================
-
-  app.post(
-    '/branches/:branchId/shifts',
-    { schema: { tags: ['Shifts'], body: createShiftSchema } },
-    controller.createShift
-  );
-
-  app.get('/branches/:branchId/shifts', { schema: { tags: ['Shifts'] } }, controller.listShifts);
-
-  app.patch(
-    '/shifts/:id',
-    { schema: { tags: ['Shifts'], body: updateShiftSchema } },
-    controller.updateShift
-  );
-
-  app.delete('/shifts/:id', { schema: { tags: ['Shifts'] } }, controller.deleteShift);
 
   // ============================================
   // Leave Routes (static paths before parametric /:id)
@@ -234,12 +211,6 @@ export async function staffRoutes(fastify: FastifyInstance) {
   // ============================================
   // Parametric /:userId routes
   // ============================================
-
-  app.post(
-    '/:userId/branches/:branchId/shifts',
-    { schema: { tags: ['Shifts'], body: assignShiftSchema } },
-    controller.assignShift
-  );
 
   app.get(
     '/:userId/attendance/summary',

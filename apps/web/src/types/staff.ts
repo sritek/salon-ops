@@ -93,34 +93,6 @@ export interface BranchAssignment {
 }
 
 // ============================================
-// Shift
-// ============================================
-
-export interface Shift {
-  id: string;
-  tenantId: string;
-  branchId: string;
-  name: string;
-  startTime: string;
-  endTime: string;
-  breakDurationMinutes: number;
-  applicableDays: number[];
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface StaffShiftAssignment {
-  id: string;
-  tenantId: string;
-  userId: string;
-  branchId: string;
-  shiftId: string;
-  effectiveFrom: string;
-  effectiveUntil?: string;
-  createdAt: string;
-  shift?: Shift;
-}
-
 // ============================================
 // Attendance
 // ============================================

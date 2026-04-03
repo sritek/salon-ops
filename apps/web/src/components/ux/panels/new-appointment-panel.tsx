@@ -210,11 +210,11 @@ export function NewAppointmentPanel({
     const dayIndex = new Date(year, month - 1, day).getDay();
     const dayName = DAY_NAMES[dayIndex];
     const dayHours = branchData.workingHours[dayName] as
-      | { isOpen?: boolean; openTime?: string | null; closeTime?: string | null; open?: string | null; close?: string | null }
+      | { isOpen?: boolean; openTime?: string | null; closeTime?: string | null }
       | undefined;
     if (!dayHours || !dayHours.isOpen) return { startHour: 9, endHour: 21 };
-    const openStr = dayHours.openTime || dayHours.open || '09:00';
-    const closeStr = dayHours.closeTime || dayHours.close || '21:00';
+    const openStr = dayHours.openTime || '09:00';
+    const closeStr = dayHours.closeTime || '21:00';
     return {
       startHour: parseInt(openStr.split(':')[0], 10),
       endHour: parseInt(closeStr.split(':')[0], 10),

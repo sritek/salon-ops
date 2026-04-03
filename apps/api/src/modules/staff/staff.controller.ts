@@ -7,7 +7,6 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { successResponse, paginatedResponse, deleteResponse } from '../../lib/response';
 import {
   staffService,
-  shiftService,
   attendanceService,
   leaveService,
   commissionService,
@@ -20,9 +19,6 @@ import type {
   CreateStaffInput,
   UpdateStaffInput,
   ListStaffQuery,
-  CreateShiftInput,
-  UpdateShiftInput,
-  AssignShiftInput,
   CheckInInput,
   CheckOutInput,
   ManualAttendanceInput,
@@ -88,61 +84,6 @@ export async function deactivateStaff(
   const { tenantId, sub: userId } = request.user!;
   await staffService.deactivate(tenantId, request.params.id, userId);
   return reply.send(deleteResponse('Staff deactivated successfully'));
-}
-
-// ============================================
-// Shift Controllers
-// ============================================
-
-export async function createShift(
-  request: FastifyRequest<{ Params: { branchId: string }; Body: CreateShiftInput }>,
-  reply: FastifyReply
-) {
-  const { tenantId } = request.user!;
-  const shift = await shiftService.create(tenantId, request.params.branchId, request.body);
-  return reply.status(201).send(successResponse(shift));
-}
-
-export async function listShifts(
-  request: FastifyRequest<{ Params: { branchId: string } }>,
-  reply: FastifyReply
-) {
-  const { tenantId } = request.user!;
-  const shifts = await shiftService.listByBranch(tenantId, request.params.branchId);
-  return reply.send(successResponse(shifts));
-}
-
-export async function updateShift(
-  request: FastifyRequest<{ Params: { id: string }; Body: UpdateShiftInput }>,
-  reply: FastifyReply
-) {
-  const { tenantId } = request.user!;
-  const shift = await shiftService.update(tenantId, request.params.id, request.body);
-  return reply.send(successResponse(shift));
-}
-
-export async function deleteShift(
-  request: FastifyRequest<{ Params: { id: string } }>,
-  reply: FastifyReply
-) {
-  const { tenantId } = request.user!;
-  await shiftService.delete(tenantId, request.params.id);
-  return reply.send(deleteResponse('Shift deleted successfully'));
-}
-
-export async function assignShift(
-  request: FastifyRequest<{ Params: { userId: string; branchId: string }; Body: AssignShiftInput }>,
-  reply: FastifyReply
-) {
-  const { tenantId, sub: currentUserId } = request.user!;
-  const assignment = await shiftService.assignToStaff(
-    tenantId,
-    request.params.userId,
-    request.params.branchId,
-    request.body,
-    currentUserId
-  );
-  return reply.status(201).send(successResponse(assignment));
 }
 
 // ============================================

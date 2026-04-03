@@ -57,11 +57,8 @@ function getEndOfWeekUTC(dateStr: string): Date {
 // Day-specific working hours structure from branch settings
 interface DayWorkingHours {
   isOpen: boolean;
-  // Support both field naming conventions
   openTime?: string;
   closeTime?: string;
-  open?: string;
-  close?: string;
 }
 
 interface BranchWorkingHours {
@@ -107,8 +104,8 @@ function extractSimpleWorkingHours(
   }
 
   return {
-    start: dayHours.openTime || dayHours.open || DEFAULT_HOURS.start,
-    end: dayHours.closeTime || dayHours.close || DEFAULT_HOURS.end,
+    start: dayHours.openTime || DEFAULT_HOURS.start,
+    end: dayHours.closeTime || DEFAULT_HOURS.end,
   };
 }
 import type {
@@ -260,7 +257,7 @@ export class CalendarService {
         // Check if stylist has full day blocked for the requested date
         // Since we already filtered blockedSlots by date range, just check isFullDay
         const isFullDayBlocked = stylistBlocked.some((bs) => bs.isFullDay);
-        const attendanceStatus = attendanceMap.get(ub.user.id) ?? 'not_marked';
+        const attendanceStatus = (attendanceMap.get(ub.user.id) ?? 'not_marked') as CalendarStylist['attendanceStatus'];
         const isAbsentOrOnLeave = attendanceStatus === 'absent' || attendanceStatus === 'on_leave';
 
         return {
