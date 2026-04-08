@@ -12,14 +12,13 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { ROLE_PERMISSIONS } from '@trimio/shared';
 
+import { env } from '../../config/env';
+import { getExpiryDate } from '../../lib/duration';
 import { prisma } from '../../lib/prisma';
 import { successResponse } from '../../lib/response';
 import { authService } from './auth.service';
 
 import type { LoginBody, RefreshTokenBody, RegisterBody } from './auth.schema';
-
-// Refresh token expiry: 7 days
-const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 
 export class AuthController {
   /**
@@ -37,7 +36,7 @@ export class AuthController {
         role: result.user.role,
         permissions: ROLE_PERMISSIONS[result.user.role as keyof typeof ROLE_PERMISSIONS] || [],
       },
-      { expiresIn: '15m' }
+      { expiresIn: env.JWT_ACCESS_EXPIRY }
     );
 
     // Generate refresh token
@@ -47,12 +46,11 @@ export class AuthController {
         tenantId: result.user.tenantId,
         type: 'refresh',
       },
-      { expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d` }
+      { expiresIn: env.JWT_REFRESH_EXPIRY }
     );
 
     // Store refresh token in database
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
+    const expiresAt = getExpiryDate(env.JWT_REFRESH_EXPIRY);
 
     await prisma.refreshToken.create({
       data: {
@@ -87,7 +85,7 @@ export class AuthController {
         role: result.user.role,
         permissions: ROLE_PERMISSIONS[result.user.role as keyof typeof ROLE_PERMISSIONS] || [],
       },
-      { expiresIn: '15m' }
+      { expiresIn: env.JWT_ACCESS_EXPIRY }
     );
 
     // Generate refresh token
@@ -97,12 +95,11 @@ export class AuthController {
         tenantId: result.user.tenantId,
         type: 'refresh',
       },
-      { expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d` }
+      { expiresIn: env.JWT_REFRESH_EXPIRY }
     );
 
     // Store refresh token in database
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
+    const expiresAt = getExpiryDate(env.JWT_REFRESH_EXPIRY);
 
     await prisma.refreshToken.create({
       data: {
@@ -173,7 +170,7 @@ export class AuthController {
         role: user.role,
         permissions: ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [],
       },
-      { expiresIn: '15m' }
+      { expiresIn: env.JWT_ACCESS_EXPIRY }
     );
 
     const newRefreshToken = request.server.jwt.sign(
@@ -182,12 +179,11 @@ export class AuthController {
         tenantId: user.tenantId,
         type: 'refresh',
       },
-      { expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d` }
+      { expiresIn: env.JWT_REFRESH_EXPIRY }
     );
 
     // Token rotation: delete old token, create new one
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
+    const expiresAt = getExpiryDate(env.JWT_REFRESH_EXPIRY);
 
     await prisma.$transaction([
       prisma.refreshToken.delete({ where: { id: storedToken.id } }),

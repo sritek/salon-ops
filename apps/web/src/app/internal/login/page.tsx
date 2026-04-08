@@ -72,8 +72,8 @@ export default function InternalLoginPage() {
       <Card className="w-full max-w-md bg-white border-slate-200 shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-amber-100 rounded-full">
-              <Shield className="h-8 w-8 text-amber-600" />
+            <div className="p-3 bg-primary/10 rounded-full">
+              <Shield className="h-8 w-8 text-primary" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-slate-900">trimio Admin</CardTitle>
@@ -113,7 +113,7 @@ export default function InternalLoginPage() {
 
             <Button
               type="submit"
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
               disabled={isLoading}
             >
               {isLoading ? 'Signing in...' : 'Sign in as Admin'}

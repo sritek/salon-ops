@@ -78,11 +78,6 @@ export interface TenantFormData {
   subscriptionStatus: SubscriptionStatus;
   trialDays: number;
   logoUrl: string;
-  // Loyalty configuration
-  loyaltyEnabled: boolean;
-  loyaltyPointsPerUnit: number;
-  loyaltyRedemptionValue: number;
-  loyaltyExpiryDays: number;
 }
 
 export interface BranchFormData {

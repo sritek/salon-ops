@@ -74,10 +74,6 @@ export default function TenantDetailPage() {
     subscriptionStatus: 'active',
     trialDays: 14,
     logoUrl: '',
-    loyaltyEnabled: true,
-    loyaltyPointsPerUnit: 0.01,
-    loyaltyRedemptionValue: 1,
-    loyaltyExpiryDays: 365,
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -143,7 +139,7 @@ export default function TenantDetailPage() {
 
   // Fetch loyalty config when tenant is loaded
   const fetchLoyaltyConfig = useCallback(async () => {
-    if (!accessToken || !tenant) return;
+    if (!accessToken || !tenant?.id) return;
 
     setIsLoyaltyLoading(true);
     try {
@@ -154,13 +150,13 @@ export default function TenantDetailPage() {
     } finally {
       setIsLoyaltyLoading(false);
     }
-  }, [accessToken, tenant, api]);
+  }, [accessToken, tenant?.id, api]);
 
   useEffect(() => {
-    if (tenant) {
+    if (tenant?.id) {
       fetchLoyaltyConfig();
     }
-  }, [tenant, fetchLoyaltyConfig]);
+  }, [tenant?.id, fetchLoyaltyConfig]);
 
   // ============================================
   // LOYALTY CONFIG
@@ -206,10 +202,6 @@ export default function TenantDetailPage() {
         subscriptionStatus: tenant.subscriptionStatus as SubscriptionStatus,
         trialDays: 14,
         logoUrl: tenant.logoUrl || '',
-        loyaltyEnabled: loyaltyConfig?.isEnabled ?? true,
-        loyaltyPointsPerUnit: loyaltyConfig?.pointsPerUnit ?? 0.01,
-        loyaltyRedemptionValue: loyaltyConfig?.redemptionValuePerPoint ?? 1,
-        loyaltyExpiryDays: loyaltyConfig?.expiryDays ?? 365,
       });
       setLogoPreview(tenant.logoUrl);
       setLogoFile(null);
@@ -416,7 +408,7 @@ export default function TenantDetailPage() {
           <h2 className="text-xl text-slate-900 mb-4">Tenant not found</h2>
           <Button
             onClick={() => router.push('/internal/tenants')}
-            className="bg-amber-500 hover:bg-amber-600 text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             Back to Tenants
           </Button>
@@ -465,7 +457,7 @@ export default function TenantDetailPage() {
         <Card className="bg-white border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-slate-900 flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-amber-500" />
+              <Building2 className="h-5 w-5 text-primary" />
               Business Details
             </CardTitle>
             <Button
@@ -511,7 +503,7 @@ export default function TenantDetailPage() {
             {tenant.trialEndsAt && (
               <div>
                 <p className="text-xs text-slate-500 uppercase">Trial Ends</p>
-                <p className="text-amber-600 font-medium">
+                <p className="text-primary font-medium">
                   {format(new Date(tenant.trialEndsAt), 'MMM d, yyyy')}
                 </p>
               </div>
@@ -523,13 +515,13 @@ export default function TenantDetailPage() {
         <Card className="bg-white border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-slate-900 flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-amber-500" />
+              <MapPin className="h-5 w-5 text-primary" />
               Branches ({tenant._count.branches})
             </CardTitle>
             <Button
               size="sm"
               onClick={() => setIsBranchOpen(true)}
-              className="bg-amber-500 hover:bg-amber-600 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="h-4 w-4 mr-1" />
               Add
@@ -583,14 +575,14 @@ export default function TenantDetailPage() {
         <Card className="bg-white border-slate-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-slate-900 flex items-center gap-2">
-              <Users className="h-5 w-5 text-amber-500" />
+              <Users className="h-5 w-5 text-primary" />
               Super Owners
             </CardTitle>
             <Button
               size="sm"
               onClick={() => setIsOwnerOpen(true)}
               disabled={tenant.branches.length === 0}
-              className="bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50"
             >
               <Plus className="h-4 w-4 mr-1" />
               {tenant.users.length > 0 ? 'Add Another' : 'Add'}
@@ -643,7 +635,7 @@ export default function TenantDetailPage() {
       <Card className="bg-white border-slate-200 shadow-sm mt-6">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-slate-900 flex items-center gap-2">
-            <Star className="h-5 w-5 text-amber-500" />
+            <Star className="h-5 w-5 text-primary" />
             Loyalty Program
           </CardTitle>
           {loyaltyConfig && (
@@ -746,7 +738,7 @@ export default function TenantDetailPage() {
                 <Button
                   onClick={handleSaveLoyaltyConfig}
                   disabled={isSavingLoyalty}
-                  className="bg-amber-500 hover:bg-amber-600 text-white"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   {isSavingLoyalty ? 'Saving...' : 'Save Loyalty Settings'}
                 </Button>

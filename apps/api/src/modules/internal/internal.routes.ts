@@ -6,6 +6,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
+import { env } from '../../config/env';
 import { successResponse, paginatedResponse } from '../../lib/response';
 import { errorResponseSchema } from '../../lib/fastify-zod';
 import { uploadToS3, generateLogoKey } from '../../lib/s3';
@@ -60,7 +61,7 @@ export default async function internalRoutes(fastify: FastifyInstance) {
           type: 'internal_admin',
           email,
         },
-        { expiresIn: '8h' }
+        { expiresIn: env.INTERNAL_ADMIN_TOKEN_EXPIRY }
       );
 
       return reply.send({

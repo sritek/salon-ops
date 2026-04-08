@@ -61,6 +61,7 @@ const envSchema = z
     // Internal Admin Portal
     INTERNAL_ADMIN_EMAIL: z.string().email().default('admin@trimio.com'),
     INTERNAL_ADMIN_PASSWORD: z.string().min(8).default('admin123456'),
+    INTERNAL_ADMIN_TOKEN_EXPIRY: z.string().default('8h'),
   })
   .refine((data) => !data.ENABLE_REDIS || (data.ENABLE_REDIS && data.REDIS_URL), {
     message: 'REDIS_URL is required when ENABLE_REDIS is true',

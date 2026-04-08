@@ -79,7 +79,7 @@ export function LogoUpload({
         <div
           className={`relative ${sizeClass} rounded-lg border-2 border-dashed flex items-center justify-center overflow-hidden ${
             preview
-              ? 'border-amber-400 bg-amber-50'
+              ? 'border-primary/40 bg-primary/5'
               : 'border-slate-300 bg-slate-50 hover:border-slate-400 cursor-pointer'
           }`}
           onClick={() => !preview && fileInputRef.current?.click()}

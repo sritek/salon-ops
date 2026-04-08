@@ -170,11 +170,6 @@ export function useInternalApi() {
           phone: data.phone || undefined,
           subscriptionPlan: data.subscriptionPlan,
           trialDays: data.trialDays,
-          // Loyalty config
-          loyaltyEnabled: data.loyaltyEnabled,
-          loyaltyPointsPerUnit: data.loyaltyPointsPerUnit,
-          loyaltyRedemptionValue: data.loyaltyRedemptionValue,
-          loyaltyExpiryDays: data.loyaltyExpiryDays,
         }),
       });
     },

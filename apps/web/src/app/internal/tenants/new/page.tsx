@@ -230,9 +230,9 @@ export default function NewTenantPage() {
               <div
                 className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${
                   isComplete
-                    ? 'bg-amber-500 border-amber-500 text-white'
+                    ? 'bg-primary border-primary text-primary-foreground'
                     : isActive
-                      ? 'border-amber-500 text-amber-500'
+                      ? 'border-primary text-primary'
                       : 'border-slate-300 text-slate-400'
                 }`}
               >
@@ -244,9 +244,7 @@ export default function NewTenantPage() {
                 {s.label}
               </span>
               {index < steps.length - 1 && (
-                <div
-                  className={`w-12 h-0.5 mx-4 ${isComplete ? 'bg-amber-500' : 'bg-slate-200'}`}
-                />
+                <div className={`w-12 h-0.5 mx-4 ${isComplete ? 'bg-primary' : 'bg-slate-200'}`} />
               )}
             </div>
           );
@@ -282,7 +280,7 @@ export default function NewTenantPage() {
                 <Button
                   onClick={handleCreateTenant}
                   disabled={isLoading}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -317,7 +315,7 @@ export default function NewTenantPage() {
                 <Button
                   onClick={handleCreateBranch}
                   disabled={isLoading}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -353,7 +351,7 @@ export default function NewTenantPage() {
                 <Button
                   onClick={handleCreateOwner}
                   disabled={isLoading}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -396,7 +394,7 @@ export default function NewTenantPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Login URL:</span>
-                    <span className="text-amber-600 font-mono">/login</span>
+                    <span className="text-primary font-mono">/login</span>
                   </div>
                 </div>
               </div>
@@ -411,7 +409,7 @@ export default function NewTenantPage() {
                 </Button>
                 <Button
                   onClick={handleReset}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 >
                   Create Another Tenant
                 </Button>

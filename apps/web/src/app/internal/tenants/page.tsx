@@ -67,8 +67,8 @@ export default function TenantsPage() {
       <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-100 rounded-lg">
-              <Building2 className="h-6 w-6 text-amber-600" />
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Building2 className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900">trimio Admin</h1>
@@ -108,7 +108,7 @@ export default function TenantsPage() {
           </div>
           <Button
             onClick={() => router.push('/internal/tenants/new')}
-            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Tenant
@@ -140,7 +140,7 @@ export default function TenantsPage() {
               <p className="text-slate-500 mb-4">Create your first tenant to get started</p>
               <Button
                 onClick={() => router.push('/internal/tenants/new')}
-                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Tenant
@@ -190,7 +190,7 @@ export default function TenantsPage() {
                     </div>
                   </div>
                   {tenant.trialEndsAt && (
-                    <p className="text-xs text-amber-600 mt-2">
+                    <p className="text-xs text-primary mt-2">
                       Trial ends: {format(new Date(tenant.trialEndsAt), 'MMM d, yyyy')}
                     </p>
                   )}

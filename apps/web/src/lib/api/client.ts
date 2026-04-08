@@ -24,7 +24,15 @@ export class ApiError extends Error {
   }
 }
 
+// Token refresh lock to prevent multiple simultaneous refresh attempts
+let refreshPromise: Promise<string | null> | null = null;
+
 async function refreshAccessToken(): Promise<string | null> {
+  // If a refresh is already in progress, wait for it
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
   const { refreshToken, setTokens, logout } = useAuthStore.getState();
 
   if (!refreshToken) {
@@ -32,25 +40,33 @@ async function refreshAccessToken(): Promise<string | null> {
     return null;
   }
 
-  try {
-    const response = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
+  // Create the refresh promise so other requests can wait for it
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        logout();
+        return null;
+      }
+
+      const data = await response.json();
+      setTokens(data.data.accessToken, data.data.refreshToken);
+      return data.data.accessToken;
+    } catch {
       logout();
       return null;
+    } finally {
+      // Clear the lock after refresh completes (success or failure)
+      refreshPromise = null;
     }
+  })();
 
-    const data = await response.json();
-    setTokens(data.data.accessToken, data.data.refreshToken);
-    return data.data.accessToken;
-  } catch {
-    logout();
-    return null;
-  }
+  return refreshPromise;
 }
 
 /**
