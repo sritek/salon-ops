@@ -57,8 +57,8 @@ function getEndOfWeekUTC(dateStr: string): Date {
 // Day-specific working hours structure from branch settings
 interface DayWorkingHours {
   isOpen: boolean;
-  openTime: string;
-  closeTime: string;
+  openTime?: string;
+  closeTime?: string;
 }
 
 interface BranchWorkingHours {
@@ -198,7 +198,7 @@ export class CalendarService {
     // Get day of week for filtering breaks (0 = Sunday, 6 = Saturday)
     const dayOfWeek = getDayOfWeek(date);
 
-    const [breaks, blockedSlots] = await Promise.all([
+    const [breaks, blockedSlots, attendanceRecords] = await Promise.all([
       this.prisma.stylistBreak.findMany({
         where: {
           tenantId,
@@ -218,7 +218,17 @@ export class CalendarService {
           },
         },
       }),
+      this.prisma.attendance.findMany({
+        where: {
+          tenantId,
+          userId: { in: stylistIds },
+          attendanceDate: startDate,
+        },
+        select: { userId: true, status: true },
+      }),
     ]);
+
+    const attendanceMap = new Map(attendanceRecords.map((a) => [a.userId, a.status]));
 
     // Build stylists array with availability info, sorted alphabetically by name
     const stylists: CalendarStylist[] = userBranches
@@ -247,13 +257,16 @@ export class CalendarService {
         // Check if stylist has full day blocked for the requested date
         // Since we already filtered blockedSlots by date range, just check isFullDay
         const isFullDayBlocked = stylistBlocked.some((bs) => bs.isFullDay);
+        const attendanceStatus = (attendanceMap.get(ub.user.id) ?? 'not_marked') as CalendarStylist['attendanceStatus'];
+        const isAbsentOrOnLeave = attendanceStatus === 'absent' || attendanceStatus === 'on_leave';
 
         return {
           id: ub.user.id,
           name: ub.user.name,
           avatar: ub.user.avatarUrl,
           color: STYLIST_COLORS[index % STYLIST_COLORS.length],
-          isAvailable: !isFullDayBlocked,
+          isAvailable: !isFullDayBlocked && !isAbsentOrOnLeave,
+          attendanceStatus,
           workingHours: workingHours,
           breaks: stylistBreaks,
           blockedSlots: stylistBlocked,

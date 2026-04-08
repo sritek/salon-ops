@@ -7,8 +7,8 @@
  * Includes Floor View tab for station management
  */
 
-import { useCallback, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCallback } from 'react';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
@@ -26,8 +26,9 @@ import {
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useOwnerDashboard } from '@/hooks/queries/use-owner-dashboard';
+import { useDailyAttendance } from '@/hooks/queries/use-staff';
+import { format } from 'date-fns';
 import { useOpenPanel } from '@/components/ux/slide-over';
-import { DeassignAppointmentDialog } from '@/components/ux/dialogs/deassign-appointment-dialog';
 import { FloorViewTab } from './floor-view-tab';
 import { useUIStore } from '@/stores/ui-store';
 import { isInventoryEnabled } from '@/config/features';
@@ -74,11 +75,10 @@ export function OwnerDashboardViewToggle() {
 
 export function OwnerDashboard({ branchId }: OwnerDashboardProps) {
   const { data, isLoading } = useOwnerDashboard({ branchId });
+  const { data: attendanceData } = useDailyAttendance(format(new Date(), 'yyyy-MM-dd'));
+  const staffSummary = attendanceData?.summary;
   const { ownerDashboardView } = useUIStore();
   const { openStationAssignment, openAppointmentDetails } = useOpenPanel();
-  const [deassignDialogOpen, setDeassignDialogOpen] = useState(false);
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
-  const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
 
   // Floor view action handlers
   const handleAssign = useCallback(
@@ -88,23 +88,10 @@ export function OwnerDashboard({ branchId }: OwnerDashboardProps) {
     [openStationAssignment]
   );
 
-  const handleDeassign = useCallback((appointmentId: string, customerName?: string) => {
-    setSelectedAppointmentId(appointmentId);
-    setSelectedCustomerName(customerName || null);
-    setDeassignDialogOpen(true);
-  }, []);
-
-  const handleDeassignSuccess = useCallback(() => {
-    setSelectedAppointmentId(null);
-    setSelectedCustomerName(null);
-  }, []);
-
   const handleCheckout = useCallback(
-    (appointmentId: string, isPending: boolean, scheduledDate?: string) => {
+    (appointmentId: string) => {
       openAppointmentDetails(appointmentId, {
         isCheckoutMode: true,
-        isPending,
-        scheduledDate,
       });
     },
     [openAppointmentDetails]
@@ -116,31 +103,19 @@ export function OwnerDashboard({ branchId }: OwnerDashboardProps) {
 
   if (ownerDashboardView === 'floor') {
     return (
-      <>
-        <FloorViewTab
-          branchId={branchId}
-          onAssign={handleAssign}
-          onDeassign={handleDeassign}
-          onCheckout={handleCheckout}
-        />
-        {selectedAppointmentId && (
-          <DeassignAppointmentDialog
-            open={deassignDialogOpen}
-            onOpenChange={setDeassignDialogOpen}
-            appointmentId={selectedAppointmentId}
-            customerName={selectedCustomerName || undefined}
-            onSuccess={handleDeassignSuccess}
-          />
-        )}
-      </>
+      <FloorViewTab
+        branchId={branchId}
+        onAssign={handleAssign}
+        onCheckout={handleCheckout}
+      />
     );
   }
 
-  return <OwnerOverviewContent data={data} />;
+  return <OwnerOverviewContent data={data} staffSummary={staffSummary} />;
 }
 
 // Extracted overview content to keep the component clean
-function OwnerOverviewContent({ data }: { data: ReturnType<typeof useOwnerDashboard>['data'] }) {
+function OwnerOverviewContent({ data, staffSummary }: { data: ReturnType<typeof useOwnerDashboard>['data']; staffSummary?: { present: number; absent: number; onLeave: number; halfDay: number; holiday: number; weekOff: number; notMarked: number; total: number } }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {/* Left Column - Revenue & Appointments */}
@@ -308,16 +283,24 @@ function OwnerOverviewContent({ data }: { data: ReturnType<typeof useOwnerDashbo
             <div className="flex items-center justify-between p-2 rounded-lg bg-green-50">
               <span className="text-sm text-green-700">Present</span>
               <span className="text-lg font-bold text-green-600">
-                {data?.staff.presentToday || 0}
+                {staffSummary?.present ?? 0}
               </span>
             </div>
             <div className="flex items-center justify-between p-2 rounded-lg bg-orange-50">
               <span className="text-sm text-orange-700">On Leave</span>
-              <span className="text-lg font-bold text-orange-600">{data?.staff.onLeave || 0}</span>
+              <span className="text-lg font-bold text-orange-600">{staffSummary?.onLeave ?? 0}</span>
             </div>
-            <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-              <span className="text-sm text-muted-foreground">Total Active</span>
-              <span className="text-lg font-bold">{data?.staff.totalActive || 0}</span>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-red-50">
+              <span className="text-sm text-red-700">Absent</span>
+              <span className="text-lg font-bold text-red-600">
+                {staffSummary?.absent ?? 0}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+              <span className="text-sm text-gray-700">Unmarked</span>
+              <span className="text-lg font-bold text-gray-600">
+                {staffSummary?.notMarked ?? 0}
+              </span>
             </div>
           </div>
         </Card>

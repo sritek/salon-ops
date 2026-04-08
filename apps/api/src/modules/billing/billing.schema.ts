@@ -228,7 +228,7 @@ export type FinalizeInvoiceInput = z.infer<typeof finalizeInvoiceSchema>;
 // ============================================
 
 export const cancelInvoiceSchema = z.object({
-  reason: z.string().min(10).max(500),
+  reason: z.string().min(10, 'Reason must be at least 10 characters').max(500),
 });
 
 export type CancelInvoiceInput = z.infer<typeof cancelInvoiceSchema>;
@@ -248,7 +248,7 @@ export const createCreditNoteSchema = z.object({
     )
     .min(1),
   refundMethod: z.enum(['original_method', 'wallet', 'cash']),
-  reason: z.string().min(10).max(500),
+  reason: z.string().min(10, 'Reason must be at least 10 characters').max(500),
   notes: z.string().max(1000).optional(),
 });
 
@@ -293,6 +293,7 @@ export const listInvoicesQuerySchema = z.object({
   status: z.enum(['draft', 'finalized', 'cancelled', 'refunded']).optional(),
   paymentStatus: z.enum(['pending', 'partial', 'paid', 'refunded']).optional(),
   customerId: z.string().uuid().optional(),
+  stylistId: z.string().uuid().optional(),
   dateFrom: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

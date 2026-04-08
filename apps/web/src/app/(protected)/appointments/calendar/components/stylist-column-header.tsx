@@ -54,7 +54,13 @@ export function StylistColumnHeader({
         <span
           className={cn(
             'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background',
-            stylist.isAvailable ? 'bg-green-500' : 'bg-gray-400'
+            stylist.attendanceStatus === 'present' || stylist.attendanceStatus === 'half_day'
+              ? 'bg-green-500'
+              : stylist.attendanceStatus === 'absent'
+                ? 'bg-red-500'
+                : stylist.attendanceStatus === 'on_leave'
+                  ? 'bg-yellow-500'
+                  : 'bg-gray-400'
           )}
         />
       </div>

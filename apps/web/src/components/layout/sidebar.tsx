@@ -25,16 +25,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  UserPlus,
   UserCog,
   CalendarCheck,
-  CalendarOff,
-  Wallet,
   CreditCard,
   Gift,
   Crown,
   Gauge,
-  ClipboardList,
   FileText,
   LogOut,
   Building2,
@@ -42,7 +38,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-import { PERMISSIONS } from '@salon-ops/shared';
+import { PERMISSIONS } from '@trimio/shared';
 
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -88,18 +84,6 @@ const mainNavItems: NavItem[] = [
     permission: PERMISSIONS.APPOINTMENTS_READ,
   },
   {
-    titleKey: 'walkIn',
-    href: '/walk-in',
-    icon: UserPlus,
-    permission: PERMISSIONS.APPOINTMENTS_WRITE,
-  },
-  {
-    titleKey: 'waitlist',
-    href: '/waitlist',
-    icon: ClipboardList,
-    permission: PERMISSIONS.APPOINTMENTS_READ,
-  },
-  {
     titleKey: 'customers',
     href: '/customers',
     icon: Users,
@@ -129,18 +113,6 @@ const mainNavItems: NavItem[] = [
         href: '/staff/attendance',
         icon: CalendarCheck,
         permission: PERMISSIONS.USERS_READ,
-      },
-      {
-        titleKey: 'leaves',
-        href: '/staff/leaves',
-        icon: CalendarOff,
-        permission: PERMISSIONS.USERS_READ,
-      },
-      {
-        titleKey: 'payroll',
-        href: '/staff/payroll',
-        icon: Wallet,
-        permission: PERMISSIONS.USERS_WRITE,
       },
     ],
   },
@@ -275,7 +247,7 @@ function NavLink({
 }) {
   const pathname = usePathname();
   const isActive = isChildItem
-    ? pathname === item.href || (pathname.startsWith(item.href + '/') && item.href !== '/')
+    ? pathname === item.href
     : pathname === item.href || pathname.startsWith(item.href + '/');
 
   const title = t(item.titleKey);
@@ -659,7 +631,7 @@ function UserProfileCard({ isCollapsed }: { isCollapsed: boolean }) {
   // Expanded: Horizontal layout
   return (
     <>
-      <div className="flex items-center gap-4 p-2">
+      <div className="flex items-center justify-center gap-4 p-2">
         {/* Settings Button */}
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
@@ -784,20 +756,10 @@ export function Sidebar({ className }: SidebarProps) {
         >
           <Link href="/today" className="flex items-center gap-2 font-bold text-lg">
             {sidebarCollapsed ? (
-              tenant?.logoUrl ? (
-                <Image
-                  src={tenant.logoUrl}
-                  alt={tenant.name}
-                  width={32}
-                  height={32}
-                  className="rounded object-contain"
-                />
-              ) : (
-                <span className="text-primary">T</span>
-              )
+              <span className="text-lg font-bold">t.</span>
             ) : (
               <>
-                <span>trimio</span>
+                <span className="text-lg font-bold tracking-tight">trimio.</span>
                 {tenant?.logoUrl && (
                   <>
                     <span className="text-muted-foreground text-sm">×</span>
@@ -852,7 +814,7 @@ export function Sidebar({ className }: SidebarProps) {
         </nav>
 
         {/* Bottom Section */}
-        <div className="border-t p-2 space-y-1">
+        <div className="border-t p-2 space-y-1 flex flex-col items-center">
           {/* Settings */}
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2">

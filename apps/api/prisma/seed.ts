@@ -1238,6 +1238,7 @@ async function seedCustomers(tenantId: string, branchId: string) {
       firstVisitBranchId: branchId,
       marketingConsent: true,
       preferences: {},
+      source: ['manual', 'phone'][Math.floor(Math.random() * 2)] as 'manual' | 'phone',
     })),
   });
 

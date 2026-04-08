@@ -7,7 +7,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
-import { PERMISSIONS } from '@salon-ops/shared';
+import { PERMISSIONS } from '@trimio/shared';
 
 import { authenticate, requirePermission, requireBranchAccess } from '../../middleware';
 import { addOnsController } from './addons.controller';
@@ -41,7 +41,6 @@ import {
   // Response schemas
   successResponseSchema,
   paginatedResponseSchema,
-  messageResponseSchema,
   errorResponseSchema,
   // Param schemas
   idParamSchema,

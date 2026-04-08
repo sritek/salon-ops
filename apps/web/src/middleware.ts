@@ -8,7 +8,6 @@ import type { NextRequest } from 'next/server';
 
 const publicRoutes = ['/login', '/register', '/forgot-password', '/book'];
 const authRoutes = ['/login', '/register', '/forgot-password'];
-const internalRoutes = ['/internal'];
 const internalAuthRoutes = ['/internal/login'];
 
 export function middleware(request: NextRequest) {

@@ -24,17 +24,13 @@ import {
   BarChart3,
   Megaphone,
   Settings,
-  UserPlus,
   UserCog,
   CalendarCheck,
-  CalendarOff,
-  Wallet,
   CreditCard,
   Gift,
   Crown,
   ChevronDown,
   Gauge,
-  ClipboardList,
   FileText,
   Building2,
   Check,
@@ -42,7 +38,7 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-import { PERMISSIONS } from '@salon-ops/shared';
+import { PERMISSIONS } from '@trimio/shared';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -87,18 +83,6 @@ const mainNavItems: NavItem[] = [
     permission: PERMISSIONS.APPOINTMENTS_READ,
   },
   {
-    titleKey: 'walkIn',
-    href: '/walk-in',
-    icon: UserPlus,
-    permission: PERMISSIONS.APPOINTMENTS_WRITE,
-  },
-  {
-    titleKey: 'waitlist',
-    href: '/waitlist',
-    icon: ClipboardList,
-    permission: PERMISSIONS.APPOINTMENTS_READ,
-  },
-  {
     titleKey: 'customers',
     href: '/customers',
     icon: Users,
@@ -128,18 +112,6 @@ const mainNavItems: NavItem[] = [
         href: '/staff/attendance',
         icon: CalendarCheck,
         permission: PERMISSIONS.USERS_READ,
-      },
-      {
-        titleKey: 'leaves',
-        href: '/staff/leaves',
-        icon: CalendarOff,
-        permission: PERMISSIONS.USERS_READ,
-      },
-      {
-        titleKey: 'payroll',
-        href: '/staff/payroll',
-        icon: Wallet,
-        permission: PERMISSIONS.USERS_WRITE,
       },
     ],
   },
@@ -431,7 +403,7 @@ function MobileNavLink({
   // For child items, check exact match or if pathname starts with item.href
   // For parent items without children, check if pathname starts with item.href
   const isActive = isChildItem
-    ? pathname === item.href || (pathname.startsWith(item.href + '/') && item.href !== '/')
+    ? pathname === item.href
     : pathname === item.href || pathname.startsWith(item.href + '/');
 
   return (
@@ -562,8 +534,6 @@ export function MobileNav() {
     [hasPermission]
   );
 
-  const isSettingsActive = pathname.startsWith('/settings');
-
   return (
     <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
       <SheetContent side="left" className="w-72 p-0 flex flex-col">
@@ -571,7 +541,7 @@ export function MobileNav() {
         <SheetHeader className="border-b px-4 py-4">
           <SheetTitle asChild>
             <Link href="/today" className="flex items-center gap-2 text-xl font-bold">
-              <span className="text-primary">trimio</span>
+              <span className="tracking-tight">trimio.</span>
               {tenant?.logoUrl && (
                 <>
                   <span className="text-muted-foreground text-sm">×</span>

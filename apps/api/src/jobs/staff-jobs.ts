@@ -12,7 +12,7 @@
 import { Worker, Job } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
 import Redis from 'ioredis';
-import { parseISO, getDay } from 'date-fns';
+import { parseISO } from 'date-fns';
 
 import { env } from '@/config/env';
 import { logger } from '@/lib/logger';
@@ -39,7 +39,6 @@ let staffWorker: Worker | null = null;
 async function processAutoAbsent(job: Job<AutoAbsentJobData>) {
   const { tenantId, branchId, date } = job.data;
   const attendanceDate = parseISO(date);
-  const dayOfWeek = getDay(attendanceDate);
 
   logger.info({ tenantId, branchId, date }, 'Processing auto-absent job');
 
@@ -109,39 +108,7 @@ async function processAutoAbsent(job: Job<AutoAbsentJobData>) {
       continue;
     }
 
-    // Check if it's a week off day (Sunday = 0)
-    // Get staff's shift to check applicable days
-    const shiftAssignment = await prisma.staffShiftAssignment.findFirst({
-      where: {
-        userId: staff.userId,
-        branchId,
-        effectiveFrom: { lte: attendanceDate },
-        OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: attendanceDate } }],
-      },
-      include: { shift: true },
-    });
-
-    if (shiftAssignment?.shift) {
-      const applicableDays = shiftAssignment.shift.applicableDays as number[];
-      if (!applicableDays.includes(dayOfWeek)) {
-        // It's a week off day
-        await prisma.attendance.create({
-          data: {
-            tenantId,
-            branchId,
-            userId: staff.userId,
-            attendanceDate,
-            status: 'week_off',
-            isManualEntry: true,
-            notes: 'Auto-marked: Week off',
-          },
-        });
-        skippedCount++;
-        continue;
-      }
-    }
-
-    // Mark as absent
+    // Mark as absent (shift-based week-off detection removed)
     await prisma.attendance.create({
       data: {
         tenantId,

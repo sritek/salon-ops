@@ -106,8 +106,8 @@ export function StationTypeFormPanel({ stationType, open, onClose }: StationType
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <SheetContent className="sm:max-w-md">
-        <SheetHeader>
+      <SheetContent className="sm:max-w-md p-6">
+        <SheetHeader className="mb-4">
           <SheetTitle>{isEditing ? 'Edit Station Type' : 'New Station Type'}</SheetTitle>
           <SheetDescription>
             {isEditing ? 'Update station type details' : 'Create a new station type for your salon'}
@@ -115,7 +115,7 @@ export function StationTypeFormPanel({ stationType, open, onClose }: StationType
         </SheetHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="name"
@@ -141,20 +141,6 @@ export function StationTypeFormPanel({ stationType, open, onClose }: StationType
                       <Input type="color" className="w-12 h-10 p-1" {...field} />
                       <Input placeholder="#6B7280" {...field} className="flex-1" />
                     </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="displayOrder"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Display Order</FormLabel>
-                  <FormControl>
-                    <Input type="number" min={0} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -36,16 +36,6 @@ export function getStationTypeColumns({
       ),
     },
     {
-      accessorKey: 'icon',
-      header: 'Icon',
-      cell: ({ row }) => row.original.icon || '-',
-    },
-    {
-      accessorKey: 'displayOrder',
-      header: 'Order',
-      cell: ({ row }) => row.original.displayOrder,
-    },
-    {
       accessorKey: '_count.stations',
       header: 'Stations',
       cell: ({ row }) => row.original._count?.stations ?? 0,

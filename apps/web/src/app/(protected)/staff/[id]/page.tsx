@@ -3,9 +3,19 @@
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { Calendar, Clock, CreditCard, Edit, Mail, MapPin, Phone, User, Wallet } from 'lucide-react';
+import {
+  ArrowLeft,
+  Clock,
+  CreditCard,
+  Edit,
+  Mail,
+  MapPin,
+  Phone,
+  User,
+  Wallet,
+} from 'lucide-react';
 
-import { PERMISSIONS } from '@salon-ops/shared';
+import { PERMISSIONS } from '@trimio/shared';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -204,19 +214,6 @@ export default function StaffDetailPage() {
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(staff.baseSalary)}</div>
                 <p className="text-xs text-muted-foreground capitalize">{staff.salaryType}</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t('stats.overtime')}</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {attendanceSummary?.totalOvertimeHours || 0}h
-                </div>
-                <p className="text-xs text-muted-foreground">{t('stats.thisMonth')}</p>
               </CardContent>
             </Card>
           </div>

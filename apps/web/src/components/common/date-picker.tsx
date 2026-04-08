@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { format as formatDate } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 
@@ -29,8 +30,10 @@ export function DatePicker({
   align = 'start',
   captionLayout,
 }: DatePickerProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -49,7 +52,10 @@ export function DatePicker({
         <Calendar
           mode="single"
           selected={value}
-          onSelect={onChange}
+          onSelect={(date) => {
+            onChange(date);
+            setOpen(false);
+          }}
           autoFocus
           captionLayout={captionLayout}
         />

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
-import { PERMISSIONS } from '@salon-ops/shared';
+import { PERMISSIONS } from '@trimio/shared';
 
 import { useDeleteService, useServices } from '@/hooks/queries/use-services';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -100,9 +100,11 @@ export default function ServicesPage() {
           description={t('list.description')}
           actions={
             <div className="flex gap-2">
-              <Button variant="outline" asChild>
-                <Link href="/services/categories">{tNav('categories')}</Link>
-              </Button>
+              {canWrite && (
+                <Button variant="outline" asChild>
+                  <Link href="/services/categories">{tNav('categories')}</Link>
+                </Button>
+              )}
               {canWrite && (
                 <Button asChild>
                   <Link href="/services/new">

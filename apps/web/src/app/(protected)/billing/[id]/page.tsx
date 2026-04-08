@@ -16,13 +16,12 @@ import {
   Hash,
   Star,
   Tag,
-  Percent,
   Users,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
-import { PERMISSIONS } from '@salon-ops/shared';
+import { PERMISSIONS } from '@trimio/shared';
 
 import { useInvoice, useFinalizeInvoice, useCancelInvoice } from '@/hooks/queries/use-invoices';
 import { usePermissions } from '@/hooks/use-permissions';

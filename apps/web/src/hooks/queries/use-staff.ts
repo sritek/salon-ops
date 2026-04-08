@@ -2,14 +2,15 @@
  * Staff Management Query Hooks
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 
 import { api } from '@/lib/api/client';
 import type {
   StaffProfile,
-  Shift,
   Attendance,
   AttendanceSummary,
+  DailyAttendanceResponse,
   Leave,
   LeaveBalance,
   Commission,
@@ -37,12 +38,13 @@ export const staffKeys = {
   list: (filters: Record<string, unknown>) => [...staffKeys.lists(), filters] as const,
   details: () => [...staffKeys.all, 'detail'] as const,
   detail: (id: string) => [...staffKeys.details(), id] as const,
-  shifts: (branchId: string) => [...staffKeys.all, 'shifts', branchId] as const,
   attendance: () => [...staffKeys.all, 'attendance'] as const,
   attendanceList: (filters: Record<string, unknown>) =>
     [...staffKeys.attendance(), 'list', filters] as const,
   attendanceSummary: (userId: string, startDate: string, endDate: string) =>
     [...staffKeys.attendance(), 'summary', userId, startDate, endDate] as const,
+  attendanceDaily: (date: string, branchId?: string) =>
+    [...staffKeys.attendance(), 'daily', date, branchId] as const,
   leaves: () => [...staffKeys.all, 'leaves'] as const,
   leaveList: (filters: Record<string, unknown>) =>
     [...staffKeys.leaves(), 'list', filters] as const,
@@ -129,92 +131,6 @@ export function useDeactivateStaff() {
 }
 
 // ============================================
-// Shift Hooks
-// ============================================
-
-export function useShiftList(branchId: string) {
-  return useQuery({
-    queryKey: staffKeys.shifts(branchId),
-    queryFn: () => api.get<Shift[]>(`/staff/branches/${branchId}/shifts`),
-    enabled: !!branchId,
-  });
-}
-
-export function useCreateShift() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      branchId,
-      ...input
-    }: {
-      branchId: string;
-      name: string;
-      startTime: string;
-      endTime: string;
-      breakDurationMinutes?: number;
-      applicableDays: number[];
-    }) => api.post<Shift>(`/staff/branches/${branchId}/shifts`, input),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.shifts(variables.branchId) });
-    },
-  });
-}
-
-export function useAssignShift() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      userId,
-      branchId,
-      ...input
-    }: {
-      userId: string;
-      branchId: string;
-      shiftId: string;
-      effectiveFrom: string;
-      effectiveUntil?: string;
-    }) => api.post(`/staff/${userId}/branches/${branchId}/shifts`, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
-    },
-  });
-}
-
-export function useUpdateShift() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      id,
-      ...input
-    }: {
-      id: string;
-      name?: string;
-      startTime?: string;
-      endTime?: string;
-      breakDurationMinutes?: number;
-      applicableDays?: number[];
-    }) => api.patch<Shift>(`/staff/shifts/${id}`, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
-    },
-  });
-}
-
-export function useDeleteShift() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => api.delete<void>(`/staff/shifts/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
-    },
-  });
-}
-
-// ============================================
 // Attendance Hooks
 // ============================================
 
@@ -234,6 +150,55 @@ export function useAttendanceList(params: ListAttendanceParams = {}) {
     queryFn: () =>
       api.getPaginated<Attendance>('/staff/attendance', params as Record<string, unknown>),
   });
+}
+
+export function useDailyAttendance(date: string, branchId?: string) {
+  return useQuery({
+    queryKey: staffKeys.attendanceDaily(date, branchId),
+    queryFn: () =>
+      api.get<DailyAttendanceResponse>('/staff/attendance/daily', {
+        date,
+        ...(branchId && { branchId }),
+      }),
+    enabled: !!date,
+  });
+}
+
+/**
+ * Fetch daily attendance for every date in a range using parallel queries.
+ * Each date is cached individually. Returns merged rows + combined loading/error state.
+ */
+export function useDailyAttendanceRange(
+  dateFrom: string,
+  dateTo: string,
+  branchId?: string
+) {
+  // Build array of date strings in the range
+  const dates: string[] = [];
+  const start = new Date(dateFrom + 'T00:00:00');
+  const end = new Date(dateTo + 'T00:00:00');
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    dates.push(format(cursor, 'yyyy-MM-dd'));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const results = useQueries({
+    queries: dates.map((date) => ({
+      queryKey: staffKeys.attendanceDaily(date, branchId),
+      queryFn: () =>
+        api.get<DailyAttendanceResponse>('/staff/attendance/daily', {
+          date,
+          ...(branchId && { branchId }),
+        }),
+      enabled: !!date,
+    })),
+  });
+
+  const isLoading = results.some((r) => r.isLoading);
+  const error = results.find((r) => r.error)?.error ?? null;
+
+  return { results, dates, isLoading, error };
 }
 
 export function useAttendanceSummary(
