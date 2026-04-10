@@ -47,7 +47,7 @@ export const createCustomerBodySchema = z.object({
   preferences: z.record(z.unknown()).default({}),
   allergies: z.array(z.string()).default([]),
   source: z
-    .enum(['manual', 'walk_in', 'online_booking', 'phone', 'import'])
+    .enum(['manual', 'phone'])
     .optional()
     .default('manual'),
 });
