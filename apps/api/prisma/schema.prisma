@@ -126,10 +126,7 @@ enum PackageStatus {
 
 enum CustomerSource {
   manual
-  walk_in
-  online_booking
   phone
-  import
 }
 
 // ============================================
