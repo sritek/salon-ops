@@ -50,14 +50,11 @@ export interface CustomerPreferences {
 
 export type BookingStatus = 'normal' | 'prepaid_only' | 'blocked';
 
-export type CustomerSource = 'manual' | 'walk_in' | 'online_booking' | 'phone' | 'import';
+export type CustomerSource = 'manual' | 'phone';
 
 export const CUSTOMER_SOURCE_LABELS: Record<CustomerSource, string> = {
   manual: 'Manual Entry',
-  walk_in: 'Walk-in',
-  online_booking: 'Online Booking',
   phone: 'Phone Booking',
-  import: 'Imported',
 };
 
 export interface CreateCustomerInput {
