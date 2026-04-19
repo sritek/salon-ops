@@ -29,6 +29,9 @@ import {
   createPlanBodySchema,
   updatePlanBodySchema,
   listPlansQuerySchema,
+  updateSubscriptionStatusBodySchema,
+  extendTrialBodySchema,
+  applyDiscountBodySchema,
 } from './internal.schema';
 import { subscriptionsService } from '../subscriptions/subscriptions.service';
 
@@ -418,6 +421,92 @@ export default async function internalRoutes(fastify: FastifyInstance) {
           'internal-admin'
         );
         return reply.send(successResponse(subscription));
+      }
+    );
+
+    // PATCH /internal/subscriptions/tenants/:tenantId/branches/:branchId/status - Update subscription status
+    protectedApp.patch(
+      '/subscriptions/tenants/:tenantId/branches/:branchId/status',
+      {
+        schema: {
+          description: 'Manually update subscription status (admin only)',
+          tags: ['Internal Admin - Subscriptions'],
+          security: [{ bearerAuth: [] }],
+          body: updateSubscriptionStatusBodySchema,
+        },
+      },
+      async (request, reply) => {
+        const { tenantId, branchId } = request.params as { tenantId: string; branchId: string };
+        const subscription = await subscriptionsService.updateSubscriptionStatus(
+          tenantId,
+          branchId,
+          request.body,
+          'internal-admin'
+        );
+        return reply.send(successResponse(subscription));
+      }
+    );
+
+    // POST /internal/subscriptions/tenants/:tenantId/branches/:branchId/extend-trial - Extend trial
+    protectedApp.post(
+      '/subscriptions/tenants/:tenantId/branches/:branchId/extend-trial',
+      {
+        schema: {
+          description: 'Extend trial period for a subscription (admin only)',
+          tags: ['Internal Admin - Subscriptions'],
+          security: [{ bearerAuth: [] }],
+          body: extendTrialBodySchema,
+        },
+      },
+      async (request, reply) => {
+        const { tenantId, branchId } = request.params as { tenantId: string; branchId: string };
+        const subscription = await subscriptionsService.extendTrial(
+          tenantId,
+          branchId,
+          request.body,
+          'internal-admin'
+        );
+        return reply.send(successResponse(subscription));
+      }
+    );
+
+    // PATCH /internal/subscriptions/tenants/:tenantId/branches/:branchId/discount - Apply discount
+    protectedApp.patch(
+      '/subscriptions/tenants/:tenantId/branches/:branchId/discount',
+      {
+        schema: {
+          description: 'Apply or update discount on a subscription (admin only)',
+          tags: ['Internal Admin - Subscriptions'],
+          security: [{ bearerAuth: [] }],
+          body: applyDiscountBodySchema,
+        },
+      },
+      async (request, reply) => {
+        const { tenantId, branchId } = request.params as { tenantId: string; branchId: string };
+        const subscription = await subscriptionsService.applyDiscount(
+          tenantId,
+          branchId,
+          request.body,
+          'internal-admin'
+        );
+        return reply.send(successResponse(subscription));
+      }
+    );
+
+    // GET /internal/subscriptions/tenants/:tenantId/branches/:branchId/history - Get subscription history
+    protectedApp.get(
+      '/subscriptions/tenants/:tenantId/branches/:branchId/history',
+      {
+        schema: {
+          description: 'Get subscription history for a branch',
+          tags: ['Internal Admin - Subscriptions'],
+          security: [{ bearerAuth: [] }],
+        },
+      },
+      async (request, reply) => {
+        const { tenantId, branchId } = request.params as { tenantId: string; branchId: string };
+        const history = await subscriptionsService.getSubscriptionHistory(tenantId, branchId);
+        return reply.send(successResponse(history));
       }
     );
 

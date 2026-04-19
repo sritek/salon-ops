@@ -25,6 +25,7 @@ import type {
   SubscriptionBillingOverview,
   CreatePlanFormData,
   UpdatePlanFormData,
+  SubscriptionHistory,
 } from '../types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -424,6 +425,66 @@ export function useInternalApi() {
     [apiFetch]
   );
 
+  const updateSubscriptionStatus = useCallback(
+    async (
+      tenantId: string,
+      branchId: string,
+      data: { status: string; reason?: string }
+    ): Promise<BranchSubscription> => {
+      return apiFetch<BranchSubscription>(
+        `/subscriptions/tenants/${tenantId}/branches/${branchId}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        }
+      );
+    },
+    [apiFetch]
+  );
+
+  const extendTrial = useCallback(
+    async (
+      tenantId: string,
+      branchId: string,
+      data: { additionalDays: number; reason: string }
+    ): Promise<BranchSubscription> => {
+      return apiFetch<BranchSubscription>(
+        `/subscriptions/tenants/${tenantId}/branches/${branchId}/extend-trial`,
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }
+      );
+    },
+    [apiFetch]
+  );
+
+  const applyDiscount = useCallback(
+    async (
+      tenantId: string,
+      branchId: string,
+      data: { discountPercentage: number; discountReason?: string }
+    ): Promise<BranchSubscription> => {
+      return apiFetch<BranchSubscription>(
+        `/subscriptions/tenants/${tenantId}/branches/${branchId}/discount`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        }
+      );
+    },
+    [apiFetch]
+  );
+
+  const getSubscriptionHistory = useCallback(
+    async (tenantId: string, branchId: string): Promise<SubscriptionHistory[]> => {
+      return apiFetch<SubscriptionHistory[]>(
+        `/subscriptions/tenants/${tenantId}/branches/${branchId}/history`
+      );
+    },
+    [apiFetch]
+  );
+
   // Memoize the returned object to prevent infinite loops when used in useEffect dependencies
   return useMemo(
     () => ({
@@ -453,6 +514,11 @@ export function useInternalApi() {
       createSubscription,
       cancelSubscription,
       reactivateSubscription,
+      // Admin subscription operations
+      updateSubscriptionStatus,
+      extendTrial,
+      applyDiscount,
+      getSubscriptionHistory,
     }),
     [
       listTenants,
@@ -474,6 +540,10 @@ export function useInternalApi() {
       createSubscription,
       cancelSubscription,
       reactivateSubscription,
+      updateSubscriptionStatus,
+      extendTrial,
+      applyDiscount,
+      getSubscriptionHistory,
     ]
   );
 }

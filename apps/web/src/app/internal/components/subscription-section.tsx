@@ -1,5 +1,6 @@
 /**
  * SubscriptionSection - Manage branch subscriptions for a tenant
+ * Enhanced with admin operations: status change, extend trial, apply discount, view history
  */
 
 'use client';
@@ -16,12 +17,17 @@ import { SubscriptionItem } from './subscription-item';
 import { CreateSubscriptionDialog } from './create-subscription-dialog';
 import { CancelSubscriptionDialog } from './cancel-subscription-dialog';
 import { ReactivateSubscriptionDialog } from './reactivate-subscription-dialog';
+import { ChangeStatusDialog } from './change-status-dialog';
+import { ExtendTrialDialog } from './extend-trial-dialog';
+import { ApplyDiscountDialog } from './apply-discount-dialog';
+import { SubscriptionHistoryDialog } from './subscription-history-dialog';
 import { useInternalApi } from '../hooks';
 import type {
   Branch,
   SubscriptionPlan,
   SubscriptionBillingOverview,
   CreateSubscriptionFormData,
+  SubscriptionHistory,
 } from '../types';
 
 interface SubscriptionSectionProps {
@@ -48,6 +54,20 @@ export function SubscriptionSection({ tenantId, branches, onRefresh }: Subscript
 
   const [reactivateBranchId, setReactivateBranchId] = useState<string | null>(null);
   const [isReactivateLoading, setIsReactivateLoading] = useState(false);
+
+  // New admin dialog states
+  const [changeStatusBranchId, setChangeStatusBranchId] = useState<string | null>(null);
+  const [isChangeStatusLoading, setIsChangeStatusLoading] = useState(false);
+
+  const [extendTrialBranchId, setExtendTrialBranchId] = useState<string | null>(null);
+  const [isExtendTrialLoading, setIsExtendTrialLoading] = useState(false);
+
+  const [applyDiscountBranchId, setApplyDiscountBranchId] = useState<string | null>(null);
+  const [isApplyDiscountLoading, setIsApplyDiscountLoading] = useState(false);
+
+  const [historyBranchId, setHistoryBranchId] = useState<string | null>(null);
+  const [subscriptionHistory, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   // Fetch billing overview and plans
   const fetchData = useCallback(async () => {
@@ -130,13 +150,92 @@ export function SubscriptionSection({ tenantId, branches, onRefresh }: Subscript
     }
   };
 
-  // Get subscription for cancel/reactivate dialogs
-  const cancelSubscription = billingOverview?.subscriptions.find(
-    (s) => s.branchId === cancelBranchId
-  );
-  const reactivateSubscription = billingOverview?.subscriptions.find(
-    (s) => s.branchId === reactivateBranchId
-  );
+  // Change status (admin)
+  const handleChangeStatus = async (data: { status: string; reason?: string }) => {
+    if (!changeStatusBranchId) return;
+
+    setIsChangeStatusLoading(true);
+    try {
+      await api.updateSubscriptionStatus(tenantId, changeStatusBranchId, data);
+      toast.success('Subscription status updated');
+      setChangeStatusBranchId(null);
+      fetchData();
+      onRefresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update status');
+    } finally {
+      setIsChangeStatusLoading(false);
+    }
+  };
+
+  // Extend trial (admin)
+  const handleExtendTrial = async (data: { additionalDays: number; reason: string }) => {
+    if (!extendTrialBranchId) return;
+
+    setIsExtendTrialLoading(true);
+    try {
+      await api.extendTrial(tenantId, extendTrialBranchId, data);
+      toast.success(`Trial extended by ${data.additionalDays} days`);
+      setExtendTrialBranchId(null);
+      fetchData();
+      onRefresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to extend trial');
+    } finally {
+      setIsExtendTrialLoading(false);
+    }
+  };
+
+  // Apply discount (admin)
+  const handleApplyDiscount = async (data: {
+    discountPercentage: number;
+    discountReason?: string;
+  }) => {
+    if (!applyDiscountBranchId) return;
+
+    setIsApplyDiscountLoading(true);
+    try {
+      await api.applyDiscount(tenantId, applyDiscountBranchId, data);
+      toast.success(
+        data.discountPercentage > 0
+          ? `${data.discountPercentage}% discount applied`
+          : 'Discount removed'
+      );
+      setApplyDiscountBranchId(null);
+      fetchData();
+      onRefresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to apply discount');
+    } finally {
+      setIsApplyDiscountLoading(false);
+    }
+  };
+
+  // View history
+  const handleViewHistory = async (branchId: string) => {
+    setHistoryBranchId(branchId);
+    setIsHistoryLoading(true);
+    try {
+      const history = await api.getSubscriptionHistory(tenantId, branchId);
+      setSubscriptionHistory(history);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load history');
+      setSubscriptionHistory([]);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  // Get subscription for dialogs
+  const getSubscriptionByBranchId = (branchId: string | null) =>
+    branchId ? billingOverview?.subscriptions.find((s) => s.branchId === branchId) || null : null;
+
+  const cancelSubscription = getSubscriptionByBranchId(cancelBranchId);
+  const reactivateSubscription = getSubscriptionByBranchId(reactivateBranchId);
+  const changeStatusSubscription = getSubscriptionByBranchId(changeStatusBranchId);
+  const extendTrialSubscription = getSubscriptionByBranchId(extendTrialBranchId);
+  const applyDiscountSubscription = getSubscriptionByBranchId(applyDiscountBranchId);
+  const historySubscription = getSubscriptionByBranchId(historyBranchId);
 
   // Check if there are branches without subscriptions
   const branchesWithoutSubscription = branches.filter(
@@ -186,7 +285,7 @@ export function SubscriptionSection({ tenantId, branches, onRefresh }: Subscript
             <div className="space-y-4">
               {/* Summary */}
               {billingOverview && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-lg mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-slate-50 rounded-lg mb-4">
                   <div>
                     <p className="text-xs text-slate-500 uppercase">Active</p>
                     <p className="text-xl font-semibold text-green-600">
@@ -206,6 +305,12 @@ export function SubscriptionSection({ tenantId, branches, onRefresh }: Subscript
                     </p>
                   </div>
                   <div>
+                    <p className="text-xs text-slate-500 uppercase">Suspended</p>
+                    <p className="text-xl font-semibold text-red-600">
+                      {billingOverview.summary.suspendedSubscriptions}
+                    </p>
+                  </div>
+                  <div>
                     <p className="text-xs text-slate-500 uppercase">MRR</p>
                     <p className="text-xl font-semibold text-slate-900">
                       ₹{billingOverview.summary.monthlyRecurring.toLocaleString('en-IN')}
@@ -222,6 +327,10 @@ export function SubscriptionSection({ tenantId, branches, onRefresh }: Subscript
                     subscription={subscription}
                     onCancel={setCancelBranchId}
                     onReactivate={setReactivateBranchId}
+                    onChangeStatus={setChangeStatusBranchId}
+                    onExtendTrial={setExtendTrialBranchId}
+                    onApplyDiscount={setApplyDiscountBranchId}
+                    onViewHistory={handleViewHistory}
                   />
                 ))}
               </div>
@@ -257,6 +366,42 @@ export function SubscriptionSection({ tenantId, branches, onRefresh }: Subscript
         plans={plans}
         onSubmit={handleReactivateSubscription}
         isLoading={isReactivateLoading}
+      />
+
+      {/* Change Status Dialog */}
+      <ChangeStatusDialog
+        open={!!changeStatusBranchId}
+        onOpenChange={(open) => !open && setChangeStatusBranchId(null)}
+        subscription={changeStatusSubscription}
+        onSubmit={handleChangeStatus}
+        isLoading={isChangeStatusLoading}
+      />
+
+      {/* Extend Trial Dialog */}
+      <ExtendTrialDialog
+        open={!!extendTrialBranchId}
+        onOpenChange={(open) => !open && setExtendTrialBranchId(null)}
+        subscription={extendTrialSubscription}
+        onSubmit={handleExtendTrial}
+        isLoading={isExtendTrialLoading}
+      />
+
+      {/* Apply Discount Dialog */}
+      <ApplyDiscountDialog
+        open={!!applyDiscountBranchId}
+        onOpenChange={(open) => !open && setApplyDiscountBranchId(null)}
+        subscription={applyDiscountSubscription}
+        onSubmit={handleApplyDiscount}
+        isLoading={isApplyDiscountLoading}
+      />
+
+      {/* Subscription History Dialog */}
+      <SubscriptionHistoryDialog
+        open={!!historyBranchId}
+        onOpenChange={(open) => !open && setHistoryBranchId(null)}
+        subscription={historySubscription}
+        history={subscriptionHistory}
+        isLoading={isHistoryLoading}
       />
     </>
   );

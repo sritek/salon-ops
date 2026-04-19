@@ -238,3 +238,21 @@ export interface CreatePlanFormData {
 }
 
 export interface UpdatePlanFormData extends Partial<Omit<CreatePlanFormData, 'code'>> {}
+
+// ============================================
+// SUBSCRIPTION HISTORY TYPES
+// ============================================
+
+export interface SubscriptionHistory {
+  id: string;
+  tenantId: string;
+  subscriptionId: string;
+  eventType: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  fromPlanId: string | null;
+  toPlanId: string | null;
+  metadata: Record<string, unknown>;
+  performedBy: string | null;
+  createdAt: string;
+}

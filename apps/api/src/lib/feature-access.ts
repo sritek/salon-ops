@@ -55,6 +55,12 @@ export interface SubscriptionAccess {
   trialDaysRemaining: number | null;
   // Period info
   currentPeriodEnd: string | null;
+  // Expiration/suspension info
+  isExpired: boolean;
+  isPastDue: boolean;
+  isSuspended: boolean;
+  gracePeriodEndsAt: string | null;
+  gracePeriodDaysRemaining: number | null;
 }
 
 // Default features for when there's no subscription (most restrictive)
@@ -103,12 +109,20 @@ export async function getSubscriptionAccess(branchId: string): Promise<Subscript
       trialEndsAt: null,
       trialDaysRemaining: null,
       currentPeriodEnd: null,
+      isExpired: false,
+      isPastDue: false,
+      isSuspended: false,
+      gracePeriodEndsAt: null,
+      gracePeriodDaysRemaining: null,
     };
   }
 
-  // Check if subscription is in an active state (trial or active)
+  // Check subscription states
   const isActive = ['trial', 'active'].includes(subscription.status);
   const isOnTrial = subscription.status === 'trial';
+  const isExpired = subscription.status === 'expired';
+  const isPastDue = subscription.status === 'past_due';
+  const isSuspended = subscription.status === 'suspended';
 
   // Calculate trial days remaining
   let trialDaysRemaining: number | null = null;
@@ -117,6 +131,15 @@ export async function getSubscriptionAccess(branchId: string): Promise<Subscript
     const trialEnd = new Date(subscription.trialEndDate);
     const diffTime = trialEnd.getTime() - now.getTime();
     trialDaysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  }
+
+  // Calculate grace period days remaining
+  let gracePeriodDaysRemaining: number | null = null;
+  if (subscription.gracePeriodEndDate) {
+    const now = new Date();
+    const graceEnd = new Date(subscription.gracePeriodEndDate);
+    const diffTime = graceEnd.getTime() - now.getTime();
+    gracePeriodDaysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   }
 
   // Parse features from plan (with defaults)
@@ -134,17 +157,26 @@ export async function getSubscriptionAccess(branchId: string): Promise<Subscript
     maxProducts: subscription.plan.maxProducts,
   };
 
+  // For expired/past_due, still allow access (warning mode)
+  // Only suspended blocks access completely
+  const allowAccess = isActive || isExpired || isPastDue;
+
   return {
     hasActiveSubscription: isActive,
     status: subscription.status,
     planName: subscription.plan.name,
     planTier: subscription.plan.tier,
-    features: isActive ? features : DEFAULT_FEATURES,
-    limits: isActive ? limits : DEFAULT_LIMITS,
+    features: allowAccess ? features : DEFAULT_FEATURES,
+    limits: allowAccess ? limits : DEFAULT_LIMITS,
     isOnTrial,
     trialEndsAt: subscription.trialEndDate?.toISOString() ?? null,
     trialDaysRemaining,
     currentPeriodEnd: subscription.currentPeriodEnd?.toISOString() ?? null,
+    isExpired,
+    isPastDue,
+    isSuspended,
+    gracePeriodEndsAt: subscription.gracePeriodEndDate?.toISOString() ?? null,
+    gracePeriodDaysRemaining,
   };
 }
 

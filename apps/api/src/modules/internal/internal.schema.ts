@@ -215,6 +215,30 @@ export const reactivateSubscriptionBodySchema = z.object({
 
 export type ReactivateSubscriptionBody = z.infer<typeof reactivateSubscriptionBodySchema>;
 
+// Update subscription status (admin only)
+export const updateSubscriptionStatusBodySchema = z.object({
+  status: z.enum(['trial', 'active', 'past_due', 'suspended', 'cancelled', 'expired']),
+  reason: z.string().min(5, 'Reason must be at least 5 characters').max(500).optional(),
+});
+
+export type UpdateSubscriptionStatusBody = z.infer<typeof updateSubscriptionStatusBodySchema>;
+
+// Extend trial (admin only)
+export const extendTrialBodySchema = z.object({
+  additionalDays: z.number().int().min(1).max(90),
+  reason: z.string().min(5, 'Reason must be at least 5 characters').max(500),
+});
+
+export type ExtendTrialBody = z.infer<typeof extendTrialBodySchema>;
+
+// Apply discount (admin only)
+export const applyDiscountBodySchema = z.object({
+  discountPercentage: z.number().min(0).max(100),
+  discountReason: z.string().max(255).optional(),
+});
+
+export type ApplyDiscountBody = z.infer<typeof applyDiscountBodySchema>;
+
 // ============================================
 // SUBSCRIPTION PLAN MANAGEMENT SCHEMAS
 // ============================================

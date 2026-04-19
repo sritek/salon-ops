@@ -12,3 +12,7 @@ export { SubscriptionSection } from './subscription-section';
 export { CreateSubscriptionDialog } from './create-subscription-dialog';
 export { CancelSubscriptionDialog } from './cancel-subscription-dialog';
 export { ReactivateSubscriptionDialog } from './reactivate-subscription-dialog';
+export { ChangeStatusDialog } from './change-status-dialog';
+export { ExtendTrialDialog } from './extend-trial-dialog';
+export { ApplyDiscountDialog } from './apply-discount-dialog';
+export { SubscriptionHistoryDialog } from './subscription-history-dialog';

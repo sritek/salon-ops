@@ -58,6 +58,12 @@ export interface SubscriptionAccess {
   trialDaysRemaining: number | null;
   // Period info
   currentPeriodEnd: string | null;
+  // Expiration/suspension info
+  isExpired: boolean;
+  isPastDue: boolean;
+  isSuspended: boolean;
+  gracePeriodEndsAt: string | null;
+  gracePeriodDaysRemaining: number | null;
 }
 
 // Default features (most restrictive)
@@ -88,6 +94,11 @@ const DEFAULT_ACCESS: SubscriptionAccess = {
   trialEndsAt: null,
   trialDaysRemaining: null,
   currentPeriodEnd: null,
+  isExpired: false,
+  isPastDue: false,
+  isSuspended: false,
+  gracePeriodEndsAt: null,
+  gracePeriodDaysRemaining: null,
 };
 
 /**

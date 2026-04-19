@@ -1005,6 +1005,279 @@ async function getLimitCounts(tenantId: string) {
 }
 
 // ============================================
+// Admin Operations (Internal Admin Only)
+// ============================================
+
+/**
+ * Update subscription status (admin only)
+ * Allows manual status changes for support operations
+ */
+async function updateSubscriptionStatus(
+  tenantId: string,
+  branchId: string,
+  data: { status: string; reason?: string },
+  userId: string
+) {
+  const subscription = await prisma.branchSubscription.findUnique({
+    where: { branchId },
+    include: { plan: true },
+  });
+
+  if (!subscription) {
+    throw new NotFoundError('SUBSCRIPTION_NOT_FOUND', 'No subscription found for this branch');
+  }
+
+  if (subscription.tenantId !== tenantId) {
+    throw new ForbiddenError('FORBIDDEN', 'You do not have access to this subscription');
+  }
+
+  const now = new Date();
+  const today = startOfDay(now);
+  const newStatus = data.status as
+    | 'trial'
+    | 'active'
+    | 'past_due'
+    | 'suspended'
+    | 'cancelled'
+    | 'expired';
+
+  // Build update data based on new status
+  const updateData: Prisma.BranchSubscriptionUpdateInput = {
+    status: newStatus,
+  };
+
+  // Handle status-specific updates
+  switch (newStatus) {
+    case 'active':
+      // Clear any suspension/cancellation data
+      updateData.suspendedAt = null;
+      updateData.gracePeriodEndDate = null;
+      updateData.cancelledAt = null;
+      updateData.cancelledBy = null;
+      updateData.cancellationReason = null;
+      updateData.cancelAtPeriodEnd = false;
+      break;
+
+    case 'suspended':
+      updateData.suspendedAt = now;
+      break;
+
+    case 'cancelled':
+      updateData.cancelledAt = now;
+      updateData.cancelledBy = userId;
+      updateData.cancellationReason = data.reason || 'Cancelled by admin';
+      updateData.autoRenew = false;
+      break;
+
+    case 'past_due':
+      // Set grace period if not already set
+      if (!subscription.gracePeriodEndDate) {
+        updateData.gracePeriodEndDate = addDays(today, subscription.gracePeriodDaysGranted);
+      }
+      break;
+
+    case 'expired':
+      // Set grace period if not already set
+      if (!subscription.gracePeriodEndDate) {
+        updateData.gracePeriodEndDate = addDays(today, subscription.gracePeriodDaysGranted);
+      }
+      break;
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedSubscription = await tx.branchSubscription.update({
+      where: { id: subscription.id },
+      data: updateData,
+      include: { plan: true },
+    });
+
+    // Update branch status
+    await tx.branch.update({
+      where: { id: branchId },
+      data: {
+        subscriptionStatus: newStatus,
+        isAccessible: newStatus !== 'suspended',
+        accessRestrictedAt: newStatus === 'suspended' ? now : null,
+        accessRestrictedReason: newStatus === 'suspended' ? 'Subscription suspended' : null,
+      },
+    });
+
+    // Create history entry
+    await tx.subscriptionHistory.create({
+      data: {
+        tenantId,
+        subscriptionId: subscription.id,
+        eventType: 'status_changed',
+        fromStatus: subscription.status,
+        toStatus: newStatus,
+        metadata: {
+          reason: data.reason || 'Admin status change',
+          adminAction: true,
+        },
+        performedBy: userId,
+      },
+    });
+
+    return updatedSubscription;
+  });
+
+  return serializeDecimals(updated);
+}
+
+/**
+ * Extend trial period (admin only)
+ */
+async function extendTrial(
+  tenantId: string,
+  branchId: string,
+  data: { additionalDays: number; reason: string },
+  userId: string
+) {
+  const subscription = await prisma.branchSubscription.findUnique({
+    where: { branchId },
+    include: { plan: true },
+  });
+
+  if (!subscription) {
+    throw new NotFoundError('SUBSCRIPTION_NOT_FOUND', 'No subscription found for this branch');
+  }
+
+  if (subscription.tenantId !== tenantId) {
+    throw new ForbiddenError('FORBIDDEN', 'You do not have access to this subscription');
+  }
+
+  // Can only extend trial for trial or expired subscriptions
+  if (!['trial', 'expired'].includes(subscription.status)) {
+    throw new BadRequestError(
+      'INVALID_STATUS',
+      'Can only extend trial for subscriptions in trial or expired status'
+    );
+  }
+
+  const today = startOfDay(new Date());
+
+  // Calculate new trial end date
+  const currentTrialEnd = subscription.trialEndDate ? new Date(subscription.trialEndDate) : today;
+  const newTrialEndDate = addDays(
+    currentTrialEnd > today ? currentTrialEnd : today,
+    data.additionalDays
+  );
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedSubscription = await tx.branchSubscription.update({
+      where: { id: subscription.id },
+      data: {
+        status: 'trial',
+        trialEndDate: newTrialEndDate,
+        currentPeriodEnd: newTrialEndDate,
+        trialDaysGranted: subscription.trialDaysGranted + data.additionalDays,
+        gracePeriodEndDate: null, // Clear grace period
+      },
+      include: { plan: true },
+    });
+
+    // Update branch status
+    await tx.branch.update({
+      where: { id: branchId },
+      data: {
+        subscriptionStatus: 'trial',
+        isAccessible: true,
+        accessRestrictedAt: null,
+        accessRestrictedReason: null,
+      },
+    });
+
+    // Create history entry
+    await tx.subscriptionHistory.create({
+      data: {
+        tenantId,
+        subscriptionId: subscription.id,
+        eventType: 'trial_extended',
+        fromStatus: subscription.status,
+        toStatus: 'trial',
+        metadata: {
+          additionalDays: data.additionalDays,
+          reason: data.reason,
+          previousTrialEnd: subscription.trialEndDate,
+          newTrialEnd: newTrialEndDate.toISOString(),
+          adminAction: true,
+        },
+        performedBy: userId,
+      },
+    });
+
+    return updatedSubscription;
+  });
+
+  return serializeDecimals(updated);
+}
+
+/**
+ * Apply discount to subscription (admin only)
+ */
+async function applyDiscount(
+  tenantId: string,
+  branchId: string,
+  data: { discountPercentage: number; discountReason?: string },
+  userId: string
+) {
+  const subscription = await prisma.branchSubscription.findUnique({
+    where: { branchId },
+    include: { plan: true },
+  });
+
+  if (!subscription) {
+    throw new NotFoundError('SUBSCRIPTION_NOT_FOUND', 'No subscription found for this branch');
+  }
+
+  if (subscription.tenantId !== tenantId) {
+    throw new ForbiddenError('FORBIDDEN', 'You do not have access to this subscription');
+  }
+
+  // Recalculate price with new discount
+  const plan = subscription.plan;
+  const basePrice = subscription.billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
+  const discountAmount = basePrice.mul(data.discountPercentage).div(100);
+  const newPricePerPeriod = new Prisma.Decimal(
+    Math.round(basePrice.sub(discountAmount).toNumber())
+  );
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedSubscription = await tx.branchSubscription.update({
+      where: { id: subscription.id },
+      data: {
+        discountPercentage: data.discountPercentage,
+        discountReason: data.discountReason || null,
+        pricePerPeriod: newPricePerPeriod,
+      },
+      include: { plan: true },
+    });
+
+    // Create history entry
+    await tx.subscriptionHistory.create({
+      data: {
+        tenantId,
+        subscriptionId: subscription.id,
+        eventType: 'discount_applied',
+        metadata: {
+          previousDiscount: subscription.discountPercentage,
+          newDiscount: data.discountPercentage,
+          reason: data.discountReason,
+          previousPrice: subscription.pricePerPeriod.toNumber(),
+          newPrice: newPricePerPeriod.toNumber(),
+          adminAction: true,
+        },
+        performedBy: userId,
+      },
+    });
+
+    return updatedSubscription;
+  });
+
+  return serializeDecimals(updated);
+}
+
+// ============================================
 // Export Service
 // ============================================
 
@@ -1022,6 +1295,10 @@ export const subscriptionsService = {
   changePlan,
   cancelSubscription,
   reactivateSubscription,
+  // Admin operations
+  updateSubscriptionStatus,
+  extendTrial,
+  applyDiscount,
   // Invoices
   listInvoices,
   getInvoice,

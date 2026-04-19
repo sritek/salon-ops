@@ -41,6 +41,9 @@ export interface BranchSubscription {
   trialEndDate: string | null;
   currentPeriodStart: string;
   currentPeriodEnd: string;
+  // Locked plan terms at subscription creation
+  trialDaysGranted: number;
+  gracePeriodDaysGranted: number;
   pricePerPeriod: number;
   currency: string;
   discountPercentage: number;
