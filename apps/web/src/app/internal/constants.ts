@@ -12,6 +12,10 @@ export const EMPTY_TENANT_FORM = {
   email: '',
   phone: '',
   logoUrl: '',
+  // Billing information
+  billingEmail: '',
+  billingAddress: '',
+  gstin: '',
 };
 
 export const EMPTY_BRANCH_FORM = {

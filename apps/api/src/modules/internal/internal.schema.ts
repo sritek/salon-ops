@@ -27,6 +27,9 @@ export const adminLoginResponseSchema = z.object({
 const indianPhoneRegex = /^[6-9]\d{9}$/;
 const pincodeRegex = /^\d{6}$/;
 
+// GSTIN regex: 15 characters alphanumeric
+const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
 // Create tenant
 export const createTenantBodySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(255),
@@ -34,6 +37,10 @@ export const createTenantBodySchema = z.object({
   email: z.string().email('Invalid email format'),
   phone: z.string().regex(indianPhoneRegex, 'Phone must be 10 digits starting with 6-9').optional(),
   logoUrl: z.string().url().optional(),
+  // Billing information
+  billingEmail: z.string().email('Invalid billing email format').optional(),
+  billingAddress: z.string().max(500).optional(),
+  gstin: z.string().regex(gstinRegex, 'Invalid GSTIN format').optional().or(z.literal('')),
   // Loyalty configuration
   loyaltyEnabled: z.boolean().default(true),
   loyaltyPointsPerUnit: z.number().min(0).max(1).default(0.01), // Points earned per ₹1 spent
@@ -95,6 +102,15 @@ export const updateTenantBodySchema = z.object({
     .optional()
     .nullable(),
   logoUrl: z.string().url().optional().nullable(),
+  // Billing information
+  billingEmail: z.string().email('Invalid billing email format').optional().nullable(),
+  billingAddress: z.string().max(500).optional().nullable(),
+  gstin: z
+    .string()
+    .regex(gstinRegex, 'Invalid GSTIN format')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
 });
 
 export type UpdateTenantBody = z.infer<typeof updateTenantBodySchema>;

@@ -75,6 +75,9 @@ export default function TenantDetailPage() {
     email: '',
     phone: '',
     logoUrl: '',
+    billingEmail: '',
+    billingAddress: '',
+    gstin: '',
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -200,6 +203,9 @@ export default function TenantDetailPage() {
         email: tenant.email,
         phone: tenant.phone || '',
         logoUrl: tenant.logoUrl || '',
+        billingEmail: tenant.billingEmail || '',
+        billingAddress: tenant.billingAddress || '',
+        gstin: tenant.gstin || '',
       });
       setLogoPreview(tenant.logoUrl);
       setLogoFile(null);

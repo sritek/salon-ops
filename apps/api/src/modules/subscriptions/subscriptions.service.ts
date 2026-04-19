@@ -8,6 +8,14 @@ import { Prisma } from '@prisma/client';
 
 import { prisma, serializeDecimals } from '../../lib/prisma';
 import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from '../../lib/errors';
+import { logger } from '../../lib/logger';
+import {
+  sendSubscriptionActivatedEmail,
+  sendTrialExtendedEmail,
+  sendSubscriptionSuspendedEmail,
+  sendSubscriptionReactivatedEmail,
+  sendWelcomeEmail,
+} from '../../lib/email-notifications';
 import type { PaginatedResult } from '../../lib/types';
 import type {
   CreatePlanInput,
@@ -296,6 +304,25 @@ async function createSubscription(tenantId: string, data: CreateSubscriptionInpu
 
     return newSubscription;
   });
+
+  // Send welcome email for new subscriptions with trial
+  if (status === 'trial') {
+    try {
+      await sendWelcomeEmail(tenantId, data.branchId);
+    } catch (emailError) {
+      logger.error({ error: emailError, branchId: data.branchId }, 'Failed to send welcome email');
+    }
+  } else {
+    // Send activation email for subscriptions starting as active
+    try {
+      await sendSubscriptionActivatedEmail(subscription.id);
+    } catch (emailError) {
+      logger.error(
+        { error: emailError, subscriptionId: subscription.id },
+        'Failed to send activation email'
+      );
+    }
+  }
 
   return serializeDecimals(subscription);
 }
@@ -627,6 +654,16 @@ async function reactivateSubscription(
 
     return updatedSubscription;
   });
+
+  // Send reactivation email
+  try {
+    await sendSubscriptionReactivatedEmail(subscription.id);
+  } catch (emailError) {
+    logger.error(
+      { error: emailError, subscriptionId: subscription.id },
+      'Failed to send reactivation email'
+    );
+  }
 
   return serializeDecimals(updated);
 }
@@ -1121,6 +1158,20 @@ async function updateSubscriptionStatus(
     return updatedSubscription;
   });
 
+  // Send email notifications based on status change
+  try {
+    if (newStatus === 'active' && subscription.status !== 'active') {
+      await sendSubscriptionActivatedEmail(subscription.id);
+    } else if (newStatus === 'suspended') {
+      await sendSubscriptionSuspendedEmail(subscription.id, data.reason);
+    }
+  } catch (emailError) {
+    logger.error(
+      { error: emailError, subscriptionId: subscription.id },
+      'Failed to send status change email'
+    );
+  }
+
   return serializeDecimals(updated);
 }
 
@@ -1208,6 +1259,16 @@ async function extendTrial(
 
     return updatedSubscription;
   });
+
+  // Send trial extended email
+  try {
+    await sendTrialExtendedEmail(subscription.id, data.additionalDays);
+  } catch (emailError) {
+    logger.error(
+      { error: emailError, subscriptionId: subscription.id },
+      'Failed to send trial extended email'
+    );
+  }
 
   return serializeDecimals(updated);
 }

@@ -4,15 +4,61 @@
  * - Trial expiration
  * - Subscription renewal/expiration
  * - Grace period handling
+ * - Email notifications
  */
 
 import { addDays, startOfDay, isBefore } from 'date-fns';
 
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import {
+  sendTrialEndingSoonEmail,
+  sendTrialExpiredEmail,
+  sendSubscriptionSuspendedEmail,
+} from '@/lib/email-notifications';
 
 // Grace period after trial expires (days)
 const TRIAL_GRACE_PERIOD_DAYS = 3;
+
+// Days before trial end to send reminder emails
+const TRIAL_REMINDER_DAYS = [7, 3, 1];
+
+/**
+ * Send trial ending soon emails
+ * Sends reminders at 7, 3, and 1 day before trial ends
+ */
+export async function sendTrialEndingReminders() {
+  const now = startOfDay(new Date());
+
+  for (const daysLeft of TRIAL_REMINDER_DAYS) {
+    const targetDate = addDays(now, daysLeft);
+
+    // Find trials ending on the target date
+    const trialsEndingSoon = await prisma.branchSubscription.findMany({
+      where: {
+        status: 'trial',
+        trialEndDate: {
+          gte: startOfDay(targetDate),
+          lt: addDays(startOfDay(targetDate), 1),
+        },
+      },
+    });
+
+    logger.info({ count: trialsEndingSoon.length, daysLeft }, 'Found trials ending soon');
+
+    for (const subscription of trialsEndingSoon) {
+      try {
+        await sendTrialEndingSoonEmail(subscription.id, daysLeft);
+        logger.info({ subscriptionId: subscription.id, daysLeft }, 'Sent trial ending soon email');
+      } catch (error) {
+        logger.error(
+          { error, subscriptionId: subscription.id },
+          'Failed to send trial ending soon email'
+        );
+      }
+    }
+  }
+}
 
 /**
  * Process expired trials
@@ -94,6 +140,16 @@ export async function processExpiredTrials() {
         },
         'Trial subscription expired'
       );
+
+      // Send trial expired email
+      try {
+        await sendTrialExpiredEmail(subscription.id);
+      } catch (emailError) {
+        logger.error(
+          { error: emailError, subscriptionId: subscription.id },
+          'Failed to send trial expired email'
+        );
+      }
     } catch (error) {
       logger.error({ error, subscriptionId: subscription.id }, 'Failed to process expired trial');
     }
@@ -248,6 +304,16 @@ export async function processPastDueSubscriptions() {
         },
         'Subscription suspended'
       );
+
+      // Send suspension email
+      try {
+        await sendSubscriptionSuspendedEmail(subscription.id, 'Grace period ended without payment');
+      } catch (emailError) {
+        logger.error(
+          { error: emailError, subscriptionId: subscription.id },
+          'Failed to send suspension email'
+        );
+      }
     } catch (error) {
       logger.error({ error, subscriptionId: subscription.id }, 'Failed to suspend subscription');
     }
@@ -338,6 +404,9 @@ export async function processCancelledSubscriptions() {
  */
 export async function processSubscriptionLifecycle() {
   logger.info('Starting subscription lifecycle processing');
+
+  // Send trial ending reminders first
+  await sendTrialEndingReminders();
 
   const results = {
     trials: await processExpiredTrials(),

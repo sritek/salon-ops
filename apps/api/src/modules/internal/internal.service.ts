@@ -45,6 +45,10 @@ export class InternalService {
           email: data.email,
           phone: data.phone,
           logoUrl: data.logoUrl,
+          // Billing information
+          billingEmail: data.billingEmail,
+          billingAddress: data.billingAddress,
+          gstin: data.gstin || null,
         },
       });
 
@@ -328,6 +332,10 @@ export class InternalService {
         email: data.email,
         phone: data.phone,
         logoUrl: data.logoUrl,
+        // Billing information
+        billingEmail: data.billingEmail,
+        billingAddress: data.billingAddress,
+        gstin: data.gstin === '' ? null : data.gstin,
       },
     });
 

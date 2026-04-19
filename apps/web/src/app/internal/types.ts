@@ -127,6 +127,10 @@ export interface TenantFormData {
   email: string;
   phone: string;
   logoUrl: string;
+  // Billing information
+  billingEmail: string;
+  billingAddress: string;
+  gstin: string;
 }
 
 export interface BranchFormData {
