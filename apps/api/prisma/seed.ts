@@ -30,7 +30,7 @@ async function main() {
 
     // 3. Staff Profiles & Related
     await seedStaffData(tenant.id, branches, users);
-    console.log(`✅ Created staff profiles, shifts, and attendance data`);
+    console.log(`✅ Created staff profiles and attendance data`);
 
     // 4. Services & Categories
     const services = await seedServices(tenant.id, branches);
@@ -121,7 +121,7 @@ async function clearDatabase() {
   await safeTruncate('staff_salary_structures, salary_components');
   await safeTruncate('leave_balances, leaves');
   await safeTruncate('attendance');
-  await safeTruncate('staff_shift_assignments, shifts');
+  // shifts and staff_shift_assignments tables removed
   await safeTruncate('staff_profiles');
   await safeTruncate('appointment_status_history, appointment_services, appointments');
   await safeTruncate('walk_in_queue');
@@ -447,50 +447,6 @@ async function seedStaffData(
   }));
 
   await prisma.staffProfile.createMany({ data: staffProfiles });
-
-  // Shifts
-  const shiftsData = [
-    {
-      tenantId,
-      branchId: branches[0].id,
-      name: 'Morning Shift',
-      startTime: '09:00',
-      endTime: '17:00',
-      breakDurationMinutes: 60,
-      applicableDays: [1, 2, 3, 4, 5, 6],
-    },
-    {
-      tenantId,
-      branchId: branches[0].id,
-      name: 'Evening Shift',
-      startTime: '13:00',
-      endTime: '21:00',
-      breakDurationMinutes: 60,
-      applicableDays: [1, 2, 3, 4, 5, 6],
-    },
-    {
-      tenantId,
-      branchId: branches[1].id,
-      name: 'Full Day',
-      startTime: '10:00',
-      endTime: '22:00',
-      breakDurationMinutes: 90,
-      applicableDays: [1, 2, 3, 4, 5, 6],
-    },
-  ];
-
-  const shifts = await prisma.shift.createManyAndReturn({ data: shiftsData });
-
-  // Shift Assignments
-  const shiftAssignments = staffUsers.slice(0, 6).map((user, idx) => ({
-    tenantId,
-    userId: user.id,
-    branchId: idx < 4 ? branches[0].id : branches[1].id,
-    shiftId: idx < 4 ? shifts[idx % 2].id : shifts[2].id,
-    effectiveFrom: new Date(2024, 0, 1),
-  }));
-
-  await prisma.staffShiftAssignment.createMany({ data: shiftAssignments });
 
   // Attendance (last 30 days)
   const attendanceData: Prisma.AttendanceCreateManyInput[] = [];
