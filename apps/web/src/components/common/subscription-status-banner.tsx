@@ -69,7 +69,7 @@ export function SubscriptionStatusBanner({
   if (isDismissed) return null;
 
   // Get banner configuration based on type
-  const config = getBannerConfig(type, daysRemaining, gracePeriodDaysRemaining ?? null, planName);
+  const config = getBannerConfig(type, daysRemaining, gracePeriodDaysRemaining ?? null);
 
   return (
     <div
@@ -115,8 +115,7 @@ export function SubscriptionStatusBanner({
 function getBannerConfig(
   type: BannerType,
   daysRemaining: number | null,
-  gracePeriodDaysRemaining: number | null,
-  _planName: string | null
+  gracePeriodDaysRemaining: number | null
 ) {
   switch (type) {
     case 'trial': {
