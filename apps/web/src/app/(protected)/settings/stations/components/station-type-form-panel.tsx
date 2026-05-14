@@ -95,7 +95,7 @@ export function StationTypeFormPanel({ stationType, open, onClose }: StationType
           displayOrder: data.displayOrder,
         });
         toast.success('Station type created');
-        form.reset()
+        form.reset();
       }
       onClose();
     } catch (error: any) {

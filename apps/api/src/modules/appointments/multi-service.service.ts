@@ -183,16 +183,23 @@ export class MultiServiceAppointmentService {
    * Validate station availability for starting a service
    *
    * Property 8: For any attempt to start a service at a station, the system SHALL
-   * reject the request if the station has another service with status "in_progress".
+   * reject the request if the station has another service with status "in_progress"
+   * from a DIFFERENT appointment, or from the SAME appointment but DIFFERENT sequence.
+   *
+   * Parallel services (same appointment, same sequence) CAN share the same station.
    *
    * @param tenantId - Tenant ID
    * @param stationId - Station ID to check
+   * @param appointmentId - Appointment ID (to allow parallel services from same appointment)
+   * @param serviceSequence - Sequence number of the service being started (to allow same-sequence parallel services)
    * @param excludeServiceId - Optional service ID to exclude (for the service being started)
    * @returns Availability result
    */
   async validateStationAvailability(
     tenantId: string,
     stationId: string,
+    appointmentId?: string,
+    serviceSequence?: number,
     excludeServiceId?: string
   ): Promise<StationAvailabilityResult> {
     // Check if station exists and is active
@@ -214,7 +221,7 @@ export class MultiServiceAppointmentService {
     }
 
     // Check for services currently in progress at this station
-    const occupyingService = await this.prisma.appointmentService.findFirst({
+    const occupyingServices = await this.prisma.appointmentService.findMany({
       where: {
         tenantId,
         stationId,
@@ -224,6 +231,8 @@ export class MultiServiceAppointmentService {
       select: {
         id: true,
         serviceName: true,
+        sequence: true,
+        appointmentId: true,
         appointment: {
           select: {
             customerName: true,
@@ -232,16 +241,32 @@ export class MultiServiceAppointmentService {
       },
     });
 
-    if (occupyingService) {
-      return {
-        isAvailable: false,
-        errorCode: 'STATION_OCCUPIED',
-        errorMessage: `Station is currently occupied by ${occupyingService.serviceName} for ${occupyingService.appointment.customerName || 'a customer'}`,
-        occupyingServiceId: occupyingService.id,
-      };
+    if (occupyingServices.length === 0) {
+      // Station is free
+      return { isAvailable: true };
     }
 
-    return { isAvailable: true };
+    // Check if all occupying services are from the same appointment AND same sequence
+    // (parallel services can share the same station)
+    if (appointmentId && serviceSequence !== undefined) {
+      const allSameAppointmentAndSequence = occupyingServices.every(
+        (s) => s.appointmentId === appointmentId && s.sequence === serviceSequence
+      );
+
+      if (allSameAppointmentAndSequence) {
+        // This is a parallel service from the same appointment - allow it
+        return { isAvailable: true };
+      }
+    }
+
+    // Station is occupied by a different appointment or different sequence
+    const firstOccupying = occupyingServices[0];
+    return {
+      isAvailable: false,
+      errorCode: 'STATION_OCCUPIED',
+      errorMessage: `Station is currently occupied by ${firstOccupying.serviceName} for ${firstOccupying.appointment.customerName || 'a customer'}`,
+      occupyingServiceId: firstOccupying.id,
+    };
   }
 
   /**
@@ -306,7 +331,13 @@ export class MultiServiceAppointmentService {
     }
 
     // 5. Validate station availability (Property 8)
-    const stationResult = await this.validateStationAvailability(tenantId, stationId);
+    // Pass appointmentId and sequence to allow parallel services on same station
+    const stationResult = await this.validateStationAvailability(
+      tenantId,
+      stationId,
+      appointmentId,
+      serviceToStart.sequence
+    );
     if (!stationResult.isAvailable) {
       throw new ConflictError(
         stationResult.errorCode || 'STATION_OCCUPIED',
@@ -577,6 +608,153 @@ export class MultiServiceAppointmentService {
             }
           : undefined,
         allServicesComplete,
+      };
+    });
+
+    return result;
+  }
+
+  /**
+   * Skip all waiting services within a multi-service appointment
+   *
+   * Used when checking out early - marks all waiting services as skipped
+   * so they won't be billed.
+   *
+   * @param tenantId - Tenant ID
+   * @param appointmentId - Appointment ID
+   * @param reason - Optional reason for skipping
+   * @param userId - User performing the action
+   * @returns Updated appointment with skipped services count
+   */
+  async skipAllWaitingServices(
+    tenantId: string,
+    appointmentId: string,
+    reason: string | undefined,
+    userId: string
+  ) {
+    // 1. Get the appointment and all its services
+    const appointment = await this.prisma.appointment.findFirst({
+      where: {
+        id: appointmentId,
+        tenantId,
+        deletedAt: null,
+      },
+      include: {
+        services: {
+          orderBy: { sequence: 'asc' },
+        },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundError('APPOINTMENT_NOT_FOUND', 'Appointment not found');
+    }
+
+    // 2. Find all waiting services
+    const waitingServices = appointment.services.filter((s) => s.status === 'waiting');
+
+    if (waitingServices.length === 0) {
+      // No waiting services to skip
+      return {
+        appointment,
+        skippedCount: 0,
+        skippedServiceIds: [],
+      };
+    }
+
+    // 3. Check if there are any in_progress services - if so, block the operation
+    const inProgressServices = appointment.services.filter((s) => s.status === 'in_progress');
+    if (inProgressServices.length > 0) {
+      throw new BadRequestError(
+        'IN_PROGRESS_SERVICES_EXIST',
+        `Cannot skip waiting services while ${inProgressServices.length} service(s) are in progress. Please complete or skip them first.`
+      );
+    }
+
+    // 4. Update all waiting services to skipped in transaction
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Update all waiting services to skipped
+      await tx.appointmentService.updateMany({
+        where: {
+          appointmentId,
+          tenantId,
+          status: 'waiting',
+        },
+        data: {
+          status: 'skipped',
+        },
+      });
+
+      // Get all services to derive appointment status
+      const allServices = await tx.appointmentService.findMany({
+        where: { appointmentId },
+      });
+
+      // Derive new appointment status
+      const derivedStatus = deriveAppointmentStatus(
+        allServices,
+        appointment.checkedInAt != null,
+        appointment.status
+      );
+
+      // Update appointment status if changed
+      let updatedAppointment = appointment;
+      if (derivedStatus !== appointment.status) {
+        updatedAppointment = await tx.appointment.update({
+          where: { id: appointmentId },
+          data: {
+            status: derivedStatus,
+          },
+          include: {
+            services: {
+              include: {
+                service: { select: { id: true, name: true, sku: true } },
+                assignedStylist: { select: { id: true, name: true } },
+                actualStylist: { select: { id: true, name: true } },
+                station: {
+                  include: { stationType: { select: { id: true, name: true, color: true } } },
+                },
+              },
+            },
+            customer: { select: { id: true, name: true, phone: true } },
+            branch: { select: { id: true, name: true } },
+          },
+        });
+
+        // Create status history
+        await tx.appointmentStatusHistory.create({
+          data: {
+            tenantId,
+            appointmentId,
+            fromStatus: appointment.status,
+            toStatus: derivedStatus,
+            changedBy: userId,
+            notes: `${waitingServices.length} waiting service(s) skipped for early checkout${reason ? `: ${reason}` : ''}`,
+          },
+        });
+      }
+
+      // Create audit log
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          branchId: appointment.branchId,
+          userId,
+          action: 'SERVICES_SKIPPED_FOR_CHECKOUT',
+          entityType: 'appointment',
+          entityId: appointmentId,
+          newValues: {
+            skippedCount: waitingServices.length,
+            skippedServiceIds: waitingServices.map((s) => s.id),
+            reason,
+          },
+        },
+      });
+
+      return {
+        appointment: updatedAppointment,
+        skippedCount: waitingServices.length,
+        skippedServiceIds: waitingServices.map((s) => s.id),
       };
     });
 

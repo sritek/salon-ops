@@ -501,6 +501,8 @@ export class CalendarService {
 
   /**
    * Move an appointment to a new time/stylist (drag-drop)
+   * For multi-service appointments, this updates all per-service times
+   * while preserving sequence and parallel execution relationships
    */
   async moveAppointment(
     tenantId: string,
@@ -510,7 +512,7 @@ export class CalendarService {
   ) {
     const { newStylistId, newDate, newTime } = input;
 
-    // Get the appointment
+    // Get the appointment with services ordered by sequence
     const appointment = await this.prisma.appointment.findFirst({
       where: {
         id: appointmentId,
@@ -518,7 +520,9 @@ export class CalendarService {
         deletedAt: null,
       },
       include: {
-        services: true,
+        services: {
+          orderBy: { sequence: 'asc' },
+        },
       },
     });
 
@@ -554,33 +558,87 @@ export class CalendarService {
     // Calculate new end time
     const newScheduledEndTime = this.calculateEndTime(newTime, duration);
 
-    // Check for conflicts at new time/stylist
-    const targetStylistId = newStylistId || appointment.stylistId;
+    // For multi-service appointments, we need to check conflicts for ALL stylists involved
+    // Get unique stylist IDs from services
+    const stylistIdsInAppointment = new Set<string>();
+    if (newStylistId) {
+      stylistIdsInAppointment.add(newStylistId);
+    } else if (appointment.stylistId) {
+      stylistIdsInAppointment.add(appointment.stylistId);
+    }
+    for (const service of appointment.services) {
+      if (service.assignedStylistId) {
+        stylistIdsInAppointment.add(service.assignedStylistId);
+      }
+    }
 
-    if (targetStylistId) {
+    // Calculate the time offset (how much we're moving the appointment)
+    const oldStartMins =
+      parseInt(appointment.scheduledTime.split(':')[0]) * 60 +
+      parseInt(appointment.scheduledTime.split(':')[1]);
+    const newStartMins = parseInt(newTime.split(':')[0]) * 60 + parseInt(newTime.split(':')[1]);
+    const timeOffsetMins = newStartMins - oldStartMins;
+
+    // Check for conflicts for each stylist at their new times
+    for (const stylistId of stylistIdsInAppointment) {
+      // Get services for this stylist
+      const stylistServices = appointment.services.filter((s) => s.assignedStylistId === stylistId);
+
+      if (stylistServices.length === 0) continue;
+
+      // Calculate the new time range for this stylist's services
+      let stylistStartTime = newTime;
+      let stylistEndTime = newScheduledEndTime;
+
+      if (stylistServices.length > 0 && stylistServices[0].scheduledStartTime) {
+        // Calculate based on per-service times with offset
+        const firstServiceStart = stylistServices[0].scheduledStartTime;
+        const lastService = stylistServices[stylistServices.length - 1];
+        const lastServiceEnd = lastService.scheduledEndTime;
+
+        if (firstServiceStart && lastServiceEnd) {
+          // Apply time offset to get new times
+          const firstStartMins =
+            firstServiceStart.getHours() * 60 + firstServiceStart.getMinutes() + timeOffsetMins;
+          const lastEndMins =
+            lastServiceEnd.getHours() * 60 + lastServiceEnd.getMinutes() + timeOffsetMins;
+
+          stylistStartTime = `${Math.floor(firstStartMins / 60)
+            .toString()
+            .padStart(2, '0')}:${(firstStartMins % 60).toString().padStart(2, '0')}`;
+          stylistEndTime = `${Math.floor(lastEndMins / 60)
+            .toString()
+            .padStart(2, '0')}:${(lastEndMins % 60).toString().padStart(2, '0')}`;
+        }
+      }
+
+      // Calculate duration for this stylist's services
+      const stylistDuration = stylistServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+
       const conflicts = await this.checkConflicts(
         tenantId,
         appointment.branchId,
         newDate,
-        newTime,
-        duration,
-        targetStylistId,
+        stylistStartTime,
+        stylistDuration,
+        stylistId,
         appointmentId
       );
 
       if (conflicts.length > 0) {
         throw new AppError('CAL_CONFLICT', 'Time slot conflicts with existing appointments', 409, {
           conflicts,
+          stylistId,
         });
       }
 
       // Check if stylist is blocked at this time
       const isBlocked = await this.isStylistBlocked(
         tenantId,
-        targetStylistId,
+        stylistId,
         newDate,
-        newTime,
-        newScheduledEndTime
+        stylistStartTime,
+        stylistEndTime
       );
 
       if (isBlocked) {
@@ -588,25 +646,86 @@ export class CalendarService {
       }
     }
 
-    // Update the appointment
+    // Update the appointment and all service times
     return this.prisma.$transaction(async (tx) => {
       const oldDate = format(appointment.scheduledDate, 'yyyy-MM-dd');
       const oldTime = appointment.scheduledTime;
       const oldStylistId = appointment.stylistId;
 
-      const updated = await tx.appointment.update({
+      // Update main appointment
+      await tx.appointment.update({
         where: { id: appointmentId },
         data: {
           scheduledDate: parseToUTCDate(newDate),
           scheduledTime: newTime,
           scheduledEndTime: newScheduledEndTime,
-          stylistId: targetStylistId,
-          // Also update totalDuration if it was missing/incorrect
+          stylistId: newStylistId || appointment.stylistId,
           totalDuration: duration,
           updatedAt: new Date(),
         },
+      });
+
+      // Update per-service scheduled times
+      // We need to recalculate times based on the new start time while preserving
+      // sequence and parallel execution relationships
+      const baseDate = parseToUTCDate(newDate);
+      const [startHours, startMins] = newTime.split(':').map(Number);
+
+      // Sort services by sequence
+      const sortedServices = [...appointment.services].sort(
+        (a, b) => (a.sequence || 0) - (b.sequence || 0)
+      );
+
+      let currentOffset = 0;
+
+      for (let i = 0; i < sortedServices.length; i++) {
+        const service = sortedServices[i];
+
+        // For parallel services (except first), use the same offset as previous non-parallel service
+        if (service.runParallel && i > 0) {
+          // Find the previous non-parallel service's start offset
+          // Parallel services start at the same time as the previous service started
+          const prevService = sortedServices[i - 1];
+          const prevDuration = prevService.durationMinutes;
+          // Go back by the previous service's duration
+          currentOffset = currentOffset - prevDuration;
+          if (currentOffset < 0) currentOffset = 0;
+        }
+
+        const serviceStartMinutes = startHours * 60 + startMins + currentOffset;
+        const serviceEndMinutes = serviceStartMinutes + service.durationMinutes;
+
+        const scheduledStartTime = new Date(baseDate);
+        scheduledStartTime.setHours(
+          Math.floor(serviceStartMinutes / 60),
+          serviceStartMinutes % 60,
+          0,
+          0
+        );
+
+        const scheduledEndTime = new Date(baseDate);
+        scheduledEndTime.setHours(Math.floor(serviceEndMinutes / 60), serviceEndMinutes % 60, 0, 0);
+
+        // Update the service's scheduled times
+        await tx.appointmentService.update({
+          where: { id: service.id },
+          data: {
+            scheduledStartTime,
+            scheduledEndTime,
+          },
+        });
+
+        // Move offset forward by this service's duration (for next non-parallel service)
+        currentOffset += service.durationMinutes;
+      }
+
+      // Fetch the updated appointment with services
+      const finalAppointment = await tx.appointment.findUnique({
+        where: { id: appointmentId },
         include: {
-          services: true,
+          services: {
+            orderBy: { sequence: 'asc' },
+          },
           customer: {
             select: { id: true, name: true, phone: true },
           },
@@ -630,12 +749,12 @@ export class CalendarService {
           newValues: {
             scheduledDate: newDate,
             scheduledTime: newTime,
-            stylistId: targetStylistId,
+            stylistId: newStylistId || appointment.stylistId,
           },
         },
       });
 
-      return serializeDecimals(updated);
+      return serializeDecimals(finalAppointment);
     });
   }
 

@@ -49,6 +49,11 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; accent: string }
     text: 'text-amber-900 dark:text-amber-100',
     accent: 'bg-amber-500',
   },
+  ready_for_checkout: {
+    bg: 'bg-orange-100 dark:bg-orange-900/60',
+    text: 'text-orange-900 dark:text-orange-100',
+    accent: 'bg-orange-500',
+  },
   completed: {
     bg: 'bg-slate-100 dark:bg-slate-800/60',
     text: 'text-slate-600 dark:text-slate-300',
@@ -92,6 +97,7 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed: 'Confirmed',
   checked_in: 'Checked In',
   in_progress: 'In Progress',
+  ready_for_checkout: 'Ready for Checkout',
   completed: 'Completed',
   cancelled: 'Cancelled',
   no_show: 'No Show',
@@ -388,6 +394,25 @@ export function AppointmentBlock({
       {/* Status indicator dot */}
       <div className={cn('absolute top-1.5 right-1.5 w-2 h-2 rounded-full', statusStyle.accent)} />
 
+      {/* Multi-service link icon indicator - positioned at bottom right, above walk-in badge if present */}
+      {!isOptimistic && appointment.isMultiService && (
+        <div
+          className={cn(
+            'absolute flex items-center gap-0.5',
+            isChip
+              ? 'bottom-0.5 right-0.5'
+              : appointment.bookingType === 'walk_in'
+                ? 'bottom-5 right-1'
+                : 'bottom-1 right-1'
+          )}
+        >
+          <Link2 className={cn('text-white', isChip ? 'h-2.5 w-2.5' : 'h-3 w-3')} />
+          {!isChip && height >= 50 && appointment.serviceCount > 1 && (
+            <span className="text-[9px] font-medium text-white">{appointment.serviceCount}</span>
+          )}
+        </div>
+      )}
+
       {/* Booking type indicator — hide in chip mode */}
       {!isChip && appointment.bookingType === 'walk_in' && (
         <span className="absolute bottom-1 right-1 text-[10px] font-medium bg-amber-500 text-white px-1 rounded">
@@ -417,32 +442,6 @@ export function AppointmentBlock({
         <span className="absolute top-1 right-4 text-[10px] font-medium bg-orange-500 text-white px-1 rounded">
           Unassigned
         </span>
-      )}
-
-      {/* Multi-service link icon indicator */}
-      {!isOptimistic && appointment.isMultiService && (
-        <div
-          className={cn(
-            'absolute flex items-center gap-0.5',
-            isChip ? 'bottom-0.5 right-0.5' : 'bottom-1 left-1.5',
-            canMove && !isChip && 'left-6'
-          )}
-        >
-          <Link2
-            className={cn(
-              'text-indigo-600 dark:text-indigo-400',
-              isChip ? 'h-2.5 w-2.5' : 'h-3 w-3'
-            )}
-          />
-          {!isChip &&
-            height >= 50 &&
-            appointment.currentServiceIndex &&
-            appointment.totalServicesForStylist && (
-              <span className="text-[9px] font-medium text-indigo-600 dark:text-indigo-400">
-                {appointment.currentServiceIndex}/{appointment.totalServicesForStylist}
-              </span>
-            )}
-        </div>
       )}
 
       {/* Optimistic/Creating indicator */}

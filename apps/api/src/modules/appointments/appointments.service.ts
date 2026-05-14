@@ -728,8 +728,14 @@ export class AppointmentsService {
         }
       }
 
-      // Determine initial status - walk-ins start as in_progress since customer is already there
-      const initialStatus = input.bookingType === 'walk_in' ? 'in_progress' : 'booked';
+      // Determine initial status based on booking type and source:
+      // - Walk-ins from queue (with walkInQueueId) → in_progress (customer is being served immediately)
+      // - Walk-ins from New Appointment panel (no walkInQueueId) → checked_in (customer is present but not started)
+      // - Other booking types → booked
+      let initialStatus: AppointmentStatus = 'booked';
+      if (input.bookingType === 'walk_in') {
+        initialStatus = input.walkInQueueId ? 'in_progress' : 'checked_in';
+      }
 
       const apt = await tx.appointment.create({
         data: {
@@ -747,8 +753,10 @@ export class AppointmentsService {
           bookingType: input.bookingType,
           bookingSource: input.bookingSource,
           status: initialStatus,
-          // Set actualStartTime for walk-ins since they start immediately
-          actualStartTime: input.bookingType === 'walk_in' ? new Date() : null,
+          // Set actualStartTime for walk-ins from queue since they start immediately
+          actualStartTime: input.walkInQueueId ? new Date() : null,
+          // Set checkedInAt for walk-ins without queue (they're checked in but not started)
+          checkedInAt: input.bookingType === 'walk_in' && !input.walkInQueueId ? new Date() : null,
           tokenNumber,
           subtotal,
           taxAmount,
@@ -847,6 +855,23 @@ export class AppointmentsService {
           },
         });
 
+        // For walk-in queue appointments, also start the first service automatically
+        // Find the first service by sequence and set it to in_progress
+        const firstService = apt.services.reduce(
+          (min, s) => (s.sequence < min.sequence ? s : min),
+          apt.services[0]
+        );
+
+        if (firstService) {
+          await tx.appointmentService.update({
+            where: { id: firstService.id },
+            data: {
+              status: 'in_progress',
+              actualStartTime: new Date(),
+            },
+          });
+        }
+
         await tx.auditLog.create({
           data: {
             tenantId,
@@ -858,6 +883,7 @@ export class AppointmentsService {
             newValues: {
               appointmentId: apt.id,
               status: 'serving',
+              firstServiceStarted: firstService?.id,
             },
           },
         });
@@ -939,7 +965,9 @@ export class AppointmentsService {
           actualStartTime: new Date(),
         },
         include: {
-          services: true,
+          services: {
+            orderBy: { sequence: 'asc' },
+          },
           customer: {
             select: { id: true, name: true, phone: true },
           },
@@ -949,6 +977,26 @@ export class AppointmentsService {
         },
       });
 
+      // Also start the first service automatically when the appointment starts
+      // Find the first service by sequence that is still waiting
+      const firstWaitingService = updated.services.find((s) => s.status === 'waiting');
+      if (firstWaitingService) {
+        await tx.appointmentService.update({
+          where: { id: firstWaitingService.id },
+          data: {
+            status: 'in_progress',
+            actualStartTime: new Date(),
+          },
+        });
+
+        // Update the service in the returned object
+        const serviceIndex = updated.services.findIndex((s) => s.id === firstWaitingService.id);
+        if (serviceIndex !== -1) {
+          updated.services[serviceIndex].status = 'in_progress';
+          updated.services[serviceIndex].actualStartTime = new Date();
+        }
+      }
+
       await tx.appointmentStatusHistory.create({
         data: {
           tenantId,
@@ -956,6 +1004,9 @@ export class AppointmentsService {
           fromStatus: appointment.status,
           toStatus: 'in_progress',
           changedBy: userId,
+          notes: firstWaitingService
+            ? `Appointment started, first service "${firstWaitingService.serviceName}" also started`
+            : undefined,
         },
       });
 
@@ -1311,13 +1362,53 @@ export class AppointmentsService {
         },
       });
 
-      // Copy services to new appointment
+      // Copy services to new appointment with proper sequence and timing
       const originalServices = await tx.appointmentService.findMany({
         where: { appointmentId },
+        orderBy: { sequence: 'asc' },
       });
 
-      await tx.appointmentService.createMany({
-        data: originalServices.map((s) => ({
+      // Calculate per-service times based on new start time
+      const [startHours, startMins] = input.newTime.split(':').map(Number);
+      const baseDate = parseToUTCDate(input.newDate);
+      let currentOffset = 0;
+
+      const servicesWithTimes = originalServices.map((s, index) => {
+        // For parallel services (except first), use the same offset as previous
+        if (s.runParallel && index > 0) {
+          // Find the previous service's offset
+          const prevService = originalServices[index - 1];
+          const prevDuration = prevService.durationMinutes;
+          // Parallel service starts at the same time as the previous one started
+          // So we need to go back by the previous service's duration
+          currentOffset = currentOffset - prevDuration;
+          if (currentOffset < 0) currentOffset = 0;
+        }
+
+        const serviceStartMinutes = startHours * 60 + startMins + currentOffset;
+        const serviceEndMinutes = serviceStartMinutes + s.durationMinutes;
+
+        const scheduledStartTime = new Date(baseDate);
+        scheduledStartTime.setHours(
+          Math.floor(serviceStartMinutes / 60),
+          serviceStartMinutes % 60,
+          0,
+          0
+        );
+
+        const scheduledEndTime = new Date(baseDate);
+        scheduledEndTime.setHours(Math.floor(serviceEndMinutes / 60), serviceEndMinutes % 60, 0, 0);
+
+        // Move offset forward by this service's duration (for next non-parallel service)
+        currentOffset += s.durationMinutes;
+
+        // Preserve per-service stylist assignments - only use new stylist if service had no assignment
+        // or if it was assigned to the original primary stylist
+        const shouldUpdateStylist =
+          input.stylistId &&
+          (!s.assignedStylistId || s.assignedStylistId === appointment.stylistId);
+
+        return {
           tenantId: s.tenantId,
           appointmentId: newAppointment.id,
           serviceId: s.serviceId,
@@ -1332,11 +1423,19 @@ export class AppointmentsService {
           durationMinutes: s.durationMinutes,
           activeTimeMinutes: s.activeTimeMinutes,
           processingTimeMinutes: s.processingTimeMinutes,
-          assignedStylistId: input.stylistId ?? s.assignedStylistId,
-          status: 'waiting',
+          assignedStylistId: shouldUpdateStylist ? input.stylistId : s.assignedStylistId,
+          status: 'waiting' as const,
           commissionRate: s.commissionRate,
           commissionAmount: s.commissionAmount,
-        })),
+          sequence: s.sequence,
+          runParallel: s.runParallel,
+          scheduledStartTime,
+          scheduledEndTime,
+        };
+      });
+
+      await tx.appointmentService.createMany({
+        data: servicesWithTimes,
       });
 
       // Link original to new
@@ -1702,8 +1801,32 @@ export class AppointmentsService {
       });
     }
 
+    // Get the first service in sequence order to start it
+    const services = await this.prisma.appointmentService.findMany({
+      where: {
+        appointmentId,
+        tenantId,
+      },
+      orderBy: { sequence: 'asc' },
+    });
+
+    // Find the first service that is still waiting
+    const firstWaitingService = services.find((s) => s.status === 'waiting');
+
     // Update appointment with station and change status to in_progress
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Update the first waiting service to in_progress with station assignment
+      if (firstWaitingService) {
+        await tx.appointmentService.update({
+          where: { id: firstWaitingService.id },
+          data: {
+            status: 'in_progress',
+            stationId,
+            actualStartTime: new Date(),
+          },
+        });
+      }
+
       const apt = await tx.appointment.update({
         where: { id: appointmentId },
         data: {
@@ -1713,7 +1836,9 @@ export class AppointmentsService {
           updatedAt: new Date(),
         },
         include: {
-          services: true,
+          services: {
+            orderBy: { sequence: 'asc' },
+          },
           customer: {
             select: { id: true, name: true, phone: true },
           },
@@ -1734,7 +1859,7 @@ export class AppointmentsService {
           fromStatus: appointment.status,
           toStatus: 'in_progress',
           changedBy: userId,
-          notes: `Station assigned: ${station.name}`,
+          notes: `Station assigned: ${station.name}${firstWaitingService ? `, started service: ${firstWaitingService.serviceName}` : ''}`,
         },
       });
 
@@ -1942,6 +2067,30 @@ export class AppointmentsService {
     const totalDuration = currentOffsetMinutes;
     const endTime = this.calculateEndTime(appointment.scheduledTime, totalDuration);
 
+    // Build a map of existing services by serviceId to preserve their status
+    // This allows us to keep the status of services that are being retained
+    const existingServiceMap = new Map<
+      string,
+      {
+        status: string;
+        stationId: string | null;
+        actualStartTime: Date | null;
+        actualEndTime: Date | null;
+        actualStylistId: string | null;
+      }
+    >();
+    if (appointment.services) {
+      for (const existingService of appointment.services) {
+        existingServiceMap.set(existingService.serviceId, {
+          status: existingService.status,
+          stationId: existingService.stationId,
+          actualStartTime: existingService.actualStartTime,
+          actualEndTime: existingService.actualEndTime,
+          actualStylistId: existingService.actualStylistId,
+        });
+      }
+    }
+
     // Update in transaction
     const updated = await this.prisma.$transaction(async (tx) => {
       // Delete existing services
@@ -1949,12 +2098,28 @@ export class AppointmentsService {
         where: { appointmentId },
       });
 
-      // Create new services
+      // Create new services, preserving status for services that existed before
       await tx.appointmentService.createMany({
-        data: appointmentServices.map((s) => ({
-          ...s,
-          appointmentId,
-        })),
+        data: appointmentServices.map((s) => {
+          const existingData = existingServiceMap.get(s.serviceId);
+          // If this service existed before, preserve its status and actual times
+          // Otherwise, set status to 'waiting' for new services
+          if (existingData) {
+            return {
+              ...s,
+              appointmentId,
+              status: existingData.status as 'waiting' | 'in_progress' | 'completed' | 'skipped',
+              stationId: existingData.stationId,
+              actualStartTime: existingData.actualStartTime,
+              actualEndTime: existingData.actualEndTime,
+              actualStylistId: existingData.actualStylistId,
+            };
+          }
+          return {
+            ...s,
+            appointmentId,
+          };
+        }),
       });
 
       // Update appointment totals

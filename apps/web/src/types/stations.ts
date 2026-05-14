@@ -78,7 +78,7 @@ export interface StationFilters {
 // Floor View Types
 // ============================================
 
-export type FloorViewStatus = 'available' | 'occupied' | 'out_of_service';
+export type FloorViewStatus = 'available' | 'occupied' | 'reserved' | 'out_of_service';
 
 // Current service info for multi-service appointments
 export interface CurrentServiceInfo {
@@ -90,6 +90,27 @@ export interface CurrentServiceInfo {
   assignedStylistName: string | null;
   actualStylistId: string | null;
   actualStylistName: string | null;
+  // Timing fields for progress tracking
+  durationMinutes: number;
+  actualStartTime: string | null;
+  actualEndTime: string | null;
+}
+
+// Service progress info for multi-service progress bar
+export interface ServiceProgressInfo {
+  id: string;
+  serviceName: string;
+  sequence: number;
+  status: 'waiting' | 'in_progress' | 'completed' | 'skipped';
+  durationMinutes: number;
+  actualStartTime: string | null;
+  actualEndTime: string | null;
+  /** Progress percentage for this service (0-100) */
+  progressPercent: number;
+  /** Elapsed time in minutes for this service */
+  elapsedMinutes: number;
+  /** Whether this service is overtime */
+  isOvertime: boolean;
 }
 
 // "Up Next" service for multi-service appointments
@@ -115,8 +136,10 @@ export interface StationCard {
   displayOrder: number;
   status: FloorViewStatus;
   appointment: StationAppointment | null;
-  /** Next service in sequence for multi-service appointments */
+  /** Next service in sequence for multi-service appointments (backward compat) */
   upNext: UpNextService | null;
+  /** All "Up Next" services (supports parallel services with same sequence) */
+  upNextServices: UpNextService[];
 }
 
 export interface StationAppointment {
@@ -141,14 +164,21 @@ export interface StationAppointment {
   serviceCount: number;
   /** Current service index (1-based) */
   currentServiceIndex: number | null;
-  /** Details of the current in-progress service */
+  /** Details of the current in-progress service (for backward compat) */
   currentService: CurrentServiceInfo | null;
+  /** All in-progress services on this station (for parallel services) */
+  currentServices: CurrentServiceInfo[];
+  /** Whether the timer is paused (between services - completed service with waiting services) */
+  isPaused: boolean;
+  /** Progress info for each service (for multi-service progress bar) */
+  serviceProgress: ServiceProgressInfo[];
 }
 
 export interface FloorViewSummary {
   total: number;
   available: number;
   occupied: number;
+  reserved: number;
   outOfService: number;
 }
 

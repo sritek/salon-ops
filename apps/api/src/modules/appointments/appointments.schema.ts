@@ -434,6 +434,18 @@ export const getStylistBusySlotsSchema = z.object({
 
 export type GetStylistBusySlotsInput = z.infer<typeof getStylistBusySlotsSchema>;
 
+// =====================================================
+// STYLIST AVAILABILITY CHECK
+// =====================================================
+
+export const checkStylistAvailabilitySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+  time: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:mm'),
+  duration: z.coerce.number().int().positive(),
+});
+
+export type CheckStylistAvailabilityInput = z.infer<typeof checkStylistAvailabilitySchema>;
+
 export const serveQueueBodySchema = z.object({
   stylistId: z.string().uuid(),
 });
@@ -625,6 +637,15 @@ export const skipServiceSchema = z.object({
 });
 
 export type SkipServiceInput = z.infer<typeof skipServiceSchema>;
+
+/**
+ * Schema for skipping all waiting services within an appointment (early checkout)
+ */
+export const skipAllWaitingServicesSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+export type SkipAllWaitingServicesInput = z.infer<typeof skipAllWaitingServicesSchema>;
 
 /**
  * Schema for updating a service within an appointment

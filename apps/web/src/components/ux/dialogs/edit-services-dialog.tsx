@@ -244,9 +244,34 @@ export function EditServicesDialog({
     }
   }, [appointment.id, serviceItems, updateServicesMutation, onOpenChange, onSuccess]);
 
+  // Prevent closing dialog while mutation is pending
+  const handleOpenChange = useCallback(
+    (newOpen: boolean) => {
+      if (!newOpen && updateServicesMutation.isPending) {
+        return;
+      }
+      onOpenChange(newOpen);
+    },
+    [onOpenChange, updateServicesMutation.isPending]
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="sm:max-w-lg max-h-[90vh] flex flex-col"
+        onPointerDownOutside={(e) => {
+          // Prevent closing by clicking outside while pending
+          if (updateServicesMutation.isPending) {
+            e.preventDefault();
+          }
+        }}
+        onEscapeKeyDown={(e) => {
+          // Prevent closing by escape key while pending
+          if (updateServicesMutation.isPending) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Scissors className="h-5 w-5" />

@@ -51,8 +51,10 @@ import {
   PlayCircle,
   GripVertical,
   ArrowRightLeft,
+  Star,
 } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -77,7 +79,11 @@ import type { CustomerOption } from '@/components/common';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useClosePanel, useSlideOverUnsavedChanges } from '@/components/ux/slide-over';
-import { useCreateAppointment, useStylistBusySlots } from '@/hooks/queries/use-appointments';
+import {
+  useCreateAppointment,
+  useStylistBusySlots,
+  useStylistAvailability,
+} from '@/hooks/queries/use-appointments';
 import {
   useCustomerSearch,
   useCustomerPhoneLookup,
@@ -355,6 +361,72 @@ export function NewAppointmentPanel({
     branchId || undefined,
     watchedDate || undefined
   );
+
+  // Build multi-service availability input when customizing stylists per service
+  // Calculate scheduled times for each service based on sequence and parallel flags
+  const serviceSchedules = useMemo(() => {
+    if (!customizeStylistsPerService || !watchedTime || selectedServices.length === 0) {
+      return new Map<string, { startTime: string; endTime: string }>();
+    }
+
+    const serviceOrder = orderedServiceIds.length > 0 ? orderedServiceIds : selectedServices;
+    const servicesArr = servicesData?.data || [];
+    const schedules = new Map<string, { startTime: string; endTime: string }>();
+
+    // Helper to add minutes to time string
+    const addMinutes = (time: string, minutes: number): string => {
+      const [hours, mins] = time.split(':').map(Number);
+      const totalMinutes = hours * 60 + mins + minutes;
+      const newHours = Math.floor(totalMinutes / 60) % 24;
+      const newMins = totalMinutes % 60;
+      return `${newHours.toString().padStart(2, '0')}:${newMins.toString().padStart(2, '0')}`;
+    };
+
+    let currentTime = watchedTime;
+
+    for (let i = 0; i < serviceOrder.length; i++) {
+      const serviceId = serviceOrder[i];
+      const service = servicesArr.find((s) => s.id === serviceId);
+      const duration = service?.durationMinutes || 30;
+      const isParallel = perServiceParallel.get(serviceId) || false;
+
+      let serviceStartTime: string;
+
+      if (i === 0) {
+        // First service always starts at appointment start time
+        serviceStartTime = watchedTime;
+      } else if (isParallel) {
+        // Parallel service starts at the same time as the previous service
+        const prevServiceId = serviceOrder[i - 1];
+        const prevSchedule = schedules.get(prevServiceId);
+        serviceStartTime = prevSchedule?.startTime || currentTime;
+      } else {
+        // Sequential service starts after the previous service ends
+        serviceStartTime = currentTime;
+      }
+
+      const serviceEndTime = addMinutes(serviceStartTime, duration);
+
+      schedules.set(serviceId, {
+        startTime: serviceStartTime,
+        endTime: serviceEndTime,
+      });
+
+      // Update current time to the latest end time
+      if (serviceEndTime > currentTime) {
+        currentTime = serviceEndTime;
+      }
+    }
+
+    return schedules;
+  }, [
+    customizeStylistsPerService,
+    watchedTime,
+    selectedServices,
+    orderedServiceIds,
+    perServiceParallel,
+    servicesData?.data,
+  ]);
 
   // Calculate total duration from selected services
   const totalDuration = useMemo(() => {
@@ -647,17 +719,46 @@ export function NewAppointmentPanel({
 
                 {/* Show existing customer card if found */}
                 {phoneLookupData ? (
-                  <div className="flex items-center gap-3 p-3 rounded-lg border-2 border-primary bg-primary/5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-medium">
-                      {phoneLookupData.name.charAt(0).toUpperCase()}
+                  <div className="p-3 rounded-lg border-2 border-primary bg-primary/5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-medium">
+                        {phoneLookupData.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate">
+                          {phoneLookupData.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          +91 {phoneLookupData.phone.slice(0, 5)} {phoneLookupData.phone.slice(5)}
+                        </p>
+                      </div>
+                      <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{phoneLookupData.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        +91 {phoneLookupData.phone.slice(0, 5)} {phoneLookupData.phone.slice(5)}
-                      </p>
-                    </div>
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                    {/* Loyalty points and tags */}
+                    {(phoneLookupData.loyaltyPoints !== undefined &&
+                      phoneLookupData.loyaltyPoints > 0) ||
+                    (phoneLookupData.tags && phoneLookupData.tags.length > 0) ? (
+                      <div className="mt-2 pt-2 border-t border-primary/20">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {phoneLookupData.loyaltyPoints !== undefined &&
+                            phoneLookupData.loyaltyPoints > 0 && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Star className="h-3 w-3 text-amber-500" />
+                                {phoneLookupData.loyaltyPoints} pts
+                              </span>
+                            )}
+                          {phoneLookupData.tags && phoneLookupData.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {phoneLookupData.tags.slice(0, 3).map((tag) => (
+                                <Badge key={tag} variant="secondary" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <>
@@ -918,6 +1019,7 @@ export function NewAppointmentPanel({
                             const service = services.find((s) => s.id === serviceId);
                             const selectedStylistId = perServiceStylists.get(serviceId) || '';
                             const isParallel = perServiceParallel.get(serviceId) || false;
+                            const schedule = serviceSchedules.get(serviceId);
                             return (
                               <SortableServiceItem
                                 key={serviceId}
@@ -946,6 +1048,9 @@ export function NewAppointmentPanel({
                                     return newMap;
                                   });
                                 }}
+                                date={watchedDate}
+                                scheduledStartTime={schedule?.startTime}
+                                scheduledEndTime={schedule?.endTime}
                               />
                             );
                           })}
@@ -1116,6 +1221,10 @@ interface SortableServiceItemProps {
   stylists: Array<{ userId: string; user?: { name?: string } | null }>;
   onStylistChange: (value: string) => void;
   onParallelChange: (value: boolean) => void;
+  // Availability check params
+  date?: string;
+  scheduledStartTime?: string;
+  scheduledEndTime?: string;
 }
 
 function SortableServiceItem({
@@ -1128,6 +1237,9 @@ function SortableServiceItem({
   stylists,
   onStylistChange,
   onParallelChange,
+  date,
+  scheduledStartTime,
+  scheduledEndTime,
 }: SortableServiceItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
@@ -1138,13 +1250,32 @@ function SortableServiceItem({
     transition,
   };
 
+  // Check if we have all required params for availability check
+  const canCheckAvailability =
+    !!selectedStylistId && !!date && !!scheduledStartTime && !!duration && duration > 0;
+
+  // Check stylist availability for this specific service
+  // Use props directly - React Query handles caching based on query key
+  const { data: availability, isLoading: isCheckingAvailability } = useStylistAvailability(
+    selectedStylistId || '',
+    date || '',
+    scheduledStartTime || '',
+    duration || 30,
+    { enabled: canCheckAvailability }
+  );
+
+  // Determine availability status
+  const hasConflict = availability && !availability.available;
+  const isAvailable = selectedStylistId && availability?.available && !isCheckingAvailability;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
         'flex flex-col gap-2 p-3 rounded-lg border bg-background',
-        isDragging && 'opacity-50 shadow-lg'
+        isDragging && 'opacity-50 shadow-lg',
+        hasConflict && 'border-red-300 bg-red-50/50'
       )}
     >
       <div className="flex items-center gap-2">
@@ -1166,12 +1297,24 @@ function SortableServiceItem({
         {/* Service info */}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{serviceName}</p>
-          {duration && <p className="text-xs text-muted-foreground">{duration} min</p>}
+          <div className="flex items-center gap-2">
+            {duration && <span className="text-xs text-muted-foreground">{duration} min</span>}
+            {scheduledStartTime && scheduledEndTime && (
+              <span className="text-xs text-muted-foreground">
+                • {scheduledStartTime} - {scheduledEndTime}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Stylist select */}
         <Select value={selectedStylistId} onValueChange={onStylistChange}>
-          <SelectTrigger className="w-[140px] h-8 text-xs">
+          <SelectTrigger
+            className={cn(
+              'w-[140px] h-8 text-xs',
+              hasConflict && 'border-red-400 focus:ring-red-400'
+            )}
+          >
             <SelectValue placeholder="Stylist..." />
           </SelectTrigger>
           <SelectContent>
@@ -1190,6 +1333,28 @@ function SortableServiceItem({
           </SelectContent>
         </Select>
       </div>
+
+      {/* Availability feedback */}
+      {selectedStylistId && (
+        <div className="ml-7">
+          {isCheckingAvailability ? (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <span>Checking availability...</span>
+            </div>
+          ) : hasConflict ? (
+            <div className="flex items-center gap-1.5 text-xs text-red-600">
+              <X className="h-3 w-3" />
+              <span>{availability?.conflictReason || 'Stylist is busy'}</span>
+            </div>
+          ) : isAvailable ? (
+            <div className="flex items-center gap-1.5 text-xs text-green-600">
+              <CheckCircle2 className="h-3 w-3" />
+              <span>Available</span>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* Parallel execution toggle - only show for services after the first */}
       {index > 0 && (

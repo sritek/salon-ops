@@ -11,6 +11,7 @@ export type AppointmentStatus =
   | 'confirmed'
   | 'checked_in'
   | 'in_progress'
+  | 'ready_for_checkout'
   | 'completed'
   | 'cancelled'
   | 'no_show'

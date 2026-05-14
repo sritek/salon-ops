@@ -707,7 +707,9 @@ export function ResourceCalendar({
                             parseInt(appointment.endTime.split(':')[0]) * 60 +
                             parseInt(appointment.endTime.split(':')[1]);
                           const duration = endMins - startMins;
-                          const height = (duration / timeSlotInterval) * slotHeight;
+                          const calculatedHeight = (duration / timeSlotInterval) * slotHeight;
+                          // Minimum height of 32px for very short appointments to ensure readability
+                          const height = Math.max(calculatedHeight, 32);
                           const offsetMins = startMins - slotMins;
                           const topOffset = (offsetMins / timeSlotInterval) * slotHeight;
 

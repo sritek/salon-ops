@@ -11,8 +11,9 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Scissors, X, UserPlus, CheckCircle2, Loader2, Users } from 'lucide-react';
+import { User, Scissors, X, UserPlus, CheckCircle2, Loader2, Users, Star } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -261,17 +262,46 @@ export function AddWalkInDialog({ open, onOpenChange, onSuccess }: AddWalkInDial
 
                 {/* Show existing customer card if found */}
                 {phoneLookupData ? (
-                  <div className="flex items-center gap-3 p-3 rounded-lg border-2 border-primary bg-primary/5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-medium">
-                      {phoneLookupData.name.charAt(0).toUpperCase()}
+                  <div className="p-3 rounded-lg border-2 border-primary bg-primary/5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-medium">
+                        {phoneLookupData.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate">
+                          {phoneLookupData.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          +91 {phoneLookupData.phone.slice(0, 5)} {phoneLookupData.phone.slice(5)}
+                        </p>
+                      </div>
+                      <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">{phoneLookupData.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        +91 {phoneLookupData.phone.slice(0, 5)} {phoneLookupData.phone.slice(5)}
-                      </p>
-                    </div>
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                    {/* Loyalty points and tags */}
+                    {(phoneLookupData.loyaltyPoints !== undefined &&
+                      phoneLookupData.loyaltyPoints > 0) ||
+                    (phoneLookupData.tags && phoneLookupData.tags.length > 0) ? (
+                      <div className="mt-2 pt-2 border-t border-primary/20">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {phoneLookupData.loyaltyPoints !== undefined &&
+                            phoneLookupData.loyaltyPoints > 0 && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Star className="h-3 w-3 text-amber-500" />
+                                {phoneLookupData.loyaltyPoints} pts
+                              </span>
+                            )}
+                          {phoneLookupData.tags && phoneLookupData.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {phoneLookupData.tags.slice(0, 3).map((tag) => (
+                                <Badge key={tag} variant="secondary" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <>

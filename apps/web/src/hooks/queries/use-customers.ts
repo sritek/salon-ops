@@ -132,7 +132,13 @@ export function useCustomerPhoneLookup(phone: string) {
   return useQuery({
     queryKey: [...customerKeys.all, 'phone-lookup', phone],
     queryFn: () =>
-      api.get<{ id: string; name: string; phone: string } | null>('/customers/phone-lookup', {
+      api.get<{
+        id: string;
+        name: string;
+        phone: string;
+        loyaltyPoints: number;
+        tags: string[];
+      } | null>('/customers/phone-lookup', {
         phone,
       }),
     enabled: isValidPhone,

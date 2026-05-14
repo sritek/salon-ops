@@ -23,6 +23,7 @@ import {
   getAvailableSlotsSchema,
   getAvailableStylistsSchema,
   getStylistBusySlotsSchema,
+  checkStylistAvailabilitySchema,
   createWithConflictsSchema,
   updateAppointmentSchema,
   updateStatusSchema,
@@ -60,10 +61,12 @@ import {
   startServiceSchema,
   completeServiceSchema,
   skipServiceSchema,
+  skipAllWaitingServicesSchema,
   updateServiceSchema,
   type StartServiceInput,
   type CompleteServiceInput,
   type SkipServiceInput,
+  type SkipAllWaitingServicesInput,
   type UpdateServiceInput,
 } from './appointments.schema';
 import { MultiServiceAppointmentService } from './multi-service.service';
@@ -220,6 +223,92 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         stylistId,
         branchId,
         date
+      );
+      return reply.send({ success: true, data: result });
+    }
+  );
+
+  app.get(
+    '/stylists/:stylistId/availability',
+    {
+      preHandler: [requirePermission('appointments:read')],
+      schema: {
+        tags: ['Availability'],
+        summary: 'Check stylist availability for a time slot',
+        description:
+          'Check if a stylist is available for a specific time slot. Returns availability status and conflict details if busy.',
+        params: stylistIdParamSchema,
+        querystring: checkStylistAvailabilitySchema,
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (
+      request: FastifyRequest<{
+        Params: { stylistId: string };
+        Querystring: { date: string; time: string; duration: number };
+      }>,
+      reply
+    ) => {
+      const { tenantId } = request.user!;
+      const { stylistId } = request.params;
+      const { date, time, duration } = request.query;
+
+      const result = await availabilityService.checkStylistAvailability(
+        tenantId,
+        stylistId,
+        date,
+        time,
+        duration
+      );
+      return reply.send({ success: true, data: result });
+    }
+  );
+
+  app.post(
+    '/availability/multi-service-stylists',
+    {
+      preHandler: [requirePermission('appointments:read')],
+      schema: {
+        tags: ['Availability'],
+        summary: 'Check stylist availability for multi-service appointments',
+        description:
+          'Check if stylists are available for each service in a multi-service appointment. Calculates correct time slots based on sequence and parallel flags.',
+        response: {
+          200: successResponseSchema,
+          401: errorResponseSchema,
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (
+      request: FastifyRequest<{
+        Body: {
+          date: string;
+          startTime: string;
+          services: Array<{
+            serviceId: string;
+            stylistId?: string;
+            sequence: number;
+            runParallel?: boolean;
+            durationMinutes: number;
+          }>;
+        };
+      }>,
+      reply
+    ) => {
+      const { tenantId } = request.user!;
+      const { date, startTime, services } = request.body;
+
+      const result = await availabilityService.checkMultiServiceStylistAvailability(
+        tenantId,
+        date,
+        startTime,
+        services
       );
       return reply.send({ success: true, data: result });
     }
@@ -873,6 +962,47 @@ export async function appointmentsRoutes(fastify: FastifyInstance) {
         tenantId,
         appointmentId,
         serviceId,
+        reason,
+        userId
+      );
+
+      return reply.send(successResponse(result));
+    }
+  );
+
+  app.post(
+    '/:id/services/skip-waiting',
+    {
+      preHandler: [requirePermission('appointments:write')],
+      schema: {
+        tags: ['Multi-Service'],
+        summary: 'Skip all waiting services for early checkout',
+        description:
+          'Skip all waiting services within an appointment. Used when checking out early. Will fail if any service is in_progress.',
+        params: idParamSchema,
+        body: skipAllWaitingServicesSchema,
+        response: {
+          200: successResponseSchema,
+          400: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (
+      request: FastifyRequest<{
+        Params: { id: string };
+        Body: SkipAllWaitingServicesInput;
+      }>,
+      reply
+    ) => {
+      const { tenantId, sub: userId } = request.user!;
+      const { id: appointmentId } = request.params;
+      const { reason } = request.body;
+
+      const result = await multiServiceService.skipAllWaitingServices(
+        tenantId,
+        appointmentId,
         reason,
         userId
       );

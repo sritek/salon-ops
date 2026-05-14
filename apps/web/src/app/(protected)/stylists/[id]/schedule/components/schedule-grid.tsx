@@ -183,6 +183,7 @@ export function ScheduleGrid({
                         apt.status === 'confirmed' && 'bg-emerald-100 text-emerald-700',
                         apt.status === 'checked_in' && 'bg-violet-100 text-violet-700',
                         apt.status === 'in_progress' && 'bg-amber-100 text-amber-700',
+                        apt.status === 'ready_for_checkout' && 'bg-orange-100 text-orange-700',
                         apt.status === 'completed' && 'bg-slate-100 text-slate-600',
                         apt.status === 'cancelled' && 'bg-red-100 text-red-600',
                         apt.status === 'no_show' && 'bg-rose-100 text-rose-600'

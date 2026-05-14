@@ -1073,3 +1073,175 @@ export function useSkipService() {
     },
   });
 }
+
+// ============================================
+// Skip All Waiting Services (Early Checkout)
+// ============================================
+
+export interface SkipAllWaitingServicesInput {
+  appointmentId: string;
+  reason?: string;
+}
+
+export interface SkipAllWaitingServicesResponse {
+  appointment: Appointment;
+  skippedCount: number;
+  skippedServiceIds: string[];
+}
+
+/**
+ * Skip all waiting services within a multi-service appointment
+ * Used when checking out early - marks all waiting services as skipped
+ */
+export function useSkipAllWaitingServices() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ appointmentId, reason }: SkipAllWaitingServicesInput) =>
+      api.post<SkipAllWaitingServicesResponse>(
+        `/appointments/${appointmentId}/services/skip-waiting`,
+        { reason }
+      ),
+
+    onSuccess: (response, { appointmentId }) => {
+      if (response.skippedCount > 0) {
+        toast.success(`${response.skippedCount} service(s) marked as skipped`);
+      }
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(appointmentId) });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: resourceCalendarKeys.all });
+      queryClient.invalidateQueries({ queryKey: floorViewKeys.all });
+    },
+
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to skip waiting services');
+    },
+  });
+}
+
+// ============================================
+// Stylist Availability Check Hook
+// ============================================
+
+export interface StylistAvailabilityResponse {
+  available: boolean;
+  conflictReason?: string;
+  conflictingAppointment?: {
+    id: string;
+    customerName: string;
+    scheduledTime: string;
+    scheduledDate: string;
+  };
+}
+
+export const stylistAvailabilityKeys = {
+  all: ['stylistAvailability'] as const,
+  check: (stylistId: string, date: string, time: string, duration: number) =>
+    [...stylistAvailabilityKeys.all, stylistId, date, time, duration] as const,
+};
+
+/**
+ * Check if a stylist is available for a specific time slot
+ * Used when overriding stylist assignment to show availability feedback
+ */
+export function useStylistAvailability(
+  stylistId: string,
+  date: string,
+  time: string,
+  duration: number,
+  options?: { enabled?: boolean }
+) {
+  return useQuery({
+    queryKey: stylistAvailabilityKeys.check(stylistId, date, time, duration),
+    queryFn: () =>
+      api.get<StylistAvailabilityResponse>(`/appointments/stylists/${stylistId}/availability`, {
+        date,
+        time,
+        duration,
+      }),
+    enabled: (options?.enabled ?? true) && !!stylistId && !!date && !!time && duration > 0,
+    staleTime: 30000, // Cache for 30 seconds
+  });
+}
+
+// ============================================
+// Multi-Service Stylist Availability Check
+// ============================================
+
+export interface MultiServiceStylistAvailabilityInput {
+  date: string;
+  startTime: string;
+  services: Array<{
+    serviceId: string;
+    stylistId?: string;
+    sequence: number;
+    runParallel?: boolean;
+    durationMinutes: number;
+  }>;
+}
+
+export interface MultiServiceStylistAvailabilityResponse {
+  valid: boolean;
+  conflicts: Array<{
+    serviceId: string;
+    stylistId: string;
+    stylistName?: string;
+    serviceName?: string;
+    conflictReason: string;
+    scheduledStartTime: string;
+    scheduledEndTime: string;
+  }>;
+  serviceSchedule: Array<{
+    serviceId: string;
+    scheduledStartTime: string;
+    scheduledEndTime: string;
+  }>;
+}
+
+export const multiServiceAvailabilityKeys = {
+  all: ['multiServiceAvailability'] as const,
+  check: (date: string, startTime: string, servicesHash: string) =>
+    [...multiServiceAvailabilityKeys.all, date, startTime, servicesHash] as const,
+};
+
+/**
+ * Check stylist availability for multi-service appointments
+ * Calculates correct time slots based on sequence and parallel flags
+ */
+export function useMultiServiceStylistAvailability(
+  input: MultiServiceStylistAvailabilityInput | null,
+  options?: { enabled?: boolean }
+) {
+  // Create a hash of services for cache key
+  const servicesHash = input
+    ? JSON.stringify(
+        input.services.map((s) => ({
+          id: s.serviceId,
+          stylist: s.stylistId,
+          seq: s.sequence,
+          par: s.runParallel,
+          dur: s.durationMinutes,
+        }))
+      )
+    : '';
+
+  return useQuery({
+    queryKey: multiServiceAvailabilityKeys.check(
+      input?.date || '',
+      input?.startTime || '',
+      servicesHash
+    ),
+    queryFn: () =>
+      api.post<MultiServiceStylistAvailabilityResponse>(
+        '/appointments/availability/multi-service-stylists',
+        input
+      ),
+    enabled:
+      (options?.enabled ?? true) &&
+      !!input?.date &&
+      !!input?.startTime &&
+      input.services.length > 0 &&
+      input.services.some((s) => s.stylistId), // Only check if at least one stylist is assigned
+    staleTime: 30000, // Cache for 30 seconds
+  });
+}

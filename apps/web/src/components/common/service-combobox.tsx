@@ -101,14 +101,13 @@ export function ServiceCombobox({
   // Fetch services only in self-contained mode
   // Use limit: -1 to fetch all services
   const { data: servicesData, isLoading } = useServices(
-    isSelfContained
-      ? {
-          isActive: true,
-          limit: -1,
-          categoryId,
-          genderApplicable,
-        }
-      : { limit: 0 } // Don't fetch if services are provided externally
+    {
+      isActive: true,
+      limit: -1,
+      categoryId,
+      genderApplicable,
+    },
+    { enabled: isSelfContained }
   );
 
   // Map API response to internal format (only in self-contained mode)

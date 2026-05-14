@@ -83,11 +83,12 @@ export function deriveAppointmentStatus(
     return 'in_progress';
   }
 
-  // Property 16: All completed (or completed + skipped with at least one completed) → completed
+  // Property 16: All completed (or completed + skipped with at least one completed) → ready_for_checkout
+  // Note: 'completed' status is only set after payment/invoice finalization
   const hasCompleted = statuses.some((s) => s === 'completed');
   const allCompletedOrSkipped = statuses.every((s) => s === 'completed' || s === 'skipped');
   if (hasCompleted && allCompletedOrSkipped) {
-    return 'completed';
+    return 'ready_for_checkout';
   }
 
   // All waiting and customer checked in → checked_in

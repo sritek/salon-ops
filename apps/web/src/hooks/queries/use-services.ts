@@ -27,7 +27,7 @@ export const serviceKeys = {
 /**
  * Get services with pagination
  */
-export function useServices(filters: ServiceFilters = {}) {
+export function useServices(filters: ServiceFilters = {}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: serviceKeys.list(filters),
     queryFn: () =>
@@ -41,6 +41,7 @@ export function useServices(filters: ServiceFilters = {}) {
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
       }),
+    enabled: options?.enabled ?? true,
   });
 }
 

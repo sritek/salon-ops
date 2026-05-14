@@ -11,6 +11,7 @@ export type StatusType =
   | 'confirmed'
   | 'checked_in'
   | 'in_progress'
+  | 'ready_for_checkout'
   | 'completed'
   | 'cancelled'
   | 'no_show'
@@ -83,6 +84,11 @@ const STATUS_CONFIG: Record<StatusType, { label: string; variant: string; dotCol
     label: 'In Progress',
     variant: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
     dotColor: 'bg-amber-500',
+  },
+  ready_for_checkout: {
+    label: 'Ready for Checkout',
+    variant: 'bg-orange-100 text-orange-800 hover:bg-orange-100',
+    dotColor: 'bg-orange-500',
   },
   completed: {
     label: 'Completed',
