@@ -338,67 +338,82 @@ export class AvailabilityService {
       }
     }
 
-    // Check for existing appointments where stylist is primary
-    const primaryAppointments = await this.prisma.appointment.findMany({
-      where: {
-        tenantId,
-        stylistId,
-        scheduledDate: dateObj,
-        status: { notIn: ['cancelled', 'no_show', 'rescheduled'] },
-        deletedAt: null,
-      },
-      select: {
-        scheduledTime: true,
-        scheduledEndTime: true,
-        services: {
-          where: {
-            OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
-          },
-          select: {
-            scheduledStartTime: true,
-            scheduledEndTime: true,
-          },
-        },
-      },
-    });
-
-    // Check for appointments where stylist is assigned to services (but not primary)
-    const serviceAppointments = await this.prisma.appointment.findMany({
+    // Check for existing appointments where stylist is involved
+    const appointments = await this.prisma.appointment.findMany({
       where: {
         tenantId,
         scheduledDate: dateObj,
         status: { notIn: ['cancelled', 'no_show', 'rescheduled'] },
         deletedAt: null,
-        stylistId: { not: stylistId },
-        services: {
-          some: {
-            OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
+        OR: [
+          { stylistId },
+          {
+            services: {
+              some: {
+                OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
+              },
+            },
           },
-        },
+        ],
       },
       select: {
         scheduledTime: true,
         scheduledEndTime: true,
+        stylistId: true,
         services: {
-          where: {
-            OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
-          },
           select: {
-            scheduledStartTime: true,
-            scheduledEndTime: true,
+            id: true,
+            sequence: true,
+            runParallel: true,
+            durationMinutes: true,
+            assignedStylistId: true,
+            actualStylistId: true,
           },
+          orderBy: { sequence: 'asc' },
         },
       },
     });
 
-    const allAppointments = [...primaryAppointments, ...serviceAppointments];
+    for (const apt of appointments) {
+      // Calculate per-stylist time slots
+      const serviceSchedules = this.calculateServiceSchedules(apt.scheduledTime, apt.services);
 
-    for (const apt of allAppointments) {
-      // Always use the appointment's scheduledTime and scheduledEndTime for overlap check
-      // These are stored as local time strings (e.g., "12:30", "13:15")
-      // The per-service times are stored as UTC DateTime and would need timezone conversion
-      if (this.timesOverlap(startTime, endTime, apt.scheduledTime, apt.scheduledEndTime)) {
-        return false;
+      // Find services assigned to this stylist
+      const stylistServiceIds = apt.services
+        .filter(
+          (s) =>
+            s.assignedStylistId === stylistId ||
+            s.actualStylistId === stylistId ||
+            (apt.stylistId === stylistId && !s.assignedStylistId && !s.actualStylistId)
+        )
+        .map((s) => s.id);
+
+      if (stylistServiceIds.length === 0) {
+        // Stylist is primary but no services assigned - use full appointment time
+        if (apt.stylistId === stylistId) {
+          if (this.timesOverlap(startTime, endTime, apt.scheduledTime, apt.scheduledEndTime)) {
+            return false;
+          }
+        }
+        continue;
+      }
+
+      // Get the time range for this stylist's services
+      const stylistSchedules = serviceSchedules.filter((s) => stylistServiceIds.includes(s.id));
+
+      if (stylistSchedules.length > 0) {
+        const earliestStart = stylistSchedules.reduce(
+          (earliest, s) => (s.startTime < earliest ? s.startTime : earliest),
+          stylistSchedules[0].startTime
+        );
+        const latestEnd = stylistSchedules.reduce(
+          (latest, s) => (s.endTime > latest ? s.endTime : latest),
+          stylistSchedules[0].endTime
+        );
+
+        if (this.timesOverlap(startTime, endTime, earliestStart, latestEnd)) {
+          return false;
+        }
       }
     }
 
@@ -453,6 +468,9 @@ export class AvailabilityService {
   /**
    * Get busy time slots for a stylist on a specific date
    * Returns all time ranges where the stylist is unavailable (appointments, breaks, blocked slots)
+   *
+   * For multi-service appointments, only returns the time slots where this stylist
+   * is actually assigned to services, not the entire appointment duration.
    */
   async getStylistBusySlots(
     tenantId: string,
@@ -478,28 +496,39 @@ export class AvailabilityService {
       label?: string;
     }> = [];
 
-    // 1. Get existing appointments where stylist is the primary stylist
-    const primaryAppointments = await this.prisma.appointment.findMany({
+    // 1. Get ALL appointments where this stylist is involved (either as primary or assigned to services)
+    const appointments = await this.prisma.appointment.findMany({
       where: {
         tenantId,
-        stylistId,
         scheduledDate: dateObj,
         status: { notIn: ['cancelled', 'no_show', 'rescheduled'] },
         deletedAt: null,
+        OR: [
+          { stylistId }, // Primary stylist
+          {
+            services: {
+              some: {
+                OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
+              },
+            },
+          },
+        ],
       },
       select: {
         id: true,
         scheduledTime: true,
         scheduledEndTime: true,
         customerName: true,
+        stylistId: true,
+        // Get ALL services to calculate proper timing
         services: {
-          where: {
-            OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
-          },
           select: {
-            scheduledStartTime: true,
-            scheduledEndTime: true,
+            id: true,
+            sequence: true,
+            runParallel: true,
             durationMinutes: true,
+            assignedStylistId: true,
+            actualStylistId: true,
           },
           orderBy: { sequence: 'asc' },
         },
@@ -507,52 +536,57 @@ export class AvailabilityService {
       orderBy: { scheduledTime: 'asc' },
     });
 
-    // 2. Get appointments where stylist is assigned to services (but not primary stylist)
-    const serviceAppointments = await this.prisma.appointment.findMany({
-      where: {
-        tenantId,
-        scheduledDate: dateObj,
-        status: { notIn: ['cancelled', 'no_show', 'rescheduled'] },
-        deletedAt: null,
-        stylistId: { not: stylistId }, // Exclude appointments where stylist is primary (already fetched)
-        services: {
-          some: {
-            OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
-          },
-        },
-      },
-      select: {
-        id: true,
-        scheduledTime: true,
-        scheduledEndTime: true,
-        customerName: true,
-        services: {
-          where: {
-            OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
-          },
-          select: {
-            scheduledStartTime: true,
-            scheduledEndTime: true,
-            durationMinutes: true,
-          },
-          orderBy: { sequence: 'asc' },
-        },
-      },
-      orderBy: { scheduledTime: 'asc' },
-    });
+    // Process each appointment
+    for (const apt of appointments) {
+      const customerName = apt.customerName || 'Appointment';
 
-    // Combine all appointments
-    const allAppointments = [...primaryAppointments, ...serviceAppointments];
+      // Calculate scheduled times for ALL services based on sequence and runParallel
+      const serviceSchedules = this.calculateServiceSchedules(apt.scheduledTime, apt.services);
 
-    // Process appointments - always use appointment's scheduledTime/scheduledEndTime
-    // These are stored as local time strings (e.g., "12:30", "13:15")
-    for (const apt of allAppointments) {
-      busySlots.push({
-        startTime: apt.scheduledTime,
-        endTime: apt.scheduledEndTime,
-        type: 'appointment',
-        label: apt.customerName || 'Appointment',
-      });
+      // Find services assigned to this stylist
+      const stylistServiceIds = apt.services
+        .filter(
+          (s) =>
+            s.assignedStylistId === stylistId ||
+            s.actualStylistId === stylistId ||
+            (apt.stylistId === stylistId && !s.assignedStylistId && !s.actualStylistId)
+        )
+        .map((s) => s.id);
+
+      if (stylistServiceIds.length === 0) {
+        // Stylist is primary but no services assigned - use full appointment time
+        if (apt.stylistId === stylistId) {
+          busySlots.push({
+            startTime: apt.scheduledTime,
+            endTime: apt.scheduledEndTime,
+            type: 'appointment',
+            label: customerName,
+          });
+        }
+        continue;
+      }
+
+      // Get the time range for this stylist's services
+      const stylistSchedules = serviceSchedules.filter((s) => stylistServiceIds.includes(s.id));
+
+      if (stylistSchedules.length > 0) {
+        // Find earliest start and latest end for this stylist's services
+        const earliestStart = stylistSchedules.reduce(
+          (earliest, s) => (s.startTime < earliest ? s.startTime : earliest),
+          stylistSchedules[0].startTime
+        );
+        const latestEnd = stylistSchedules.reduce(
+          (latest, s) => (s.endTime > latest ? s.endTime : latest),
+          stylistSchedules[0].endTime
+        );
+
+        busySlots.push({
+          startTime: earliestStart,
+          endTime: latestEnd,
+          type: 'appointment',
+          label: customerName,
+        });
+      }
     }
 
     // 2. Get breaks (recurring or specific day)
@@ -623,6 +657,63 @@ export class AvailabilityService {
       stylistId,
       busySlots,
     };
+  }
+
+  /**
+   * Calculate scheduled start/end times for each service based on sequence and runParallel flags
+   * Uses the appointment's scheduledTime (local time string) as the base
+   */
+  private calculateServiceSchedules(
+    appointmentStartTime: string,
+    services: Array<{
+      id: string;
+      sequence: number;
+      runParallel: boolean;
+      durationMinutes: number;
+    }>
+  ): Array<{ id: string; startTime: string; endTime: string }> {
+    if (services.length === 0) return [];
+
+    // Sort by sequence
+    const sortedServices = [...services].sort((a, b) => a.sequence - b.sequence);
+    const schedules: Array<{ id: string; startTime: string; endTime: string }> = [];
+
+    let currentTime = appointmentStartTime;
+    let previousServiceStartTime = appointmentStartTime;
+
+    for (let i = 0; i < sortedServices.length; i++) {
+      const service = sortedServices[i];
+      let serviceStartTime: string;
+
+      if (i === 0) {
+        // First service always starts at appointment start time
+        serviceStartTime = appointmentStartTime;
+      } else if (service.runParallel) {
+        // Parallel service starts at the same time as the previous service
+        serviceStartTime = previousServiceStartTime;
+      } else {
+        // Sequential service starts after the current time (end of previous non-parallel services)
+        serviceStartTime = currentTime;
+      }
+
+      const serviceEndTime = this.addMinutes(serviceStartTime, service.durationMinutes);
+
+      schedules.push({
+        id: service.id,
+        startTime: serviceStartTime,
+        endTime: serviceEndTime,
+      });
+
+      // Track the start time for potential parallel services
+      previousServiceStartTime = serviceStartTime;
+
+      // Update current time to the latest end time (for sequential services)
+      if (serviceEndTime > currentTime) {
+        currentTime = serviceEndTime;
+      }
+    }
+
+    return schedules;
   }
 
   /**
@@ -853,14 +944,23 @@ export class AvailabilityService {
       }
     }
 
-    // Check for existing appointments where stylist is primary
-    const primaryAppointments = await this.prisma.appointment.findMany({
+    // Check for existing appointments where stylist is involved
+    const appointments = await this.prisma.appointment.findMany({
       where: {
         tenantId,
-        stylistId,
         scheduledDate: dateObj,
         status: { notIn: ['cancelled', 'no_show', 'rescheduled'] },
         deletedAt: null,
+        OR: [
+          { stylistId },
+          {
+            services: {
+              some: {
+                OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
+              },
+            },
+          },
+        ],
       },
       select: {
         id: true,
@@ -868,60 +968,62 @@ export class AvailabilityService {
         scheduledEndTime: true,
         scheduledDate: true,
         customerName: true,
+        stylistId: true,
         customer: { select: { name: true } },
         services: {
-          where: {
-            OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
-          },
           select: {
-            scheduledStartTime: true,
-            scheduledEndTime: true,
+            id: true,
+            sequence: true,
+            runParallel: true,
+            durationMinutes: true,
+            assignedStylistId: true,
+            actualStylistId: true,
           },
+          orderBy: { sequence: 'asc' },
         },
       },
     });
 
-    // Check for appointments where stylist is assigned to services (but not primary)
-    const serviceAppointments = await this.prisma.appointment.findMany({
-      where: {
-        tenantId,
-        scheduledDate: dateObj,
-        status: { notIn: ['cancelled', 'no_show', 'rescheduled'] },
-        deletedAt: null,
-        stylistId: { not: stylistId },
-        services: {
-          some: {
-            OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
-          },
-        },
-      },
-      select: {
-        id: true,
-        scheduledTime: true,
-        scheduledEndTime: true,
-        scheduledDate: true,
-        customerName: true,
-        customer: { select: { name: true } },
-        services: {
-          where: {
-            OR: [{ assignedStylistId: stylistId }, { actualStylistId: stylistId }],
-          },
-          select: {
-            scheduledStartTime: true,
-            scheduledEndTime: true,
-          },
-        },
-      },
-    });
+    for (const apt of appointments) {
+      // Calculate per-stylist time slots
+      const serviceSchedules = this.calculateServiceSchedules(apt.scheduledTime, apt.services);
 
-    const allAppointments = [...primaryAppointments, ...serviceAppointments];
+      // Find services assigned to this stylist
+      const stylistServiceIds = apt.services
+        .filter(
+          (s) =>
+            s.assignedStylistId === stylistId ||
+            s.actualStylistId === stylistId ||
+            (apt.stylistId === stylistId && !s.assignedStylistId && !s.actualStylistId)
+        )
+        .map((s) => s.id);
 
-    for (const apt of allAppointments) {
-      // Always use the appointment's scheduledTime and scheduledEndTime for overlap check
-      // These are stored as local time strings (e.g., "12:30", "13:15")
-      // The per-service times are stored as UTC DateTime and would need timezone conversion
-      const aptStartTime = apt.scheduledTime;
-      const aptEndTime = apt.scheduledEndTime;
+      let aptStartTime: string;
+      let aptEndTime: string;
+
+      if (stylistServiceIds.length === 0) {
+        // Stylist is primary but no services assigned - use full appointment time
+        if (apt.stylistId === stylistId) {
+          aptStartTime = apt.scheduledTime;
+          aptEndTime = apt.scheduledEndTime;
+        } else {
+          continue;
+        }
+      } else {
+        // Get the time range for this stylist's services
+        const stylistSchedules = serviceSchedules.filter((s) => stylistServiceIds.includes(s.id));
+
+        if (stylistSchedules.length === 0) continue;
+
+        aptStartTime = stylistSchedules.reduce(
+          (earliest, s) => (s.startTime < earliest ? s.startTime : earliest),
+          stylistSchedules[0].startTime
+        );
+        aptEndTime = stylistSchedules.reduce(
+          (latest, s) => (s.endTime > latest ? s.endTime : latest),
+          stylistSchedules[0].endTime
+        );
+      }
 
       if (this.timesOverlap(time, endTime, aptStartTime, aptEndTime)) {
         const customerName = apt.customerName || apt.customer?.name || 'Customer';

@@ -144,20 +144,37 @@ function AppointmentTooltip({ appointment }: { appointment: CalendarAppointment 
           </span>
         </div>
       )}
-      {services.length > 0 && (
+      {/* This Stylist's Service(s) - shown prominently for multi-service appointments */}
+      {appointment.isMultiService && services.length > 0 && (
         <div className="border-t border-gray-200 pt-2">
-          <div className="font-medium">
-            {appointment.isMultiService ? 'Customer Journey:' : 'Services:'}
+          <div className="font-medium text-emerald-700">
+            This Stylist&apos;s Service{services.length > 1 ? 's' : ''}:
           </div>
-          {appointment.isMultiService ? (
-            <div className="text-gray-700 mt-1">{customerJourney}</div>
-          ) : (
-            <ul className="list-disc list-inside text-gray-700">
-              {services.map((service, idx) => (
-                <li key={idx}>{service}</li>
-              ))}
-            </ul>
-          )}
+          <ul className="text-emerald-600 mt-1 font-medium">
+            {services.map((service, idx) => (
+              <li key={idx}>• {service}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {/* Customer Journey - for multi-service appointments */}
+      {appointment.isMultiService &&
+        appointment.fullJourney &&
+        appointment.fullJourney.length > 0 && (
+          <div className="border-t border-gray-200 pt-2">
+            <div className="font-medium text-gray-600">Customer Journey:</div>
+            <div className="text-gray-700 mt-1 text-xs">{customerJourney}</div>
+          </div>
+        )}
+      {/* Services - for single-service appointments */}
+      {!appointment.isMultiService && services.length > 0 && (
+        <div className="border-t border-gray-200 pt-2">
+          <div className="font-medium">Services:</div>
+          <ul className="list-disc list-inside text-gray-700">
+            {services.map((service, idx) => (
+              <li key={idx}>{service}</li>
+            ))}
+          </ul>
         </div>
       )}
       {/* Linked services (other stylists) */}
@@ -236,8 +253,12 @@ export function AppointmentBlock({
   // Check if this is an optimistic (pending) appointment
   const isOptimistic = appointment.isOptimistic === true;
 
-  // Check if appointment can be moved (not optimistic ones)
-  const canMove = !isOptimistic && MOVABLE_STATUSES.includes(appointment.status);
+  // Check if appointment can be moved
+  // - Not optimistic (pending) appointments
+  // - Only certain statuses allow rescheduling
+  // - Multi-service appointments cannot be drag-and-dropped (too complex - would need to reschedule all services)
+  const canMove =
+    !isOptimistic && MOVABLE_STATUSES.includes(appointment.status) && !appointment.isMultiService;
 
   const {
     attributes,
@@ -268,9 +289,14 @@ export function AppointmentBlock({
     !isOptimistic && appointment.hasConflict && appointment.conflictInfo
       ? CONFLICT_STYLES[appointment.conflictInfo.severity]
       : null;
-  const isCompact = density === 'compact' || height < 40;
+
+  // Density thresholds:
+  // - chip: very narrow columns (4+ overlapping) - show initials only
+  // - compact: narrow columns or short height (< 50px) - show name + time on one line
+  // - full: normal display with services
+  const isCompact = density === 'compact' || height < 50;
   const isChip = density === 'chip';
-  const showServices = density === 'full' && height >= 40;
+  const showServices = density === 'full' && height >= 50;
   const services = appointment.services || [];
 
   // Get customer initials for chip mode
@@ -368,16 +394,24 @@ export function AppointmentBlock({
             {appointment.customerName || 'Unknown Customer'}
           </div>
 
-          {/* Services — only in full mode with enough height */}
+          {/* Services — show in full mode, or in compact mode if there's room */}
           {showServices && services.length > 0 && (
             <div className={cn('text-xs truncate opacity-75', statusStyle.text)}>
               {services.join(', ')}
             </div>
           )}
 
+          {/* In compact mode with enough height, show first service */}
+          {isCompact && !showServices && services.length > 0 && height >= 45 && (
+            <div className={cn('text-[10px] truncate opacity-75', statusStyle.text)}>
+              {services[0]}
+              {services.length > 1 ? ` +${services.length - 1}` : ''}
+            </div>
+          )}
+
           {/* Time — shown in compact as single line, in full when tall enough */}
-          {isCompact && height >= 30 ? (
-            <div className={cn('text-[10px] opacity-60 truncate', statusStyle.text)}>
+          {isCompact && height >= 35 ? (
+            <div className={cn('text-[10px] opacity-60 truncate mt-auto', statusStyle.text)}>
               {appointment.startTime} - {appointment.endTime}
             </div>
           ) : (

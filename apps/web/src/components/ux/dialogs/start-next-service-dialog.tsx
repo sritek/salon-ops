@@ -9,7 +9,7 @@
  * Shows stylist availability when overriding.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   PlayCircle,
   Armchair,
@@ -114,22 +114,23 @@ export function StartNextServiceDialog({
 
   // Check stylist availability when override is enabled
   const stylistToCheck = overrideStylist ? selectedStylistId : null;
+
+  // For conflict detection when starting a service, we check availability for NOW
+  // because the service will start immediately when the user clicks "Start Service"
+  // The estimatedStartTime is only used for display purposes
+  // We use useMemo with `open` dependency to recalculate when dialog opens
+  const { availabilityDate, availabilityTime } = useMemo(() => {
+    const now = new Date();
+    return {
+      availabilityDate: now.toLocaleDateString('en-CA'), // YYYY-MM-DD format
+      availabilityTime: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
+    };
+  }, [open]); // Recalculate when dialog opens
+
   const { data: availabilityData, isLoading: availabilityLoading } = useStylistAvailability(
     stylistToCheck || '',
-    service.estimatedStartTime
-      ? new Date(service.estimatedStartTime).toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0],
-    service.estimatedStartTime
-      ? new Date(service.estimatedStartTime).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-        })
-      : new Date().toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-        }),
+    availabilityDate,
+    availabilityTime,
     service.durationMinutes,
     { enabled: !!stylistToCheck && open }
   );
